@@ -59,8 +59,8 @@ You can add `@save` to any function where the output is picklable.
 - `python -m venv .env` creates a new python 'virtual environment', this means you can install packages without breaking everything.
 - To activate the shell to use the environment do `source .env/bin/activate`.
 - If you open this directory in vscode with the python extension, it should ask you to use `.env` as the environment and then it will automatically enter the environment in all the shells etc.
-- `pip install -r requirements.txt` installs the packages. `pip install -r dev_requirements.txt` installs the developer reqs (pytest etc).
-- `pip install -e .` installs the `hitsave` package.
+- `pip install -e .` installs the `hitsave` package. If you get `ERROR: File "setup.py" or "setup.cfg" not found.`, you should upgrade pip with `pip install --upgrade pip`.
+- to install extra deps do `pip install -r dev_requirements.txt`
 
 ## tests
 
