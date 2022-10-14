@@ -1,10 +1,11 @@
 # xyz
 
-Monorepo for hitsave
-
+Monorepo for HitSave
 
 # Directory
 
-- `hitsave` is the python library that is public facing
+- `client` is the python library that is public facing
+- `api` is the cloud managed server
 - `doc` is internal documentation
-- `hitsave-vscode` is the vscode extension
+- `vscode` is the vscode extension
+- `web` is the HitSave website
