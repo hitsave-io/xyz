@@ -1,0 +1,34 @@
+{
+  "name": "hitsave-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@lezer/common": "^1.0.1",
+    "@lezer/highlight": "^1.0.0",
+    "@lezer/lr": "^1.2.3",
+    "@lezer/python": "^1.1.0",
+    "@svgr/webpack": "^6.3.1",
+    "hast-to-hyperscript": "^10.0.1",
+    "hast-util-from-lezer": "^0.4.0",
+    "lowlight": "^2.7.0",
+    "next": "12.2.5",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "sass": "^1.54.8",
+    "tokenizr": "^1.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "18.7.15",
+    "@types/react": "18.0.18",
+    "@types/react-dom": "18.0.6",
+    "eslint": "8.23.0",
+    "eslint-config-next": "12.2.5",
+    "typescript": "4.8.2"
+  }
+}
