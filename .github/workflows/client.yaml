@@ -35,5 +35,9 @@ jobs:
         run: |
           black . --check --verbose
       - name: Test with pytest
+        env:
+          # [todo] need integration tests really.
+          HITSAVE_API_KEY: ${{ secrets.HITSAVE_API_KEY }}
+          HITSAVE_URL: https://api.hitsave.io
         run: |
           pytest

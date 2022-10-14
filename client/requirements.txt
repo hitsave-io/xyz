@@ -1,6 +1,0 @@
-xxhash
-msgpack
-
-# [todo] wean off these
-typer
-diskcache

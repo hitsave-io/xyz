@@ -28,16 +28,15 @@ class SavedFunction(Generic[P, R]):
 
     local_only: bool = field(default=False)  # [todo] not used yet
 
-    session: Session = field(default_factory=Session.get_current_session)
-
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
+        session = Session.get_current_session()
         sig = inspect.signature(self.func)
         ba = sig.bind(*args, **kwargs)
         fn_key = CodeVertex.of_object(self.func)
-        fn_hash = hash_function(self.session.codegraph, self.func)
+        fn_hash = hash_function(session.codegraph, self.func)
         args_hash = deephash(ba.arguments)
         key = EvalKey(fn_key=fn_key, fn_hash=fn_hash, args_hash=args_hash)
-        r = self.session.store.get(key)
+        r = session.store.get(key)
         if isinstance(r, StoreMiss):
             logger.info(f"No stored value for {fn_key.pp()}: {r.reason}")
             start_time = datetime.now()
@@ -51,7 +50,7 @@ class SavedFunction(Generic[P, R]):
                 start_time=start_time,
                 elapsed_process_time=end_process_time - start_process_time,
             )
-            self.session.store.set(e)
+            session.store.set(e)
             return result
         else:
             logger.info(f"Found cached value for {fn_key.pp()}")
