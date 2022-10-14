@@ -1,0 +1,9 @@
+pytest-snapshot
+hypothesis
+pytest
+black
+flake8
+numpy
+requests
+torch
+torchvision

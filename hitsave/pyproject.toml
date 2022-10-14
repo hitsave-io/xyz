@@ -1,0 +1,24 @@
+[project]
+name = "hitsave"
+version = "0.0.1"
+authors = [
+  { name="E.W.Ayers", email="contact@edayers.com" },
+]
+description = "Holistic data caching system."
+readme = "README.md"
+license = { file="LICENSE" }
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+  "xxhash ~= 3.0.0",
+  "diskcache ~= 5.4",
+  "typer ~= 0.6.1",
+  "msgpack ~= 1.0"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/edayers/hitsave"
+"Bug Tracker" = "https://github.com/edayers/hitsave/issues"

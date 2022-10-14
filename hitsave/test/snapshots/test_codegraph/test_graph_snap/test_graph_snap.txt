@@ -1,0 +1,8 @@
+([test_codegraph:f,
+  test_codegraph:g,
+  test_codegraph:h,
+  test_codegraph:cc,
+  test_codegraph:FOP,
+  test_codegraph:symtable,
+  test_codegraph:given],
+ ['__builtin__', 'hypothesis'])

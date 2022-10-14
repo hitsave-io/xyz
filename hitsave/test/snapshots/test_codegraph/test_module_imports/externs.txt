@@ -1,0 +1,4 @@
+{'given': 'hypothesis',
+ 'hs': 'hypothesis.strategies',
+ 'pprint': '__builtin__',
+ 'symtable': '__builtin__'}
