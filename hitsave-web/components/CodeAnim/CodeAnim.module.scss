@@ -1,0 +1,168 @@
+@import "../../styles/breakpoints.scss";
+
+// scheme: "Gruvbox dark, medium"
+// author: "Dawid Kurek (dawikur@gmail.com), morhetz (https://github.com/morhetz/gruvbox)"
+$base00: #1d1f21; // Default Background
+$base01: #282a2e; // Lighter Background (Used for status bars)
+$base02: #373b41; // Selection Background
+$base03: #969896; // Comments, Invisibles, Line Highlighting
+$base04: #b4b7b4; // Dark Foreground (Used for status bars)
+$base05: #c5c8c6; // Default Foreground, Caret, Delimiters, Operators
+$base06: #e0e0e0; // Light Foreground (Not often used)
+$base07: #ffffff; // Light Background (Not often used)
+$base08: #cc6666; // Variables, XML Tags, Markup Link Text, Markup Lists, Diff Deleted
+$base09: #de935f; // Integers, Boolean, Constants, XML Attributes, Markup Link Url
+$base0A: #f0c674; // Classes, Markup Bold, Search Text Background
+$base0B: #b5bd68; // Strings, Inherited Class, Markup Code, Diff Inserted
+$base0C: #8abeb7; // Support, Regular Expressions, Escape Characters, Markup Quotes
+$base0D: #81a2be; // Functions, Methods, Attribute IDs, Headings
+$base0E: #b294bb; // Keywords, Storage, Selector, Markup Italic, Diff Changed
+$base0F: #a3685a; // Deprecated, Opening/Closing Embedded Language Tags, e.g. <?php ?>
+
+.screen {
+  overflow: hidden;
+  width: 100%;
+  background: $base00;
+  border-radius: 7px;
+  font-size: 1.4rem;
+  box-shadow: 0px 7px 10px 4px rgba(0, 0, 0, 0.15);
+
+  @include sm {
+    font-size: 20px;
+  }
+
+  pre {
+    margin: 0;
+    overflow-wrap: break-word;
+  }
+}
+
+.buttons {
+  position: relative;
+  top: 0;
+  left: 0;
+  display: flex;
+  padding: 12px;
+
+  .circ {
+    background: $base04;
+    border-radius: 100%;
+    margin-right: 6px;
+    width: 12px;
+    height: 12px;
+  }
+}
+
+.title {
+  position: relative;
+  display: flex;
+  top: -36px;
+  height: 36px;
+  color: $base03;
+  font-family: monospace;
+  font-size: 16px;
+  justify-content: center;
+  align-items: center;
+  user-select: none;
+}
+
+.codeBlock {
+  position: relative;
+  top: -28px;
+  width: 100%;
+  min-height: 100%;
+  color: white;
+
+  padding-top: 12px;
+  padding-right: 12px;
+  line-height: 28px;
+  box-sizing: border-box;
+  text-align: left;
+
+  font-family: monospace;
+  font-weight: 500;
+
+  pre {
+    code {
+      display: flex;
+      flex-direction: column;
+
+      span {
+        display: inline-block;
+      }
+
+      .codeLine {
+        display: flex;
+      }
+
+      .punctuation,
+      .operator {
+        color: $base07;
+      }
+
+      .functionDefinition {
+        color: $base0D;
+      }
+
+      .functionCall {
+        color: $base0A;
+      }
+
+      .lineNumber {
+        display: inline-block;
+        min-width: 64px;
+        padding-right: 18px;
+        text-align: right;
+        user-select: none;
+        width: 64px;
+        color: $base04;
+      }
+
+      .keyword {
+        color: $base0E;
+      }
+
+      .comment {
+        color: $base03;
+      }
+
+      .decorator {
+        color: $base08;
+      }
+
+      .number,
+      .literal,
+      .bool {
+        color: $base09;
+      }
+
+      .className {
+        color: $base0A;
+      }
+
+      .identifier {
+        color: $base0D;
+      }
+
+      .variableName {
+        color: $base07;
+      }
+
+      .cursor {
+        margin-left: -0.1em;
+        border-right: 0.1em solid $base04;
+        animation: blink-caret 0.8s step-end infinite;
+
+        @keyframes blink-caret {
+          from,
+          to {
+            border-color: transparent;
+          }
+          50% {
+            border-color: $base04;
+          }
+        }
+      }
+    }
+  }
+}

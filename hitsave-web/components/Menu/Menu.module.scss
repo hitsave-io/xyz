@@ -1,0 +1,62 @@
+@import "../../styles/breakpoints.scss";
+@import "../../styles/colors.scss";
+
+.menu {
+  display: block;
+}
+
+.button {
+  cursor: pointer;
+  width: 4rem;
+  padding: 1.3rem;
+  display: block;
+  fill: $gray;
+
+  @include md {
+    display: none;
+  }
+}
+
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: $bg;
+  min-height: $screen-sm-min;
+  transform: translateY(-100%);
+
+  padding: 3rem 0;
+
+  display: flex;
+  flex-direction: column;
+
+  user-select: none;
+
+  transition: transform 500ms;
+  z-index: 100;
+
+  @include md {
+    display: none;
+  }
+}
+
+.menu_item {
+  font-size: 2rem;
+  font-weight: 600;
+  color: $gray;
+  padding: 1.5rem 6rem;
+  cursor: pointer;
+}
+
+.menu_item:hover {
+  color: $accent;
+}
+
+.open {
+  transform: translateY(4rem);
+
+  @include sm {
+    transform: translateY(6rem);
+  }
+}
