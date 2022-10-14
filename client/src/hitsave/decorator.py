@@ -3,7 +3,7 @@ import shelve
 import os
 import tempfile
 import inspect
-from typing import Any, Callable, Generic, ParamSpec, TypeVar, overload
+from typing import Any, Callable, Generic, TypeVar, overload
 from hitsave.deephash import deephash, hash_function
 from hitsave.codegraph import CodeVertex
 import atexit
@@ -13,6 +13,7 @@ from hitsave.types import Eval, EvalKey, StoreMiss
 import logging
 from datetime import datetime
 import time
+from typing_extensions import ParamSpec # needed for ≤3.9
 
 logger = logging.getLogger("hitsave")
 
