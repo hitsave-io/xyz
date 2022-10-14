@@ -13,7 +13,7 @@ from hitsave.types import Eval, EvalKey, StoreMiss
 import logging
 from datetime import datetime
 import time
-from typing_extensions import ParamSpec # needed for ≤3.9
+from typing_extensions import ParamSpec  # needed for ≤3.9
 
 logger = logging.getLogger("hitsave")
 
