@@ -3,7 +3,16 @@ use super::{
     ApiKey, ApiKeyError,
 };
 use crate::state::AppState;
-use actix_web::{error, get, web, Result};
+use actix_web::{error, get, web, Error, Result};
+
+impl From<ApiKeyError> for Error {
+    fn from(e: ApiKeyError) -> Self {
+        match e {
+            ApiKeyError::InvalidEmail => error::ErrorBadRequest("unknown email address"),
+            _ => error::ErrorInternalServerError("could not generate new API key"),
+        }
+    }
+}
 
 /// A request from a user to generate a new API key.
 #[derive(Serialize, Deserialize, Debug)]
@@ -27,16 +36,11 @@ async fn generate_new_api_key(
         key: &api_key.key,
     };
 
-    state.get_ref().insert_key(&insert_key).await.map_err(|e| {
-        error!(
-            "error inserting newly generated hashed API key into database: {:?}",
-            e
-        );
-        match e {
-            ApiKeyError::InvalidEmail => error::ErrorBadRequest("unknown email address"),
-            _ => error::ErrorInternalServerError("could not generate new API key"),
-        }
-    })?;
+    state
+        .get_ref()
+        .insert_key(&insert_key)
+        .await
+        .inspect_err(|e| error!("could not insert new API key into database: {:?}", e))?;
 
     Ok(web::Json(api_key))
 }

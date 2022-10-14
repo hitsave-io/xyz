@@ -1,6 +1,12 @@
-use super::Eval;
+use super::{Eval, EvalError};
 use crate::state::AppStateRaw;
 use sqlx::types::Uuid;
+
+impl From<sqlx::Error> for EvalError {
+    fn from(e: sqlx::Error) -> Self {
+        Self::Sqlx(e)
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct QueryParams {
@@ -27,7 +33,7 @@ pub trait IEval: std::ops::Deref<Target = AppStateRaw> {
         &self,
         params: QueryParams,
         api_key: &str,
-    ) -> sqlx::Result<Vec<Eval>> {
+    ) -> Result<Vec<Eval>, EvalError> {
         let evals = query_as!(
             Eval,
             r#"
@@ -43,7 +49,11 @@ pub trait IEval: std::ops::Deref<Target = AppStateRaw> {
             api_key
         )
         .fetch_all(&self.db_conn)
-        .await?;
+        .await
+        .map_err(|e| {
+            error!("error retrieving evals from database: {:?}", e);
+            EvalError::NotFound(e)
+        })?;
 
         Ok(evals)
     }

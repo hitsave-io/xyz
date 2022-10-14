@@ -1,31 +1,25 @@
-use super::{user_dao::IUser, AddUser};
+use super::{user_dao::IUser, AddUser, User, UserError};
 use crate::state::AppState;
-use actix_web::{error, put, web, Responder, Result};
-use log::error;
+use actix_web::{error, put, web, Error, Result};
 
-#[put("/")]
-async fn put(form: web::Json<AddUser>, state: AppState) -> Result<impl Responder> {
-    let form = form.into_inner();
-
-    let res = state.get_ref().insert_user(&form).await;
-
-    match res {
-        Ok(Some(user)) => Ok(web::Json(user)),
-        Ok(None) => Err(error::ErrorInternalServerError("unknown error")),
-        Err(sqlx::Error::Database(ref e)) => {
-            error!("error inserting to database: {:?}", res);
-
-            if e.code() == Some(std::borrow::Cow::Borrowed("23505")) {
-                Err(error::ErrorBadRequest("email already exists"))
-            } else {
-                Err(error::ErrorInternalServerError("unknown error"))
+impl From<UserError> for Error {
+    fn from(e: UserError) -> Self {
+        match e {
+            UserError::AlreadyExists => error::ErrorBadRequest("email already exists"),
+            UserError::Sqlx(_) => {
+                error::ErrorInternalServerError("unknown error: could not insert new user")
             }
         }
-        Err(_) => {
-            error!("error inserting to database: {:?}", res);
-            Err(error::ErrorBadRequest("could not insert new user"))
-        }
     }
+}
+
+#[put("/")]
+async fn put(form: web::Json<AddUser>, state: AppState) -> Result<web::Json<User>> {
+    let form = form.into_inner();
+
+    let res = state.get_ref().insert_user(&form).await?;
+
+    Ok(web::Json(res))
 }
 
 pub fn init(cfg: &mut web::ServiceConfig) {

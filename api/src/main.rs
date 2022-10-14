@@ -1,4 +1,6 @@
 #![feature(try_trait_v2)]
+#![feature(result_option_inspect)]
+
 #[macro_use]
 extern crate nonblock_logger;
 #[macro_use]
