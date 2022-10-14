@@ -16,3 +16,9 @@ pub struct Eval {
     #[serde(with = "serde_bytes")]
     pub result: Vec<u8>,
 }
+
+#[derive(Debug)]
+pub enum EvalError {
+    NotFound(sqlx::Error),
+    Sqlx(sqlx::Error),
+}

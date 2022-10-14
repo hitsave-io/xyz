@@ -1,12 +1,21 @@
 use super::{
     eval_dao::{IEval, QueryParams},
-    Eval,
+    Eval, EvalError,
 };
 use crate::middlewares::api_auth::ApiAuthService;
 use crate::msg_pack::MsgPack;
 use crate::state::AppState;
 use actix_web::{error, get, put, web, Result};
 use sqlx::types::Uuid;
+
+impl From<EvalError> for actix_web::Error {
+    fn from(e: EvalError) -> Self {
+        match e {
+            EvalError::NotFound(_) => error::ErrorNotFound("evals not found for params"),
+            EvalError::Sqlx(_) => error::ErrorInternalServerError("unknown error"),
+        }
+    }
+}
 
 #[get("/{id}")]
 async fn get_by_id(form: web::Path<String>, state: AppState) -> Result<MsgPack<Eval>> {
@@ -37,11 +46,7 @@ async fn get_by_params(
     let evals = state
         .get_ref()
         .get_evals_by_params(params, &auth.key)
-        .await
-        .map_err(|e| {
-            error!("error querying database {:?}", e);
-            error::ErrorNotFound(format!("evals not found for params"))
-        })?;
+        .await?;
 
     Ok(MsgPack(QueryResults { results: evals }))
 }

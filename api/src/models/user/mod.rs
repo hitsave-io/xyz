@@ -10,3 +10,9 @@ pub struct User {
 pub struct AddUser {
     pub email: String,
 }
+
+#[derive(Debug)]
+pub enum UserError {
+    AlreadyExists,
+    Sqlx(sqlx::Error),
+}
