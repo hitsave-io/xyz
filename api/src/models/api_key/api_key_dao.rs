@@ -21,24 +21,25 @@ pub struct InsertKey<'a> {
 #[async_trait]
 pub trait IApiKey: std::ops::Deref<Target = AppStateRaw> {
     async fn insert_key(&self, insert_key: &InsertKey) -> Result<(), ApiKeyError> {
-        let res = query!(
-            r#"INSERT INTO api_keys AS a (user_id, label, key) 
-           SELECT id, $2, $3 
-           FROM users 
-           WHERE email = $1
-           "#,
-            insert_key.email,
-            insert_key.label,
-            insert_key.key,
-        )
-        .execute(&self.db_conn)
-        .await?;
+        // let res = query!(
+        //     r#"INSERT INTO api_keys AS a (user_id, label, key)
+        //    SELECT id, $2, $3
+        //    FROM users
+        //    WHERE email = $1
+        //    "#,
+        //     insert_key.email,
+        //     insert_key.label,
+        //     insert_key.key,
+        // )
+        // .execute(&self.db_conn)
+        // .await?;
 
-        if res.rows_affected() == 0 {
-            Err(ApiKeyError::InvalidEmail)
-        } else {
-            Ok(())
-        }
+        // if res.rows_affected() == 0 {
+        //     Err(ApiKeyError::InvalidEmail)
+        // } else {
+        //     Ok(())
+        // }
+        Ok(())
     }
 }
 

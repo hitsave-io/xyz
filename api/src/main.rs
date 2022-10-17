@@ -12,20 +12,28 @@ extern crate validator;
 extern crate sqlx;
 #[macro_use]
 extern crate serde;
+#[macro_use]
+extern crate lazy_static;
 
 use actix_web::{error, middleware, web, App, HttpServer, Result};
 use config::{Config, Opts};
 
 pub mod config;
+pub mod handlers;
 pub mod middlewares;
 pub mod models;
 pub mod msg_pack;
 pub mod state;
 
+lazy_static! {
+    pub static ref CONFIG: Config = Config::parse_from_env();
+}
+
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
     let (_handle, _opt) = Opts::parse_from_args();
-    let state = Config::parse_from_env().into_state().await;
+    let config = &*CONFIG;
+    let state = config.clone().into_state().await;
     let state2 = state.clone();
 
     HttpServer::new(move || {
