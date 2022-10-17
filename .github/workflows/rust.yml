@@ -6,16 +6,38 @@ on:
   pull_request:
     branches: [ "main" ]
 
+
+
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-     
+    # https://stackoverflow.com/questions/57915791/github-actions-how-to-connect-to-postgres-in-githhub-actions
+    # https://docs.github.com/en/github-ae@latest/actions/using-containerized-services/creating-postgresql-service-containers
+    services:
+      postgres:
+        image: postgres:11
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: hitsave-ci
+      POSTGRES_PORT: ${{ job.services.postgres.ports[5432] }}
+      POSTGRES_HOST: postgres
+      DATABASE_URL: postgres://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
+    - name: sqlx
+      run: |
+        cargo install sqlx-cli
+        sqlx migrate run
+      working-directory: api
     - name: Build
       run: cargo build --verbose
       working-directory: api
