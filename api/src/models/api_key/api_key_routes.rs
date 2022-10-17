@@ -2,6 +2,7 @@ use super::{
     api_key_dao::{IApiKey, InsertKey},
     ApiKey, ApiKeyError,
 };
+use crate::middlewares::jwt_auth::AuthorizationService;
 use crate::state::AppState;
 use actix_web::{error, get, web, Error, Result};
 
@@ -25,13 +26,14 @@ pub struct GenRequest {
 async fn generate_new_api_key(
     form: web::Json<GenRequest>,
     state: AppState,
+    auth: AuthorizationService,
 ) -> Result<web::Json<ApiKey>> {
     let gen_req = form.into_inner();
 
     let api_key = ApiKey::random();
 
     let insert_key = InsertKey {
-        email: gen_req.email,
+        user_id: auth.claims.sub,
         label: gen_req.label,
         key: &api_key.key,
     };

@@ -148,10 +148,10 @@ impl From<jsonwebtoken::errors::Error> for LoginError {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Claims {
-    sub: sqlx::types::Uuid,
-    exp: i64,
+    pub sub: sqlx::types::Uuid,
+    pub exp: i64,
 }
 
 fn generate_jwt(user_uuid: sqlx::types::Uuid) -> Result<String, LoginError> {
