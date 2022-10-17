@@ -6,6 +6,7 @@ from functools import singledispatch
 from dataclasses import is_dataclass, Field, fields
 import json
 from typing import Any, TypeVar, get_origin, get_args, Type, Optional, Union, List
+import sys
 
 if hasattr(functools, "cache"):
     cache = functools.cache
@@ -216,3 +217,7 @@ def decorate_ansi(
     if underline:
         params.append(AnsiCode.underline.value)
     return ansiseq(params) + x + ansiseq([AnsiCode.reset.value])
+
+def eprint(*args, **kwargs):
+    """ Use this for printing messages for users of the library to see. """
+    return print(*args, file=sys.stderr, **kwargs)

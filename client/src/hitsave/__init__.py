@@ -5,14 +5,9 @@ from .deephash import deephash
 from .deepeq import deepeq
 from .deep import reduce, reconstruct, traverse
 from .decorator import save
-from .util import decorate_ansi
+from .util import decorate_ansi, eprint
 
 __all__ = ["save"]
-
-
-def eprint(*args, **kwargs):
-    return print(*args, file=sys.stderr, **kwargs)
-
 
 @atexit.register
 def exit_message():
