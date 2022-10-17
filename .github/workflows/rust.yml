@@ -7,9 +7,15 @@ on:
     branches: [ "main" ]
 
 
-
 env:
   CARGO_TERM_COLOR: always
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_DB: hitsave-ci
+  POSTGRES_PORT: 5432
+  POSTGRES_HOST: postgres
+  DATABASE_URL: postgres://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
+
 
 jobs:
   build:
@@ -19,16 +25,9 @@ jobs:
       postgres:
         image: postgres:11
         ports:
-          - 5432:5432
+          - 5432:${{ env.POSTGRES_PORT }}
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-    
-    env:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: hitsave-ci
-      POSTGRES_PORT: ${{ job.services.postgres.ports[5432] }}
-      POSTGRES_HOST: postgres
-      DATABASE_URL: postgres://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
+
     runs-on: ubuntu-latest
 
     steps:
