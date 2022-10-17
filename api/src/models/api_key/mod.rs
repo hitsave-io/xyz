@@ -48,6 +48,6 @@ mod tests {
 
     #[test]
     fn generates_key() {
-        assert_eq!(ApiKey::random().key.len(), 72);
+        assert_eq!(ApiKey::random().key.len(), 64);
     }
 }
