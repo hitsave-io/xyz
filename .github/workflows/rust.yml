@@ -14,8 +14,7 @@ env:
   POSTGRES_DB: hitsave-ci
   POSTGRES_PORT: 5432
   POSTGRES_HOST: postgres
-  DATABASE_URL: postgres://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
-
+  
 
 jobs:
   build:
@@ -29,6 +28,10 @@ jobs:
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
 
     runs-on: ubuntu-latest
+    
+    env:
+      DATABASE_URL: postgres://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
+
 
     steps:
     - uses: actions/checkout@v3
