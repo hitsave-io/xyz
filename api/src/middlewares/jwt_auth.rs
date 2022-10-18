@@ -62,7 +62,10 @@ impl FromRequest for AuthorizationService {
                     Ok(token_data) => ok::<AuthorizationService, AuthError>(AuthorizationService {
                         claims: token_data.claims,
                     }),
-                    Err(e) => err::<AuthorizationService, AuthError>(AuthError::InvalidToken(e)),
+                    Err(e) => {
+                        log::error!("invalid JWT: {:?}", e);
+                        err::<AuthorizationService, AuthError>(AuthError::InvalidToken(e))
+                    }
                 }
             }
             Err(e) => err(e),

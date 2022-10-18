@@ -33,7 +33,7 @@ pub enum ApiKeyError {
     Sqlx(sqlx::Error),
     /// Represents scenario when a request is made to generate an API key for an email address not
     /// known to the database.
-    InvalidEmail,
+    Unauthorized,
 }
 
 impl From<sqlx::Error> for ApiKeyError {

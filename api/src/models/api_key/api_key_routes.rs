@@ -9,7 +9,9 @@ use actix_web::{error, get, web, Error, Result};
 impl From<ApiKeyError> for Error {
     fn from(e: ApiKeyError) -> Self {
         match e {
-            ApiKeyError::InvalidEmail => error::ErrorBadRequest("unknown email address"),
+            ApiKeyError::Unauthorized => {
+                error::ErrorUnauthorized("not authorized to generate new API key")
+            }
             _ => error::ErrorInternalServerError("could not generate new API key"),
         }
     }
@@ -18,16 +20,15 @@ impl From<ApiKeyError> for Error {
 /// A request from a user to generate a new API key.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GenRequest {
-    email: String,
     label: String,
 }
 
 #[get("/generate")]
 async fn generate_new_api_key(
-    form: web::Json<GenRequest>,
+    form: web::Query<GenRequest>,
     state: AppState,
     auth: AuthorizationService,
-) -> Result<web::Json<ApiKey>> {
+) -> Result<String> {
     let gen_req = form.into_inner();
 
     let api_key = ApiKey::random();
@@ -44,7 +45,7 @@ async fn generate_new_api_key(
         .await
         .inspect_err(|e| error!("could not insert new API key into database: {:?}", e))?;
 
-    Ok(web::Json(api_key))
+    Ok(api_key.key)
 }
 
 pub fn init(cfg: &mut web::ServiceConfig) {

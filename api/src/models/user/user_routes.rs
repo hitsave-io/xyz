@@ -7,6 +7,9 @@ impl From<UserInsertError> for Error {
     fn from(e: UserInsertError) -> Self {
         match e {
             UserInsertError::AlreadyExists => error::ErrorBadRequest("email already exists"),
+            UserInsertError::UpsertError => {
+                error::ErrorInternalServerError("unknown error: could not insert new user")
+            }
             UserInsertError::Sqlx(_) => {
                 error::ErrorInternalServerError("unknown error: could not insert new user")
             }
