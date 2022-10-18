@@ -221,3 +221,18 @@ def decorate_ansi(
 def eprint(*args, **kwargs):
     """ Use this for printing messages for users of the library to see. """
     return print(*args, file=sys.stderr, **kwargs)
+
+def is_interactive_terminal():
+    """ Returns true if this program is running in an interactive terminal
+    that we can reasonably expect a human to interact with.  """
+    return sys.__stdin__.isatty()
+
+def hyperlink(text : str, href : str, params : str = ''):
+    """ Makes a hyperlink in your terminal emulator.
+
+    refs:
+    https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+    https://stackoverflow.com/a/71309268/352201
+    """
+    # OSC 8 ; params ; URI ST <name> OSC 8 ;; ST
+    return f'\033]8;{params};{href}\033\\{text}\033]8;;\033\\'

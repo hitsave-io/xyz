@@ -10,7 +10,7 @@
             "request": "launch",
             "module": "hitsave",
             "justMyCode": false,
-            "args": ["login"]
+            "args": ["keygen"]
         },
         {
             "name": "Python: Current File",
