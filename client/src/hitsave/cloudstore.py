@@ -12,11 +12,13 @@ import pickle
 logger = logging.getLogger("hitsave")
 
 
+
 @dataclass
 class CloudStore:
     """Store connected to the hitsave cloud api.
 
     [todo] abstract over transport, rpc etc
+    [todo] consider using [marshmallow](https://marshmallow.readthedocs.io/en/stable/) instead of pickle.
     """
 
     url: str = field(default=cloud_url)
