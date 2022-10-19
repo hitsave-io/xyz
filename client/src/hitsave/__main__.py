@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional
 import typer
 import asyncio
 import platform
@@ -19,12 +19,16 @@ logger.setLevel(logging.DEBUG)
 
 @app.command()
 def serve():
+    """ Runs the hitsave LSP server. """
     from hitsave.server import main
 
     main()
 
 @app.command()
 def login():
+    """ Log in or sign up to the Hitsave cloud service.
+
+    This will present a link to you which can be used to register hitsave using your github account. """
     asyncio.run(loopback_login())
 
 async def keygen_async():
@@ -90,7 +94,12 @@ async def keygen_async():
     eprint(f"Please see {doc_url} for ways you can include this key in your environment.")
 
 @app.command()
-def keygen():
+def keygen(label : Optional[str] = None):
+    """ Generate a fresh API key.
+
+    If the current shell is zsh, you will also be asked whether you
+    want to append the API key to your .zshenv file.
+     """
     asyncio.run(keygen_async())
 
 if __name__ == "__main__":
