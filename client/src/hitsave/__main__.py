@@ -5,15 +5,17 @@ import platform
 from aiohttp import web
 import json
 import uuid
+import logging
 import urllib.parse
 import aiohttp
 import os
 from hitsave.authenticate import AuthenticationError, generate_api_key, get_jwt, loopback_login
 from hitsave.config import cloud_api_key, cloud_url
-from hitsave.util import eprint, is_interactive_terminal
+from hitsave.util import decorate_ansi, decorate_url, eprint, is_interactive_terminal
 
 app = typer.Typer()
-
+logger = logging.getLogger('hitsave')
+logger.setLevel(logging.DEBUG)
 
 @app.command()
 def serve():
@@ -23,13 +25,15 @@ def serve():
 
 @app.command()
 def login():
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(loopback_login())
+    asyncio.run(loopback_login())
 
 async def keygen_async():
     """ Interactive workflow for generating a new api key.  """
     if cloud_api_key is not None:
-        eprint('Warning: an API key for hitsave is already present. ')
+        eprint('Warning: an API key for hitsave is already present.')
+        if is_interactive_terminal():
+            eprint('Please press enter to confirm that you wish to generate another API key.')
+            input(">")
     label = platform.node()
     async def login():
         if is_interactive_terminal():
@@ -47,15 +51,17 @@ async def keygen_async():
         api_key = await generate_api_key(label)
 
     if not is_interactive_terminal():
+        # if a human is not viewing the terminal, it should just print
+        # api_key on stdout and exit.
         print(api_key)
         return
     eprint(
         "API keys are used to provide programmatic access to the HitSave cloud API.\n",
         "This API key should be stored in a secret location and not shared, as anybody\ncan use it to authenticate as you.",
-        "To revoke an API key, visit https://hitsave.io/my-keys\n",
+        "To revoke an API key, visit ", decorate_url("https://hitsave.io/my-keys"),
         # "Otherwise, [see here]() for other ways to load your API key into the HitSave client.",
         "\n\n",
-        api_key, "\n\n",
+        decorate_ansi(api_key, bold = True, fg="green"), "\n", sep=""
     )
     shells = {
         '/bin/zsh' : '~/.zshenv',
@@ -65,21 +71,27 @@ async def keygen_async():
     envfile = shells[sh]
     if envfile is not None:
         cmd = f"export HITSAVE_API_KEY={api_key}"
-        eprint(f"Type 'y' to append the following to {envfile}:\n{cmd}")
+        # [todo] what if an api key var is already present?
+        eprint(
+            decorate_ansi(f"Enter 'y' to append the following to {envfile}:"),
+            "\n\n",
+            decorate_ansi(cmd, fg = "white"),
+            "\n",
+            sep = ""
+        )
         i = input('>')
         if i == "y":
-            with open(envfile, 'wa') as fd:
+            with open(os.path.expanduser(envfile), 'at') as fd:
                 fd.writelines([cmd])
             # [todo] there is a way of doing this without needing a restart iirc
             eprint("Successful, reload the terminal to start using hitsave.")
             return
-
-    eprint("Please see https://hitsave.io/doc/keys for how to include the key in your environment.")
+    doc_url = decorate_url("https://hitsave.io/doc/keys")
+    eprint(f"Please see {doc_url} for ways you can include this key in your environment.")
 
 @app.command()
 def keygen():
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(keygen_async())
+    asyncio.run(keygen_async())
 
 if __name__ == "__main__":
     app()

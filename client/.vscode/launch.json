@@ -10,7 +10,10 @@
             "request": "launch",
             "module": "hitsave",
             "justMyCode": false,
-            "args": ["keygen"]
+            "args": ["keygen"],
+            "env" : {
+                "HITSAVE_URL" : "http://localhost:8080"
+            },
         },
         {
             "name": "Python: Current File",

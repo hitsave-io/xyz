@@ -6,7 +6,7 @@ from typing import Dict, Optional
 from aiohttp import web
 import aiohttp
 from hitsave.config import tmp_dir, cloud_url, cloud_api_key
-from hitsave.util import eprint, hyperlink, is_interactive_terminal
+from hitsave.util import decorate_ansi, eprint, hyperlink, is_interactive_terminal
 
 import urllib.parse
 import uuid
@@ -66,12 +66,13 @@ async def loopback_login():
     # attempt to use the jwt for something, if there is an error (401) then you prompt a login.
     redirect_port = 9449  # [todo] check not claimed.
     query_params = {
-        "state": uuid.uuid4().hex,
         "client_id": "b7d5bad7787df04921e7",
         "redirect_uri": f"http://127.0.0.1:{redirect_port}",
         "scope": "user:email",
     }
-    sign_in_url = f"https://github.com/login/oauth/authorize?{urllib.parse.urlencode(query_params)}"
+    # query_params = urllib.parse.urlencode(query_params)
+    query_params = "&".join([f"{k}={q}" for k,q in query_params.items()]) # [note] this gives slightly nicer messages.
+    sign_in_url = f"https://github.com/login/oauth/authorize?{query_params}"
     # [todo] check user isn't already logged in
 
     fut = asyncio.get_running_loop().create_future()
@@ -79,9 +80,6 @@ async def loopback_login():
     async def redirected(request: web.BaseRequest):
         """Handler for the mini webserver"""
         ps = dict(request.url.query)
-        # [todo] getting bad state?
-        if ps["state"] != query_params["state"]:
-            logger.warn(f"Roundtrip states do not match.")
         assert "code" in ps
         # [todo] what happens if multiple responses?
         fut.set_result(ps)
@@ -100,8 +98,8 @@ async def loopback_login():
     await runner.setup()
     site = web.TCPSite(runner, "localhost", redirect_port)
     await site.start()
-
-    eprint("\n" + hyperlink(">> click to sign in with github <<", sign_in_url) + "\n")
+    decorated = decorate_ansi(sign_in_url, fg = "blue")
+    eprint("Please follow the link below to log in:", "\n\n" , decorated , "\n", sep = "")
 
     result = await fut
     # [todo] are these stopper thingies needed?
@@ -125,6 +123,8 @@ async def loopback_login():
                 raise TypeError(
                     f"Unsupported response content type {resp.content_type}."
                 )
+    save_jwt(jwt)
+    eprint("Successfully logged in.")
     return jwt
 
 
