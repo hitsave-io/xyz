@@ -9,6 +9,7 @@ from .util import decorate_ansi, eprint, is_interactive_terminal
 
 __all__ = ["save"]
 
+
 @atexit.register
 def exit_message():
     # [todo] it should not show this if run from inside a package.

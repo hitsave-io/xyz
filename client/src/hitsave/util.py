@@ -218,20 +218,24 @@ def decorate_ansi(
         params.append(AnsiCode.underline.value)
     return ansiseq(params) + x + ansiseq([AnsiCode.reset.value])
 
+
 def eprint(*args, **kwargs):
-    """ Use this for printing messages for human users of the library to see. """
+    """Use this for printing messages for human users of the library to see."""
     return print(*args, file=sys.stderr, **kwargs)
 
+
 def is_interactive_terminal():
-    """ Returns true if this program is running in an interactive terminal
-    that we can reasonably expect a human to interact with.  """
+    """Returns true if this program is running in an interactive terminal
+    that we can reasonably expect a human to interact with."""
     return sys.__stdin__.isatty()
 
-def decorate_url(text : str):
-    return decorate_ansi(text, underline = True, fg = "blue")
 
-def hyperlink(text : str, href : str, params : str = ''):
-    """ Makes a hyperlink in your terminal emulator.
+def decorate_url(text: str):
+    return decorate_ansi(text, underline=True, fg="blue")
+
+
+def hyperlink(text: str, href: str, params: str = ""):
+    """Makes a hyperlink in your terminal emulator.
 
     Note this doesn't work well with
     - tmux
@@ -243,4 +247,4 @@ def hyperlink(text : str, href : str, params : str = ''):
     https://stackoverflow.com/a/71309268/352201
     """
     # OSC 8 ; params ; URI ST <name> OSC 8 ;; ST
-    return f'\033]8;{params};{href}\033\\{text}\033]8;;\033\\'
+    return f"\033]8;{params};{href}\033\\{text}\033]8;;\033\\"

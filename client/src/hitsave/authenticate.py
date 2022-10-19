@@ -71,7 +71,9 @@ async def loopback_login():
         "scope": "user:email",
     }
     # query_params = urllib.parse.urlencode(query_params)
-    query_params = "&".join([f"{k}={q}" for k,q in query_params.items()]) # [note] this gives slightly nicer messages.
+    query_params = "&".join(
+        [f"{k}={q}" for k, q in query_params.items()]
+    )  # [note] this gives slightly nicer messages.
     sign_in_url = f"https://github.com/login/oauth/authorize?{query_params}"
     # [todo] check user isn't already logged in
 
@@ -98,8 +100,8 @@ async def loopback_login():
     await runner.setup()
     site = web.TCPSite(runner, "localhost", redirect_port)
     await site.start()
-    decorated = decorate_ansi(sign_in_url, fg = "blue")
-    eprint("Please follow the link below to log in:", "\n\n" , decorated , "\n", sep = "")
+    decorated = decorate_ansi(sign_in_url, fg="blue")
+    eprint("Please follow the link below to log in:", "\n\n", decorated, "\n", sep="")
 
     result = await fut
     # [todo] are these stopper thingies needed?
@@ -135,7 +137,6 @@ async def generate_api_key(label: str):
     jwt = get_jwt()
     if jwt is None:
         raise AuthenticationError("User has not logged in.")
-
 
     logger.info(f"Asking {cloud_url} for a new API key with label {label}.")
     async with aiohttp.ClientSession(

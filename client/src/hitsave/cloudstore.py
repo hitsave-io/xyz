@@ -12,7 +12,6 @@ import pickle
 logger = logging.getLogger("hitsave")
 
 
-
 @dataclass
 class CloudStore:
     """Store connected to the hitsave cloud api.
