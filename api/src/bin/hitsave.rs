@@ -28,6 +28,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(middleware::Compress::default())
             .wrap(middleware::Logger::default())
             .default_service(web::route().to(not_found))
+            .service(web::scope("/blob").configure(handlers::blob::init))
             .service(web::scope("/eval").configure(handlers::eval::init))
             .service(web::scope("/user").configure(handlers::user::init))
             .service(web::scope("/api_key").configure(handlers::api_key::init))

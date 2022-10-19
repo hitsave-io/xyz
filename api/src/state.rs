@@ -2,6 +2,7 @@ pub type SqlPool = sqlx::PgPool;
 pub type PoolOptions = sqlx::postgres::PgPoolOptions;
 
 use crate::config::Config;
+use crate::persisters::s3store::S3Store;
 
 #[derive(Clone)]
 pub struct State {
@@ -9,6 +10,7 @@ pub struct State {
     // the `State` struct passed into the web server
     pub config: Config,
     pub db_conn: SqlPool,
+    pub s3_store: S3Store,
 }
 
 pub type AppStateRaw = std::sync::Arc<State>;

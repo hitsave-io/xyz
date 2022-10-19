@@ -1,6 +1,6 @@
 from hitsave import memo
 import numpy as np
-
+import logging
 from hitsave.decorator import SavedFunction
 
 
@@ -49,4 +49,5 @@ def test_biggies():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     test_biggies()

@@ -1,4 +1,7 @@
-use crate::persisters::user::{AddUser, IUser, UserInsertError};
+use crate::persisters::{
+    user::{UserUpsert, UserUpsertError},
+    Persist,
+};
 use crate::state::AppState;
 use crate::CONFIG;
 
@@ -15,9 +18,9 @@ pub async fn login_handler(code: String, state: &AppState) -> Result<String, Log
         LoginError::UserInfoNotAvailable
     })?;
 
-    let add_user = build_add_user(&user_info, emails, &access_token)?;
+    let insert_user = build_add_user(&user_info, emails, &access_token)?;
 
-    let new_user_id = state.get_ref().insert_user(&add_user).await?;
+    let new_user_id = insert_user.persist(None, &state).await?;
 
     let jwt = generate_jwt(new_user_id)?;
 
@@ -59,7 +62,7 @@ fn build_add_user(
     user: &GithubUserInfo,
     mut emails: Vec<GithubEmail>,
     token: &String,
-) -> Result<AddUser, LoginError> {
+) -> Result<UserUpsert, LoginError> {
     let emails = emails
         .drain(0..)
         .filter(|e| e.primary == true)
@@ -67,7 +70,7 @@ fn build_add_user(
 
     let primary_email = emails.first().ok_or(LoginError::NoPrimaryEmail)?;
 
-    let user = AddUser {
+    let user = UserUpsert {
         gh_id: user.id,
         gh_email: primary_email.email.clone(),
         gh_login: user.login.clone(),
@@ -124,7 +127,7 @@ async fn get_user_info(
 pub enum LoginError {
     GHComms(reqwest::Error),
     JwtError(jsonwebtoken::errors::Error),
-    UserInsert(UserInsertError),
+    UserInsert(UserUpsertError),
     AccessTokenNotGranted,
     UserInfoNotAvailable,
     NoPrimaryEmail,
@@ -136,8 +139,8 @@ impl From<reqwest::Error> for LoginError {
     }
 }
 
-impl From<UserInsertError> for LoginError {
-    fn from(e: UserInsertError) -> Self {
+impl From<UserUpsertError> for LoginError {
+    fn from(e: UserUpsertError) -> Self {
         Self::UserInsert(e)
     }
 }

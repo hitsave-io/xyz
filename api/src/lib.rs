@@ -1,5 +1,6 @@
 #![feature(try_trait_v2)]
 #![feature(result_option_inspect)]
+#![feature(type_alias_impl_trait)]
 
 #[macro_use]
 extern crate nonblock_logger;
@@ -16,6 +17,7 @@ extern crate serde;
 extern crate lazy_static;
 
 pub mod config;
+pub mod extractors;
 pub mod handlers;
 pub mod middlewares;
 pub mod models;

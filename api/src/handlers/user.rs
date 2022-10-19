@@ -1,16 +1,19 @@
 use crate::handlers::login::{login_handler, LoginError};
-use crate::persisters::user::{AddUser, IUser, UserInsertError};
+use crate::persisters::{
+    user::{UserUpsert, UserUpsertError},
+    Persist,
+};
 use crate::state::AppState;
 use actix_web::{error, post, put, web, Error, Result};
 
-impl From<UserInsertError> for Error {
-    fn from(e: UserInsertError) -> Self {
+impl From<UserUpsertError> for Error {
+    fn from(e: UserUpsertError) -> Self {
         match e {
-            UserInsertError::AlreadyExists => error::ErrorBadRequest("email already exists"),
-            UserInsertError::UpsertError => {
+            UserUpsertError::AlreadyExists => error::ErrorBadRequest("email already exists"),
+            UserUpsertError::Unreachable => {
                 error::ErrorInternalServerError("unknown error: could not insert new user")
             }
-            UserInsertError::Sqlx(_) => {
+            UserUpsertError::Sqlx(_) => {
                 error::ErrorInternalServerError("unknown error: could not insert new user")
             }
         }
@@ -84,10 +87,10 @@ async fn login(form: web::Query<Login>, state: AppState) -> Result<String> {
 
 // TODO: this can be deleted once the real flow is built.
 #[put("/")]
-async fn put(form: web::Json<AddUser>, state: AppState) -> Result<web::Json<sqlx::types::Uuid>> {
-    let form = form.into_inner();
+async fn put(form: web::Json<UserUpsert>, state: AppState) -> Result<web::Json<sqlx::types::Uuid>> {
+    let insert = form.into_inner();
 
-    let uuid = state.get_ref().insert_user(&form).await?;
+    let uuid = insert.persist(None, &state).await?;
 
     Ok(web::Json(uuid))
 }
