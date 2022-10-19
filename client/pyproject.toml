@@ -23,6 +23,9 @@ dependencies = [
   "aiofiles",
 ]
 
+[project.scripts]
+hitsave = "hitsave:main_cli"
+
 [project.urls]
 "Homepage" = "https://github.com/edayers/hitsave"
 "Bug Tracker" = "https://github.com/edayers/hitsave/issues"

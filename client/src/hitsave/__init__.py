@@ -6,8 +6,9 @@ from .deepeq import deepeq
 from .deep import reduce, reconstruct, traverse
 from .decorator import save
 from .util import decorate_ansi, eprint, is_interactive_terminal
+from .cli import app as main_cli
 
-__all__ = ["save"]
+__all__ = ["save", "main_cli"]
 
 
 @atexit.register
