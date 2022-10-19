@@ -6,7 +6,7 @@ import msgpack
 import requests
 import logging
 import json
-from hitsave.config import cloud_url, cloud_api_key
+from hitsave.config import Config
 import pickle
 
 logger = logging.getLogger("hitsave")
@@ -20,8 +20,8 @@ class CloudStore:
     [todo] consider using [marshmallow](https://marshmallow.readthedocs.io/en/stable/) instead of pickle.
     """
 
-    url: str = field(default=cloud_url)
-    api_key: Optional[str] = field(default=cloud_api_key)
+    url: str = field(default_factory=lambda: Config.current().cloud_url)
+    api_key: Optional[str] = field(default_factory=lambda: Config.current().api_key)
 
     def close(self):
         pass

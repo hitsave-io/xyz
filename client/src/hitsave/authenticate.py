@@ -5,7 +5,7 @@ import os.path
 from typing import Dict, Optional
 from aiohttp import web
 import aiohttp
-from hitsave.config import tmp_dir, cloud_url, cloud_api_key
+from hitsave.config import Config
 from hitsave.util import (
     decorate_ansi,
     decorate_url,
@@ -26,7 +26,10 @@ logger = logging.getLogger("hitsave")
 # [todo], not a huge security hole, but this should really be stored with care,
 # since anyone who gets access to it can pretend to be the user.
 # I think the answer is to place it in a designated config directory.
-jwt_path = os.path.join(tmp_dir, "hitsave-session.jwt")
+
+
+def jwt_path():
+    return os.path.join(Config.current().local_cache_dir, "hitsave-session.jwt")
 
 
 class AuthenticationError(RuntimeError):
@@ -34,21 +37,23 @@ class AuthenticationError(RuntimeError):
 
 
 def save_jwt(jwt: str):
-    if os.path.exists(jwt_path):
-        logger.debug(f"File {jwt_path} already exists, overwriting.")
+    p = jwt_path()
+    if os.path.exists(p):
+        logger.debug(f"File {p} already exists, overwriting.")
     else:
-        logger.debug(f"Writing authentication JWT to {jwt_path}.")
-    with open(jwt_path, "wt") as file:
+        logger.debug(f"Writing authentication JWT to {p}.")
+    with open(p, "wt") as file:
         file.write(jwt)
 
 
 def get_jwt() -> Optional[str]:
     """Gets the cached JWT. If it doesn't exist, returns none."""
-    if not os.path.exists(jwt_path):
-        logger.debug(f"File {jwt_path} does not exist.")
+    p = jwt_path()
+    if not os.path.exists(p):
+        logger.debug(f"File {p} does not exist.")
         return None
-    with open(jwt_path, "rt") as file:
-        logger.debug(f"Reading JWT from {jwt_path}.")
+    with open(p, "rt") as file:
+        logger.debug(f"Reading JWT from {p}.")
         return file.read()
 
 
@@ -70,6 +75,7 @@ async def loopback_login():
 
     # [todo] if there is already a valid jwt, don't bother logging in here.
     # attempt to use the jwt for something, if there is an error (401) then you prompt a login.
+    cloud_url = Config.current().cloud_url
     redirect_port = 9449  # [todo] check not claimed.
     query_params = {
         "client_id": "b7d5bad7787df04921e7",
@@ -142,6 +148,7 @@ async def generate_api_key(label: str):
     ask the server to generate a new hitsave api key with the given label.
     """
     jwt = get_jwt()
+    cloud_url = Config.current().cloud_url
     if jwt is None:
         raise AuthenticationError("User has not logged in.")
 

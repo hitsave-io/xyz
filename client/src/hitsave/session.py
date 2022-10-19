@@ -8,7 +8,7 @@ from hitsave.types import EvalStore
 from hitsave.cloudstore import CloudStore
 from hitsave.localstore import LocalStore
 
-current_session_var = ContextVar("current_session")
+current_session_var: ContextVar["Session"] = ContextVar("current_session")
 
 
 @dataclass
@@ -21,7 +21,7 @@ class Session:
     codegraph: CodeGraph = field(default_factory=CodeGraph)
 
     @classmethod
-    def get_current_session(cls):
+    def get_current_session(cls) -> "Session":
         return current_session_var.get()
 
 

@@ -15,7 +15,7 @@ from hitsave.authenticate import (
     get_jwt,
     loopback_login,
 )
-from hitsave.config import cloud_api_key, cloud_url
+from hitsave.config import Config
 from hitsave.util import decorate_ansi, decorate_url, eprint, is_interactive_terminal
 
 app = typer.Typer()
@@ -43,7 +43,7 @@ def login():
 
 async def keygen_async():
     """Interactive workflow for generating a new api key."""
-    if cloud_api_key is not None:
+    if Config.current().api_key is not None:
         eprint("Warning: an API key for hitsave is already present.")
         if is_interactive_terminal():
             eprint(
