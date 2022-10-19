@@ -117,7 +117,7 @@ async def loopback_login():
     assert "code" in result
     login_params = {"code": result["code"]}
     # always create a different http session for logging in
-    eprint(f'Connecting to {cloud_url}...')
+    eprint(f"Connecting to {cloud_url}...")
     async with aiohttp.ClientSession(cloud_url) as session:
         async with session.post("/user/login", params=login_params) as resp:
             resp.raise_for_status()
