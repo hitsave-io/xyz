@@ -43,11 +43,12 @@ examples = [
     {7.0, Decimal("Infinity")},
 ]
 
-# @pytest.skip('changes too often at this stage')
-# def test_deephash_snapshot(snapshot):
-#     hs = [deephash(x) for x in examples]
-#     snapshot.assert_match(pprint.pformat(hs), 'example_hashes.txt')
-#     hset = set(hs)
+
+def test_deephash_snapshot(snapshot):
+    hs = [deephash(x) for x in examples]
+    snapshot.assert_match(pprint.pformat(hs), "example_hashes.txt")
+    hset = set(hs)
+    assert len(hset) == len(hs), "Hash collision detected"
 
 
 def test_hash_deterministic():

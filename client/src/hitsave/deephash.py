@@ -1,5 +1,5 @@
 from typing import Iterable, Union
-import xxhash
+from blake3 import blake3
 from functools import singledispatch, lru_cache
 from dataclasses import is_dataclass, fields
 import struct
@@ -50,7 +50,7 @@ def _bool_to_bytes(x: bool):
 
 
 def run_deephash(item, hasher):
-    hasher.update(type(item).__name__)
+    hasher.update(_to_bytes_str(type(item).__name__))
     hasher.update(b"(")
     if hasattr(item, "__deephash__"):
         item.__deephash__(hasher)
@@ -73,7 +73,7 @@ def run_deephash(item, hasher):
 
 
 def deephash(item) -> str:
-    hasher = xxhash.xxh64()
+    hasher = blake3()
     run_deephash(item, hasher)
     return hasher.hexdigest()
 
