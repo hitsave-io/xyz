@@ -10,6 +10,7 @@ import os.path
 - `.config/hitsave.toml` or similar
 """
 
+# [todo] should be XDG_CACHE_DIR
 tmp_dir = os.environ.get("HITSAVE_DIR", tempfile.gettempdir())
 
 # The path to the file with the local cache.

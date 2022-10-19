@@ -13,8 +13,8 @@ cd ~/my_project
 pip install -e ~/hitsave
 ```
 
-Take any functon in your project, decorate it with `@save`:
-You can also run the `test_save.py` file to witness this.
+Take any functon in your project, decorate it with `@save`: You can also run the
+`test_save.py` file to witness this.
 
 ```py
 from hitsave import save
@@ -32,16 +32,18 @@ long_running_function(3)
 long_running_function(4)
 ```
 
-When you run this python file, `@save` will cache the results to disk (and to our cloud service).
-When you run the file again, the cache will be used rather than re-running the function.
-`@save` analyses the code-dependencies of your code and determines when to invalidate the cache.
-You can add `@save` to any function where the output is picklable.
+When you run this python file, `@save` will cache the results to disk (and to
+our cloud service). When you run the file again, the cache will be used rather
+than re-running the function. `@save` analyses the code-dependencies of your
+code and determines when to invalidate the cache. You can add `@save` to any
+function where the output is picklable.
 
 # Usage
 
 ## CLI
 
 `hitsave` has a CLI. You can use this to:
+
 - query your data caches
 - log-in to hitsave Cloud.
 
@@ -53,14 +55,23 @@ You can add `@save` to any function where the output is picklable.
 
 ## How to have a python installation that doesn't make you hate everything
 
-- Install `pyenv`. On mac it's easy but I remember it being a faff to get it set up on arch.
-- `pyenv install 3.10.6`. [todo] some caveats here, make sure you have some dlls: `readline`, `zlib`, possibly sqlite, openssl?
+- Install `pyenv`. On mac it's easy but I remember it being a faff to get it set
+  up on arch.
+- `pyenv install 3.10.6`. [todo] some caveats here, make sure you have some
+  dlls: `readline`, `zlib`, possibly sqlite, openssl?
 - Typing `python --version` in this directory should give `3.10.6`
-- `python -m venv .env` creates a new python 'virtual environment', this means you can install packages without breaking everything.
+- `python -m venv .env` creates a new python 'virtual environment', this means
+  you can install packages without breaking everything.
 - To activate the shell to use the environment do `source .env/bin/activate`.
-- If you open this directory in vscode with the python extension, it should ask you to use `.env` as the environment and then it will automatically enter the environment in all the shells etc.
-- `pip install -e .` installs the `hitsave` package. If you get `ERROR: File "setup.py" or "setup.cfg" not found.`, you should upgrade pip with `pip install --upgrade pip`.
-- to install extra deps do `pip install -r dev_requirements.txt`
+- If you open this directory in vscode with the python extension, it should ask
+  you to use `.env` as the environment and then it will automatically enter the
+  environment in all the shells etc.
+- `pip install -e .` installs the `hitsave` package. If you get
+  `ERROR: File "setup.py" or "setup.cfg" not found.`, you should upgrade pip
+  with `pip install --upgrade pip`.
+- to install extra deps do `pip install -r dev_requirements.txt`. This is
+  currently a grab-bag of everything you might possibly need and should be
+  tidied up and incorporated in to pyproject.toml before release.
 
 ## Other versions of python
 
@@ -73,4 +84,3 @@ You can add `@save` to any function where the output is picklable.
 
 - run the tests with `pytest`
 - run the linter with `black .`
-
