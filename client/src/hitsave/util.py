@@ -230,8 +230,9 @@ def is_interactive_terminal():
     return sys.__stdin__.isatty()
 
 
-def decorate_url(text: str):
-    return decorate_ansi(text, underline=True, fg="blue")
+def decorate_url(href: str, text: Optional[str] = None):
+    text = text or href
+    return decorate_ansi(hyperlink(text, href), fg="blue")
 
 
 def hyperlink(text: str, href: str, params: str = ""):

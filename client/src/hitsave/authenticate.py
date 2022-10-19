@@ -6,7 +6,13 @@ from typing import Dict, Optional
 from aiohttp import web
 import aiohttp
 from hitsave.config import tmp_dir, cloud_url, cloud_api_key
-from hitsave.util import decorate_ansi, eprint, hyperlink, is_interactive_terminal
+from hitsave.util import (
+    decorate_ansi,
+    decorate_url,
+    eprint,
+    hyperlink,
+    is_interactive_terminal,
+)
 
 import urllib.parse
 import uuid
@@ -100,7 +106,7 @@ async def loopback_login():
     await runner.setup()
     site = web.TCPSite(runner, "localhost", redirect_port)
     await site.start()
-    decorated = decorate_ansi(sign_in_url, fg="blue")
+    decorated = decorate_url(href=sign_in_url, text=">> sign in with github <<")
     eprint("Please follow the link below to log in:", "\n\n", decorated, "\n", sep="")
 
     result = await fut
@@ -111,6 +117,7 @@ async def loopback_login():
     assert "code" in result
     login_params = {"code": result["code"]}
     # always create a different http session for logging in
+    eprint(f'Connecting to {cloud_url}...')
     async with aiohttp.ClientSession(cloud_url) as session:
         async with session.post("/user/login", params=login_params) as resp:
             resp.raise_for_status()
