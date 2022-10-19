@@ -53,7 +53,12 @@ class CloudStore:
             msg = f"Request failed: {err}"
             logger.error(msg)
             return StoreMiss(msg)
-        d: dict = msgpack.loads(r.content)  # type: ignore
+        try:
+            d: dict = msgpack.loads(r.content)  # type: ignore
+        except ValueError as err:
+            msg = f"Messagepack failed: {err}"
+            logger.error(msg)
+            return StoreMiss(msg)
         results = d.get("results", [])
         if len(results) > 1:
             # [todo] change api to only ever return at most one result.
