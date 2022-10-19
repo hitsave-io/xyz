@@ -1,6 +1,4 @@
-import dataclasses
 from enum import Enum
-import enum
 import functools
 from functools import singledispatch
 from dataclasses import is_dataclass, Field, fields

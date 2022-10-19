@@ -1,14 +1,15 @@
 from typing import Optional, Union
 from hitsave.types import Eval, EvalKey, EvalStore, StoreMiss
-from hitsave.config import local_store_path
+from hitsave.config import Config
 from diskcache import Cache
-
+import os.path
 
 class LocalStore(EvalStore):
     _store: Cache
 
-    def __init__(self, store_dir=local_store_path):
-        self._store = Cache(store_dir)
+    def __init__(self, store_dir=Config.current().local_cache_dir):
+        cache_path = os.path.join(store_dir, "evalstore.diskcache")
+        self._store = Cache(cache_path)
 
     def close(self):
         self._store.close()
