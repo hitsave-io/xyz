@@ -2,13 +2,16 @@ use super::{
     api_key_dao::{IApiKey, InsertKey},
     ApiKey, ApiKeyError,
 };
+use crate::middlewares::jwt_auth::AuthorizationService;
 use crate::state::AppState;
 use actix_web::{error, get, web, Error, Result};
 
 impl From<ApiKeyError> for Error {
     fn from(e: ApiKeyError) -> Self {
         match e {
-            ApiKeyError::InvalidEmail => error::ErrorBadRequest("unknown email address"),
+            ApiKeyError::Unauthorized => {
+                error::ErrorUnauthorized("not authorized to generate new API key")
+            }
             _ => error::ErrorInternalServerError("could not generate new API key"),
         }
     }
@@ -17,21 +20,21 @@ impl From<ApiKeyError> for Error {
 /// A request from a user to generate a new API key.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GenRequest {
-    email: String,
     label: String,
 }
 
 #[get("/generate")]
 async fn generate_new_api_key(
-    form: web::Json<GenRequest>,
+    form: web::Query<GenRequest>,
     state: AppState,
-) -> Result<web::Json<ApiKey>> {
+    auth: AuthorizationService,
+) -> Result<String> {
     let gen_req = form.into_inner();
 
     let api_key = ApiKey::random();
 
     let insert_key = InsertKey {
-        email: gen_req.email,
+        user_id: auth.claims.sub,
         label: gen_req.label,
         key: &api_key.key,
     };
@@ -42,7 +45,7 @@ async fn generate_new_api_key(
         .await
         .inspect_err(|e| error!("could not insert new API key into database: {:?}", e))?;
 
-    Ok(web::Json(api_key))
+    Ok(api_key.key)
 }
 
 pub fn init(cfg: &mut web::ServiceConfig) {

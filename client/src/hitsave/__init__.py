@@ -5,13 +5,10 @@ from .deephash import deephash
 from .deepeq import deepeq
 from .deep import reduce, reconstruct, traverse
 from .decorator import save
-from .util import decorate_ansi
+from .util import decorate_ansi, eprint, is_interactive_terminal
+from .cli import app as main_cli
 
-__all__ = ["save"]
-
-
-def eprint(*args, **kwargs):
-    return print(*args, file=sys.stderr, **kwargs)
+__all__ = ["save", "main_cli"]
 
 
 @atexit.register
@@ -27,7 +24,7 @@ def exit_message():
     if time_saved:
         print(f"You saved {time_saved} of compute time with hitsave.")
     is_logged_in = False  # [todo]
-    if not is_logged_in and sys.__stdin__.isatty():
+    if not is_logged_in and is_interactive_terminal():
         eprint(
             "Get 5GB of free cloud cache:",
             "visit "

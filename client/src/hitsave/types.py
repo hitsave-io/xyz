@@ -83,6 +83,9 @@ class StoreMiss:
     reason: str
 
 
+# [todo] use same protocol as aiocache https://github.com/aio-libs/aiocache
+
+
 class EvalStore(Protocol):
     def get(self, key: EvalKey) -> Union[Eval, StoreMiss]:
         ...
