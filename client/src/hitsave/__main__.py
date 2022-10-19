@@ -1,14 +1,3 @@
-import typer
+from hitsave import main_cli
 
-app = typer.Typer()
-
-
-@app.command()
-def serve():
-    from hitsave.server import main
-
-    main()
-
-
-if __name__ == "__main__":
-    app()
+main_cli()

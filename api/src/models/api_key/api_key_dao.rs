@@ -13,31 +13,49 @@ use crate::state::AppStateRaw;
 // Instead, we use API keys more like session tokens, as described in the link.
 #[derive(Serialize, Debug)]
 pub struct InsertKey<'a> {
-    pub email: String,
+    pub user_id: sqlx::types::Uuid,
     pub label: String,
     pub key: &'a String,
+}
+
+struct ReturnedInsert {
+    key: String,
+    user_id: sqlx::types::Uuid,
 }
 
 #[async_trait]
 pub trait IApiKey: std::ops::Deref<Target = AppStateRaw> {
     async fn insert_key(&self, insert_key: &InsertKey) -> Result<(), ApiKeyError> {
-        let res = query!(
-            r#"INSERT INTO api_keys AS a (user_id, label, key) 
-           SELECT id, $2, $3 
-           FROM users 
-           WHERE email = $1
-           "#,
-            insert_key.email,
+        let res = query_as!(
+            ReturnedInsert,
+            r#"INSERT INTO api_keys AS a (user_id, label, key) VALUES ($1, $2, $3) 
+            RETURNING key, user_id"#,
+            insert_key.user_id,
             insert_key.label,
             insert_key.key,
         )
-        .execute(&self.db_conn)
-        .await?;
+        .fetch_one(&self.db_conn)
+        .await;
 
-        if res.rows_affected() == 0 {
-            Err(ApiKeyError::InvalidEmail)
-        } else {
-            Ok(())
+        match res {
+            Ok(r) => {
+                log::debug!(
+                    "inserted API key: user_id: {:?}, key: {:?}",
+                    r.user_id,
+                    format!("...{}", &r.key[r.key.len() - 5..])
+                );
+                Ok(())
+            }
+            Err(err) => match err {
+                sqlx::Error::Database(ref e) => {
+                    if e.code() == Some(std::borrow::Cow::Borrowed("23503")) {
+                        Err(ApiKeyError::Unauthorized)
+                    } else {
+                        Err(ApiKeyError::Sqlx(err))
+                    }
+                }
+                _ => Err(ApiKeyError::Sqlx(err)),
+            },
         }
     }
 }

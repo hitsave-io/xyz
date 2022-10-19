@@ -8,6 +8,9 @@ pub struct Config {
     pub database_url: String,
     pub port: u16,
     pub jwt_priv: String,
+    pub gh_client_id: String,
+    pub gh_client_secret: String,
+    pub gh_user_agent: String,
 }
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
@@ -40,11 +43,23 @@ impl Config {
         let jwt_priv = env_vars
             .remove("JWT_PRIV")
             .expect("no JWT_PRIV environment variable present");
+        let gh_client_id = env_vars
+            .remove("GH_CLIENT_ID")
+            .expect("no GH_CLIENT_ID environment variable present");
+        let gh_client_secret = env_vars
+            .remove("GH_CLIENT_SECRET")
+            .expect("no GH_CLIENT_SECRET environment variable present");
+        let gh_user_agent = env_vars
+            .remove("GH_USER_AGENT")
+            .expect("no GH_USER_AGENT environment variable present");
 
         Config {
             database_url,
             port,
             jwt_priv,
+            gh_client_id,
+            gh_client_secret,
+            gh_user_agent,
         }
     }
     pub async fn into_state(self) -> AppStateRaw {

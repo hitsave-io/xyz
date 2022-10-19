@@ -6,6 +6,7 @@ from functools import singledispatch
 from dataclasses import is_dataclass, Field, fields
 import json
 from typing import Any, TypeVar, get_origin, get_args, Type, Optional, Union, List
+import sys
 
 if hasattr(functools, "cache"):
     cache = functools.cache
@@ -216,3 +217,35 @@ def decorate_ansi(
     if underline:
         params.append(AnsiCode.underline.value)
     return ansiseq(params) + x + ansiseq([AnsiCode.reset.value])
+
+
+def eprint(*args, **kwargs):
+    """Use this for printing messages for human users of the library to see."""
+    return print(*args, file=sys.stderr, **kwargs)
+
+
+def is_interactive_terminal():
+    """Returns true if this program is running in an interactive terminal
+    that we can reasonably expect a human to interact with."""
+    return sys.__stdin__.isatty()
+
+
+def decorate_url(href: str, text: Optional[str] = None):
+    text = text or href
+    return decorate_ansi(hyperlink(text, href), fg="blue")
+
+
+def hyperlink(text: str, href: str, params: str = ""):
+    """Makes a hyperlink in your terminal emulator.
+
+    Note this doesn't work well with
+    - tmux
+    - vscode terminal emulator
+    - iterm2; you have to cmd+click on link
+
+    refs:
+    https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+    https://stackoverflow.com/a/71309268/352201
+    """
+    # OSC 8 ; params ; URI ST <name> OSC 8 ;; ST
+    return f"\033]8;{params};{href}\033\\{text}\033]8;;\033\\"

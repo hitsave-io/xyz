@@ -16,5 +16,5 @@ tmp_dir = os.environ.get("HITSAVE_DIR", tempfile.gettempdir())
 local_store_path = os.path.join(tmp_dir, "hitsave.diskcache")
 
 # URL of the hitsave API endpoint.
-cloud_url = os.environ.get("HITSAVE_URL", "https://api.hitsave.io:80")
+cloud_url = os.environ.get("HITSAVE_URL", "https://api.hitsave.io")
 cloud_api_key = os.environ.get("HITSAVE_API_KEY", None)
