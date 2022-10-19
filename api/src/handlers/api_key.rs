@@ -1,6 +1,6 @@
 use crate::middlewares::jwt_auth::AuthorizationService;
 use crate::models::api_key::{ApiKey, ApiKeyError};
-use crate::persisters::api_key::{IApiKey, InsertKey};
+use crate::persisters::{api_key::KeyInsert, Persist};
 use crate::state::AppState;
 use actix_web::{error, get, web, Error, Result};
 
@@ -28,18 +28,16 @@ async fn generate_new_api_key(
     auth: AuthorizationService,
 ) -> Result<String> {
     let gen_req = form.into_inner();
-
     let api_key = ApiKey::random();
 
-    let insert_key = InsertKey {
+    let insert_key = KeyInsert {
         user_id: auth.claims.sub,
         label: gen_req.label,
         key: &api_key.key,
     };
 
-    state
-        .get_ref()
-        .insert_key(&insert_key)
+    insert_key
+        .persist(None, &state)
         .await
         .inspect_err(|e| error!("could not insert new API key into database: {:?}", e))?;
 

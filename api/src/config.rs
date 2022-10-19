@@ -1,3 +1,4 @@
+use crate::persisters::s3store::S3Store;
 use crate::state::*;
 
 use std::env;
@@ -106,9 +107,12 @@ impl Config {
             .await
             .expect("sql open");
 
+        let s3_store = S3Store::new().await;
+
         Arc::new(State {
             config: self,
             db_conn,
+            s3_store,
         })
     }
     // generate and show config string

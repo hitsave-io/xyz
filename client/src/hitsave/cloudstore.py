@@ -6,10 +6,18 @@ import msgpack
 import requests
 import logging
 import json
+from blake3 import blake3
 from hitsave.config import Config
 import pickle
 
 logger = logging.getLogger("hitsave")
+
+
+def dumps(meta: dict, blob: bytes):
+    """Hitsave eval upload blob upload encoding:"""
+    meta_json = json.dumps(meta)
+    json_len = len(meta_json).to_bytes(4, byteorder="big")
+    return json_len + meta_json.encode("utf-8") + blob
 
 
 @dataclass
@@ -33,38 +41,42 @@ class CloudStore:
             fn_hash=key.fn_hash,
             args_hash=key.args_hash,
         )
-        j = json.dumps(q)
+        headers = {
+            "Authorization": self.api_key,
+        }
         try:
             assert self.api_key is not None
-            headers = {
-                "Content-type": "application/json",
-                "Authorization": self.api_key,
-            }
             r = requests.request(
                 "GET",
-                f"{self.url}/eval/",
-                data=j,
+                f"{self.url}/eval",
+                params=q,
                 headers=headers,
             )
             if r.status_code == 404:
                 return StoreMiss("Not found.")
+            if r.status_code == 403:
+                # [todo] unauthorized
+                pass
             r.raise_for_status()
         except Exception as err:
             msg = f"Request failed: {err}"
             logger.error(msg)
             return StoreMiss(msg)
-        try:
-            d: dict = msgpack.loads(r.content)  # type: ignore
-        except ValueError as err:
-            msg = f"Messagepack failed: {err}"
-            logger.error(msg)
-            return StoreMiss(msg)
-        results = d.get("results", [])
+        results: list = r.json()
         if len(results) > 1:
             # [todo] change api to only ever return at most one result.
             logger.warn(f"got multiple results for the same query??")
         for result in results:
             logger.info(f"downloaded result for {repr(key)}")
+            content_hash = result["content_hash"]
+            r = requests.request(
+                "GET",
+                f"{self.url}/blob/{content_hash}",
+                headers=headers,
+            )
+            r.raise_for_status()
+            bs = r.content
+            content = pickle.loads(bs)
             e = Eval(
                 key=EvalKey(
                     fn_key=CodeVertex.of_str(result["fn_key"]),
@@ -72,22 +84,27 @@ class CloudStore:
                     args_hash=result["args_hash"],
                 ),
                 args=result["args"],
-                result=pickle.loads(result["result"]),
+                result=content,
             )
             return e
         return StoreMiss("No results.")
 
     def set(self, e: Eval):
-        m: bytes = msgpack.dumps(
+        pickled = pickle.dumps(e.result)
+        content_hash = blake3(pickled).hexdigest()
+        content_length = len(pickled)
+
+        m = dumps(
             dict(
                 fn_key=str(e.key.fn_key),
                 fn_hash=e.key.fn_hash,
                 args_hash=e.key.args_hash,
                 args=e.args,
-                result=pickle.dumps(e.result),
-                # [todo] this is silly.
-            )
-        )  # type: ignore
+                content_hash=content_hash,
+                content_length=content_length,
+            ),
+            pickled,
+        )
 
         try:
             assert self.api_key is not None

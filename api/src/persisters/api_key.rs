@@ -1,5 +1,7 @@
+use crate::middlewares::api_auth::Auth;
 use crate::models::api_key::ApiKeyError;
-use crate::state::AppStateRaw;
+use crate::persisters::Persist;
+use crate::state::State;
 
 /// The data required to insert a new hashed API key into the database.
 ///
@@ -12,29 +14,32 @@ use crate::state::AppStateRaw;
 // request to verify it matches the stored hash is expensive (bcrypt deliberately introduces a cost).
 // Instead, we use API keys more like session tokens, as described in the link.
 #[derive(Serialize, Debug)]
-pub struct InsertKey<'a> {
+pub struct KeyInsert<'a> {
     pub user_id: sqlx::types::Uuid,
     pub label: String,
     pub key: &'a String,
 }
 
-struct ReturnedInsert {
+struct KeyInsertResult {
     key: String,
     user_id: sqlx::types::Uuid,
 }
 
 #[async_trait]
-pub trait IApiKey: std::ops::Deref<Target = AppStateRaw> {
-    async fn insert_key(&self, insert_key: &InsertKey) -> Result<(), ApiKeyError> {
+impl Persist for KeyInsert<'_> {
+    type Ret = ();
+    type Error = ApiKeyError;
+
+    async fn persist(self, _auth: Option<&Auth>, state: &State) -> Result<Self::Ret, Self::Error> {
         let res = query_as!(
-            ReturnedInsert,
-            r#"INSERT INTO api_keys AS a (user_id, label, key) VALUES ($1, $2, $3) 
+            KeyInsertResult,
+            r#"INSERT INTO api_keys AS a (user_id, label, key) VALUES ($1, $2, $3)
             RETURNING key, user_id"#,
-            insert_key.user_id,
-            insert_key.label,
-            insert_key.key,
+            self.user_id,
+            self.label,
+            self.key,
         )
-        .fetch_one(&self.db_conn)
+        .fetch_one(&state.db_conn)
         .await;
 
         match res {
@@ -59,5 +64,3 @@ pub trait IApiKey: std::ops::Deref<Target = AppStateRaw> {
         }
     }
 }
-
-impl IApiKey for &AppStateRaw {}

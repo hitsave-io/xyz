@@ -1,20 +1,22 @@
-use crate::state::AppStateRaw;
+use crate::middlewares::api_auth::Auth;
+use crate::persisters::Persist;
+use crate::state::State;
 
 use sqlx::{types::Uuid, Error};
 
 #[derive(Debug)]
-pub enum UserInsertError {
+pub enum UserUpsertError {
     AlreadyExists,
     /// This is used when the upsert query returns no rows. If the query is written correctly, this
     /// should never happen, because we either return the row that got inserted, or the one which
     /// is already there. In theory, this error is unreachable, but we want to handle it just in
     /// case, to avoid panics.
-    UpsertError,
+    Unreachable,
     Sqlx(sqlx::Error),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct AddUser {
+pub struct UserUpsert {
     pub gh_id: i32,
     pub gh_email: String,
     pub gh_login: String,
@@ -23,19 +25,14 @@ pub struct AddUser {
     pub email_verified: bool,
 }
 
-#[derive(Deserialize, Debug)]
-pub struct UpsertResult {
-    id: Option<Uuid>,
-}
-
 #[async_trait]
-pub trait IUser: std::ops::Deref<Target = AppStateRaw> {
-    async fn insert_user(&self, user: &AddUser) -> Result<Uuid, UserInsertError> {
+impl Persist for UserUpsert {
+    type Ret = Uuid;
+    type Error = UserUpsertError;
+
+    async fn persist(self, _auth: Option<&Auth>, state: &State) -> Result<Self::Ret, Self::Error> {
         let res = query_as!(
             UpsertResult,
-            // r#"INSERT INTO users 
-            // (gh_id, gh_email, gh_login, gh_token, gh_avatar_url, email_verified) 
-            // VALUES ($1, $2, $3, $4, $5, $6) RETURNING users.id"#,
             r#"WITH e AS(
                   INSERT INTO users (gh_id, gh_email, gh_login, gh_token, gh_avatar_url, email_verified) 
                          VALUES ($1, $2, $3, $4, $5, $6)
@@ -44,24 +41,29 @@ pub trait IUser: std::ops::Deref<Target = AppStateRaw> {
                )
                SELECT id FROM e UNION
                SELECT id FROM users WHERE gh_id = $1;"#,
-            user.gh_id,
-            user.gh_email,
-            user.gh_login,
-            user.gh_token,
-            user.gh_avatar_url,
-            user.email_verified,
+            &self.gh_id,
+            &self.gh_email,
+            &self.gh_login,
+            &self.gh_token,
+            &self.gh_avatar_url,
+            &self.email_verified,
         )
-        .fetch_one(&self.db_conn)
+        .fetch_one(&state.db_conn)
         .await
         .inspect_err(|e| error!("error inserting user: {:?}", e))?;
 
-        let id = res.id.ok_or(UserInsertError::UpsertError)?;
+        let uuid = res.id.ok_or(UserUpsertError::Unreachable)?;
 
-        Ok(id)
+        Ok(uuid)
     }
 }
 
-impl From<sqlx::Error> for UserInsertError {
+#[derive(Deserialize, Debug)]
+pub struct UpsertResult {
+    id: Option<Uuid>,
+}
+
+impl From<sqlx::Error> for UserUpsertError {
     fn from(e: sqlx::Error) -> Self {
         match e {
             Error::Database(ref err) => {
@@ -75,5 +77,3 @@ impl From<sqlx::Error> for UserInsertError {
         }
     }
 }
-
-impl IUser for &AppStateRaw {}
