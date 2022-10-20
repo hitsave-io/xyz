@@ -1,5 +1,5 @@
-use super::user_dao::{AddUser, IUser, UserInsertError};
 use crate::handlers::login::{login_handler, LoginError};
+use crate::persisters::user::{AddUser, IUser, UserInsertError};
 use crate::state::AppState;
 use actix_web::{error, post, put, web, Error, Result};
 

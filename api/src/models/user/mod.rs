@@ -1,8 +1,5 @@
 use sqlx::types::Uuid;
 
-pub mod user_dao;
-pub mod user_routes;
-
 #[derive(FromRow, Serialize, Deserialize, Debug)]
 pub struct User {
     pub id: Uuid,

@@ -1,4 +1,4 @@
-use super::{Eval, EvalError};
+use crate::models::eval::{Eval, EvalError};
 use crate::state::AppStateRaw;
 use sqlx::types::Uuid;
 

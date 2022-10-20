@@ -20,6 +20,7 @@ pub mod handlers;
 pub mod middlewares;
 pub mod models;
 pub mod msg_pack;
+pub mod persisters;
 pub mod state;
 
 use config::Config;
