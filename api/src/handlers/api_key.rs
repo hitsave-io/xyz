@@ -1,8 +1,6 @@
-use super::{
-    api_key_dao::{IApiKey, InsertKey},
-    ApiKey, ApiKeyError,
-};
 use crate::middlewares::jwt_auth::AuthorizationService;
+use crate::models::api_key::{ApiKey, ApiKeyError};
+use crate::persisters::api_key::{IApiKey, InsertKey};
 use crate::state::AppState;
 use actix_web::{error, get, web, Error, Result};
 

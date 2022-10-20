@@ -1,4 +1,4 @@
-use super::ApiKeyError;
+use crate::models::api_key::ApiKeyError;
 use crate::state::AppStateRaw;
 
 /// The data required to insert a new hashed API key into the database.

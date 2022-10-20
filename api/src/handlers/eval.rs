@@ -1,9 +1,7 @@
-use super::{
-    eval_dao::{IEval, QueryParams},
-    Eval, EvalError,
-};
 use crate::middlewares::api_auth::ApiAuthService;
+use crate::models::eval::{Eval, EvalError};
 use crate::msg_pack::MsgPack;
+use crate::persisters::eval::{IEval, QueryParams};
 use crate::state::AppState;
 use actix_web::{error, get, put, web, Result};
 use sqlx::types::Uuid;

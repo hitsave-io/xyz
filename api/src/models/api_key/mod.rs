@@ -2,9 +2,6 @@ use rand::distributions::Alphanumeric;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
-pub mod api_key_dao;
-pub mod api_key_routes;
-
 /// Represents the response to a key generation request, containing the API key only.
 ///
 /// This is also used to represent the API key transmitted as auth by users accessing protected

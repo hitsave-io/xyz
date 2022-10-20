@@ -3,7 +3,7 @@ extern crate lazy_static;
 
 use actix_web::{error, middleware, web, App, HttpServer, Result};
 use hitsave_api::config::{Config, Opts};
-use hitsave_api::{models, msg_pack};
+use hitsave_api::{handlers, msg_pack};
 
 lazy_static! {
     pub static ref CONFIG: Config = Config::parse_from_env();
@@ -28,9 +28,9 @@ async fn main() -> std::io::Result<()> {
             .wrap(middleware::Compress::default())
             .wrap(middleware::Logger::default())
             .default_service(web::route().to(not_found))
-            .service(web::scope("/eval").configure(models::eval::eval_routes::init))
-            .service(web::scope("/user").configure(models::user::user_routes::init))
-            .service(web::scope("/api_key").configure(models::api_key::api_key_routes::init))
+            .service(web::scope("/eval").configure(handlers::eval::init))
+            .service(web::scope("/user").configure(handlers::user::init))
+            .service(web::scope("/api_key").configure(handlers::api_key::init))
     })
     .keep_alive(std::time::Duration::from_secs(300))
     .bind(("0.0.0.0", state2.config.port))?

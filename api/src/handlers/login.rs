@@ -1,4 +1,4 @@
-use crate::models::user::user_dao::{AddUser, IUser, UserInsertError};
+use crate::persisters::user::{AddUser, IUser, UserInsertError};
 use crate::state::AppState;
 use crate::CONFIG;
 
