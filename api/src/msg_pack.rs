@@ -45,7 +45,7 @@ use actix_web::{
 ///
 /// /// deserialize `Info` from request's body
 /// #[post("/")]
-/// async fn index(info: web::MsgPack<Info>) -> String {
+/// async fn index(info: MsgPack<Info>) -> String {
 ///     format!("Welcome {}!", info.username)
 /// }
 /// ```
@@ -212,7 +212,7 @@ impl<T: DeserializeOwned> Future for MsgPackExtractFut<T> {
 ///
 /// // `MsgPack` extraction is bound by custom `MsgPackConfig` applied to App.
 /// #[post("/")]
-/// async fn index(info: web::MsgPack<Info>) -> String {
+/// async fn index(info: MsgPack<Info>) -> String {
 ///     format!("Welcome {}!", info.name)
 /// }
 ///
