@@ -3,6 +3,7 @@ import functools
 from functools import singledispatch
 from dataclasses import is_dataclass, Field, fields
 import json
+from subprocess import check_output, CalledProcessError
 from typing import Any, TypeVar, get_origin, get_args, Type, Optional, Union, List
 import sys
 
@@ -247,3 +248,17 @@ def hyperlink(text: str, href: str, params: str = ""):
     """
     # OSC 8 ; params ; URI ST <name> OSC 8 ;; ST
     return f"\033]8;{params};{href}\033\\{text}\033]8;;\033\\"
+
+
+def get_git_root():
+    """
+    Gets the git root for the current working directory.
+
+    source: https://github.com/maxnoe/python-gitpath/blob/86973f112b976a87e2ffa734fa2e43cc76dfe90d/gitpath/__init__.py
+    (MIT licenced)
+    """
+    try:
+        base = check_output(["git", "rev-parse", "--show-toplevel"])
+        return base.decode().strip()
+    except CalledProcessError:
+        return None

@@ -6,9 +6,9 @@ import os
 import os.path
 import sys
 import logging
+from pathlib import Path
 from typing import Optional, Type, TypeVar
-
-from hitsave.util import as_optional, is_optional
+from hitsave.util import as_optional, is_optional, get_git_root
 
 """ This module is responsible for loading all of the environment based config options.
 
@@ -16,9 +16,44 @@ from hitsave.util import as_optional, is_optional
 - environment variables
 - cli arguments
 - `.config/hitsave.toml` or similar
+
 """
 
 logger = logging.getLogger("hitsave")
+
+
+def find_workspace_folder() -> Path:
+    """This is our best guess to determine which folder is the developer's "workspace folder".
+    This is the top level folder for the project that the developer is currently working on.
+
+    Approaches tried:
+
+    - for the cwd: look for a pyproject.toml
+    - for the cwd: look for the git root of the cwd.
+
+    """
+    cwd = os.getcwd()
+    # reference: https://github.com/python-poetry/poetry/pull/71/files#diff-e1f721c9a6040c5fbf1b5309d40a8f6e9604aa8b46469633edbc1e62da724e92
+    def find(cwd, base):
+        candidates = [Path(cwd), *Path(cwd).parents]
+        for path in candidates:
+            file = path / base
+            if file.exists():
+                logger.debug(f"Found a parent directory {path} with a {base}.")
+                return path
+        logger.debug(f"Couldn't find a {base} file for {cwd}.")
+        return None
+
+    p = find(cwd, "pyproject.toml")
+    if p is not None:
+        return p
+    git_root = get_git_root()
+    if git_root is not None:
+        return Path(git_root)
+    logger.warn(
+        f"{cwd} is not in a git repository and no pyproject.toml could be found."
+    )
+    return Path(cwd)
 
 
 def find_cache_directory():
@@ -49,6 +84,8 @@ def interpret_var_str(type: Type[T], value: str) -> T:
         return int(value)  # type: ignore
     if type == bool:
         return value not in ["False", "false", "0", "no"]  # type: ignore
+    if type == Path:
+        return Path(value)  # type: ignore
     X = as_optional(type)
     if X is not None:
         if value in ["None", "null", "undefined"]:
@@ -78,6 +115,10 @@ class Config:
     api_key: Optional[str]
     """ API key for hitsave cloud. """
 
+    workspace_dir: str
+    """ Directory for the current project, should be the same as workspace_folder in vscode. It defaults to the nearest
+    parent folder containing pyproject.toml or git root. """
+
     no_advert: bool = field(default=False)
     """ If this is true then we won't bother you with a little advert for signing up to hitsave.io on exit. """
 
@@ -97,6 +138,7 @@ class Config:
             local_cache_dir=find_cache_directory(),
             cloud_url="https://api.hitsave.io",
             api_key=None,
+            workspace_dir=str(find_workspace_folder()),
         )
 
     @classmethod
