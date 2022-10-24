@@ -11,6 +11,7 @@ import math
 import cmath
 import hypothesis.strategies as hs
 import datetime
+from .strat import atoms, objects
 
 examples = [
     "hello",
@@ -75,43 +76,7 @@ def test_eg_deepeq():
         assert not deepeq(x1, x2)
 
 
-def atoms(allow_nan=True):
-    return hs.one_of(
-        [
-            hs.datetimes(),
-            hs.dates(),
-            hs.times(),
-            hs.complex_numbers(allow_nan=allow_nan),
-            hs.binary(),
-            hs.decimals(allow_nan=allow_nan),
-            hs.floats(allow_nan=allow_nan),
-            hs.fractions(),
-            hs.integers(),
-            hs.booleans(),
-            hs.from_type(str),
-            # hs.from_type(type), # [todo] one day
-        ]
-    )
-
-
-def compounds():
-    return hs.one_of(
-        [
-            hs.sets(atoms(allow_nan=False)),
-            hs.recursive(
-                atoms(),
-                lambda x: hs.one_of(
-                    [
-                        hs.dictionaries(atoms(allow_nan=False), x),
-                        hs.lists(x),
-                    ]
-                ),
-            ),
-        ]
-    )
-
-
-@given(compounds())
+@given(objects())
 def test_reduce_not_contain_self(a):
     rv = reduce(a)
     if rv is not None:
@@ -121,7 +86,7 @@ def test_reduce_not_contain_self(a):
             assert k is not a
 
 
-@given(compounds())
+@given(objects())
 def test_reduce_reconstruct(a):
     rv = reduce(a)
     if rv is not None:
@@ -140,7 +105,7 @@ def test_deepeq_atoms(a):
     assert deepeq(a, a), f"{a} : {type(a)}"
 
 
-@given(compounds())
+@given(objects())
 def test_deepeq_compounds(a):
     assert deepeq(a, a), f"{a} : {type(a)}"
 
@@ -158,7 +123,7 @@ def test_traverse_ld():
     assert deepeq(a, b)
 
 
-@given(compounds())
+@given(objects())
 def test_traverse_id(a):
     b = traverse(a)
     assert deepeq(a, b), f"{repr(a)} ≠ {repr(b)}"

@@ -81,6 +81,12 @@ class Config:
     no_advert: bool = field(default=False)
     """ If this is true then we won't bother you with a little advert for signing up to hitsave.io on exit. """
 
+    no_local: bool = field(default=False)
+    """ If this is true then don't use the local cache. """
+
+    no_cloud: bool = field(default=False)
+    """ If this is true then don't use the cloud cache. """
+
     def merge_env(self):
         d = {}
         for fd in fields(self):

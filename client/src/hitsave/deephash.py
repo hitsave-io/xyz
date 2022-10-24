@@ -8,11 +8,13 @@ from hitsave.deep import reduce
 from hitsave.util import cache
 import inspect
 
-""" Function for transforming atomic values to bytes. """
-
 
 @singledispatch
 def to_bytes(item) -> bytes:
+    """Function for transforming atomic values to bytes.
+    This is for the purpose of hashing, not for serialization.
+    """
+
     return NotImplemented
 
 
@@ -41,6 +43,11 @@ def _float_to_bytes(x: float):
 @to_bytes.register(bool)
 def _bool_to_bytes(x: bool):
     return struct.pack("b", x)
+
+
+@to_bytes.register(type(None))
+def _none_to_bytes(x):
+    return b""
 
 
 # [todo] register_deephash
