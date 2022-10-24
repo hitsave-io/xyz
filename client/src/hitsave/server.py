@@ -8,9 +8,10 @@ import os
 import urllib.parse
 import importlib
 import importlib.util
-from hitsave.codegraph import CODEGRAPH, CodeVertex, module_name_of_file
+from hitsave.session import Session
+from hitsave.codegraph import CodeVertex, module_name_of_file
 from hitsave.decorator import SavedFunction
-from hitsave.lsp import Range, TextDocumentIdentifier, run as lsp, method
+from hitsave.lsp import Range, TextDocumentIdentifier, method, LanguageServer
 
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
@@ -69,10 +70,12 @@ async def codelens(params: CodeLensParams):
             continue
         logger.debug(f"Found {k}.")
         f = sf.func
-        deps = len(list(CODEGRAPH.get_dependencies_obj(f)))
+        deps = len(
+            list(Session.get_current_session().codegraph.get_dependencies_obj(f))
+        )
         # ref: https://docs.python.org/3/library/inspect.html#types-and-members
         ln = f.__code__.co_firstlineno - 1
-        r = Range.mk(ln, 0, ln, len("@save"))
+        r = Range.mk(ln, 0, ln, len("@memo"))
         rs.append(
             {
                 "range": r,
@@ -102,7 +105,8 @@ async def connect():
 
 async def run():
     reader, writer = await connect()
-    await lsp(reader, writer)
+    server = LanguageServer(reader=reader, writer=writer)
+    await server.start()
 
 
 def main():

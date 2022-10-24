@@ -59,21 +59,23 @@ class SavedFunction(Generic[P, R]):
 
 
 @overload
-def save(func: Callable[P, R]) -> SavedFunction[P, R]:
+def memo(func: Callable[P, R]) -> SavedFunction[P, R]:
     ...
 
 
 @overload
-def save(
+def memo(
     *, local_only: bool = False
 ) -> Callable[[Callable[P, R]], SavedFunction[P, R]]:
     ...
 
 
-def save(func=None, **kwargs):  # type: ignore
+def memo(func=None, **kwargs):  # type: ignore
     if func == None:
-        return lambda func: save(func, **kwargs)
+        return lambda func: memo(func, **kwargs)
     if callable(func):
         g = update_wrapper(SavedFunction(func, **kwargs), func)
         return g
-    raise TypeError(f"@save requires that the given saved object {func} is callable.")
+    raise TypeError(
+        f"@{memo.__name__} requires that the given saved object {func} is callable."
+    )

@@ -13,17 +13,17 @@ cd ~/my_project
 pip install -e ~/hitsave
 ```
 
-Take any functon in your project, decorate it with `@save`: You can also run the
+Take any functon in your project, decorate it with `@memo`: You can also run the
 `test_save.py` file to witness this.
 
 ```py
-from hitsave import save
+from hitsave import memo
 
 def dependency(y):
   # try changing the method body!
   return y + y
 
-@save
+@memo
 def long_running_function(x):
   print f"Running {x}!"
   return x + 2 + dependency(x)
@@ -32,10 +32,10 @@ long_running_function(3)
 long_running_function(4)
 ```
 
-When you run this python file, `@save` will cache the results to disk (and to
+When you run this python file, `@memo` will cache the results to disk (and to
 our cloud service). When you run the file again, the cache will be used rather
-than re-running the function. `@save` analyses the code-dependencies of your
-code and determines when to invalidate the cache. You can add `@save` to any
+than re-running the function. `@memo` analyses the code-dependencies of your
+code and determines when to invalidate the cache. You can add `@memo` to any
 function where the output is picklable.
 
 # Usage

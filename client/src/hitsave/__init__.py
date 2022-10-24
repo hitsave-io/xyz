@@ -4,12 +4,12 @@ import sys
 from .deephash import deephash
 from .deepeq import deepeq
 from .deep import reduce, reconstruct, traverse
-from .decorator import save
+from .decorator import memo
 from .util import decorate_ansi, eprint, is_interactive_terminal
 from .cli import app as main_cli
 from .config import Config
 
-__all__ = ["save", "main_cli"]
+__all__ = ["memo", "main_cli"]
 
 
 @atexit.register

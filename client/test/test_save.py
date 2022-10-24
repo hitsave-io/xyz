@@ -1,31 +1,31 @@
-from hitsave import save
+from hitsave import memo
 import numpy as np
 
 from hitsave.decorator import SavedFunction
 
 
-@save
+@memo
 def f(x):
     # try changing the method body and witness the cache invalidating!
     return x + x + x
 
 
-@save
+@memo
 def g(y):
     return f(y) + y
 
 
-@save
+@memo
 def gg(y):
     return np.random.rand(2**y)
 
 
-@save()
+@memo()
 def gggg(x: int):
     return 4 * x
 
 
-@save(local_only=True)
+@memo(local_only=True)
 def ggg(y, x: int):
     return y + x + y
 

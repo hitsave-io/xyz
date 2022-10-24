@@ -7,7 +7,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import datasets
 from torchvision.transforms import ToTensor
-from hitsave import save
+from hitsave import memo
 
 import os
 
@@ -71,7 +71,7 @@ loss_fn = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
 
 
-@save
+@memo
 def train(dataloader, model, loss_fn, optimizer):
     size = len(dataloader.dataset)
     model.train()
@@ -93,7 +93,7 @@ def train(dataloader, model, loss_fn, optimizer):
     return model
 
 
-@save
+@memo
 def test(dataloader, model, loss_fn):
     size = len(dataloader.dataset)
     num_batches = len(dataloader)

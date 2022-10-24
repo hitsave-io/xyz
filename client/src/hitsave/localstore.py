@@ -4,6 +4,7 @@ from hitsave.config import Config
 from diskcache import Cache
 import os.path
 
+
 class LocalStore(EvalStore):
     _store: Cache
 
