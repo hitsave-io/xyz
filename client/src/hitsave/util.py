@@ -12,10 +12,8 @@ else:
     cache = functools.lru_cache(maxsize=None)
 
 
-
-
 def classdispatch(func):
-    """ Similar to `singledispatch`, except treats the first argument as a class to be dispatched on. """
+    """Similar to `singledispatch`, except treats the first argument as a class to be dispatched on."""
     funcname = getattr(func, "__name__", "class dispatch function")
     sdfunc = singledispatch(func)
 
@@ -48,12 +46,12 @@ def classdispatch(func):
 
 
 def is_optional(T: Type) -> bool:
-    """ Returns true if `T == Union[NoneType, _] == Optional[_]`. """
+    """Returns true if `T == Union[NoneType, _] == Optional[_]`."""
     return as_optional(T) is not None
 
 
 def as_optional(T: Type) -> Optional[Type]:
-    """ If we have `T == Optional[X]`, returns `X`, otherwise returns `None`.
+    """If we have `T == Optional[X]`, returns `X`, otherwise returns `None`.
 
     ref: https://stackoverflow.com/questions/56832881/check-if-a-field-is-typing-optional
     """
@@ -66,10 +64,8 @@ def as_optional(T: Type) -> Optional[Type]:
     return None
 
 
-
-
 def as_list(T: Type) -> Optional[Type]:
-    """ If `T = List[X]`, return `X`, otherwise return None. """
+    """If `T = List[X]`, return `X`, otherwise return None."""
     if get_origin(T) is list:
         return get_args(T)[0]
     return None
@@ -95,8 +91,8 @@ class MyJsonEncoder(json.JSONEncoder):
         raise NotImplementedError(f"Don't know how to encode {type(o)}.")
 
 
-
 T = TypeVar("T")
+
 
 @classdispatch
 def ofdict(A: Type[T], a: Any) -> T:
@@ -159,7 +155,7 @@ def _ofdict_enum(A, a):
 
 class TypedJsonDecoder(json.JSONDecoder):
     """Given a python type T, this will decode a json object to an instance of `T`, or fail otherwise. It
-    makes use of the `ofdict` function defined above to convert plain json dictionaries to native python types. """
+    makes use of the `ofdict` function defined above to convert plain json dictionaries to native python types."""
 
     def __init__(self, T: Type):
         self.T = T
