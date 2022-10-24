@@ -46,3 +46,7 @@ def test_savesave():
 def test_biggies():
     for x in range(25):
         print(len(gg(x)))
+
+
+if __name__ == "__main__":
+    test_biggies()
