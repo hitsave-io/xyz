@@ -12,10 +12,10 @@ else:
     cache = functools.lru_cache(maxsize=None)
 
 
-""" Similar to `singledispatch`, except treats the first argument as a class to be dispatched on. """
 
 
 def classdispatch(func):
+    """ Similar to `singledispatch`, except treats the first argument as a class to be dispatched on. """
     funcname = getattr(func, "__name__", "class dispatch function")
     sdfunc = singledispatch(func)
 
@@ -48,11 +48,15 @@ def classdispatch(func):
 
 
 def is_optional(T: Type) -> bool:
+    """ Returns true if `T == Union[NoneType, _] == Optional[_]`. """
     return as_optional(T) is not None
 
 
 def as_optional(T: Type) -> Optional[Type]:
-    # https://stackoverflow.com/questions/56832881/check-if-a-field-is-typing-optional
+    """ If we have `T == Optional[X]`, returns `X`, otherwise returns `None`.
+
+    ref: https://stackoverflow.com/questions/56832881/check-if-a-field-is-typing-optional
+    """
     if get_origin(T) is Union:
         args = get_args(T)
         if type(None) in args:
@@ -62,17 +66,17 @@ def as_optional(T: Type) -> Optional[Type]:
     return None
 
 
-""" If `T = List[X]`, return `X`, otherwise return None. """
 
 
 def as_list(T: Type) -> Optional[Type]:
+    """ If `T = List[X]`, return `X`, otherwise return None. """
     if get_origin(T) is list:
         return get_args(T)[0]
     return None
 
 
 class MyJsonEncoder(json.JSONEncoder):
-    """Python → Json"""
+    """Converts Python objects to Json. We have additional support for dataclasses and enums that are not present in the standard encoder."""
 
     # [todo] needs to handle `None` by not setting json field.
     def default(self, o):
@@ -91,16 +95,19 @@ class MyJsonEncoder(json.JSONEncoder):
         raise NotImplementedError(f"Don't know how to encode {type(o)}.")
 
 
-""" Similar to [cattrs.structure](https://cattrs.readthedocs.io/en/latest/structuring.html#what-you-can-structure-and-how)
-But I don't want to take on more dependencies. """
 
 T = TypeVar("T")
-
 
 @classdispatch
 def ofdict(A: Type[T], a: Any) -> T:
     """Converts an `a` to an instance of `A`, calling recursively if necessary.
-    We assume that `a` is a nested type made of dicts, lists and scalars."""
+    We assume that `a` is a nested type made of dicts, lists and scalars.
+
+    The main usecase is to be able to treat dataclasses as a schema for json.
+    Ideally, `ofdict` should be defined such that `ofdict(type(x), json.loads(MyJsonEncoder().dumps(x)))` is deep-equal to `x` for all `x`.
+
+    Similar to [cattrs.structure](https://cattrs.readthedocs.io/en/latest/structuring.html#what-you-can-structure-and-how).
+    """
     if A is Any:
         return a
     X = as_optional(A)
@@ -151,7 +158,8 @@ def _ofdict_enum(A, a):
 
 
 class TypedJsonDecoder(json.JSONDecoder):
-    """Json → Python"""
+    """Given a python type T, this will decode a json object to an instance of `T`, or fail otherwise. It
+    makes use of the `ofdict` function defined above to convert plain json dictionaries to native python types. """
 
     def __init__(self, T: Type):
         self.T = T
