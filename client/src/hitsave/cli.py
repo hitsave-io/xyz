@@ -35,7 +35,7 @@ def serve():
 
 @app.command()
 def login():
-    """Log in or sign up to the Hitsave cloud service.
+    """Log in or sign up to the HitSave cloud service.
 
     This will present a link to you which can be used to register hitsave using your github account."""
     asyncio.run(loopback_login())

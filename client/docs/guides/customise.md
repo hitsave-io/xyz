@@ -6,7 +6,7 @@ contents [todo]:
 - controlling how arguments are hashed on a `@memo`
 - extending pickling.
 
-To work, hitsave needs to have an implementation three transformations with your
+To work, HitSave needs to have an implementation three transformations with your
 data:
 
 - stable hashing
@@ -19,7 +19,7 @@ These can
 
 [todo]
 
-For most python objects, the built-in hitsave hashing function will be good
+For most python objects, the built-in HitSave hashing function will be good
 enough. However there are some cases where you may want to customise how an
 argument is hashed.
 
