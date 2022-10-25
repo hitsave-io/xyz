@@ -80,6 +80,5 @@ jobs:
           python -m pip install -e .
 
       - name: Deploy to GitHub Pages
-        working-directory: client/docs
         id: deployment
         uses: actions/deploy-pages@v1
