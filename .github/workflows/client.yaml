@@ -39,14 +39,14 @@ jobs:
         working-directory: client
         run: |
           black . --check --verbose
-      - name: Test with pytest
-        working-directory: client
-        env:
-          # [todo] need integration tests really.
-          HITSAVE_API_KEY: ${{ secrets.HITSAVE_API_KEY }}
-          HITSAVE_URL: https://api.hitsave.io
-        run: |
-          pytest
+      # - name: Test with pytest
+      #   working-directory: client
+      #   env:
+      #     # [todo] need integration tests really.
+      #     HITSAVE_API_KEY: ${{ secrets.HITSAVE_API_KEY }}
+      #     HITSAVE_URL: https://api.hitsave.io
+      #   run: |
+      #     pytest
       - name: Build documentation
         if: ${{ matrix.python-version == '3.10' }}
         working-directory: client/docs
