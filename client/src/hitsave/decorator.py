@@ -71,6 +71,7 @@ def memo(
 
 
 def memo(func=None, **kwargs):  # type: ignore
+    """Memoise a function on the cloud."""
     if func == None:
         return lambda func: memo(func, **kwargs)
     if callable(func):

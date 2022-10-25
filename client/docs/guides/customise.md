@@ -1,4 +1,21 @@
-# Modifying the behaviour of hashing
+# Modifying the behaviour of HitSave
+
+contents [todo]:
+
+- modifying and extending data-hashing algorithm
+- controlling how arguments are hashed on a `@memo`
+- extending pickling.
+
+To work, hitsave needs to have an implementation three transformations with your
+data:
+
+- stable hashing
+- pickling
+- unpickling
+
+These can
+
+## Modifying the behaviour of hashing
 
 [todo]
 
@@ -13,7 +30,7 @@ argument is hashed.
   `logging.Logger` object. This is only used to control logging and doesn't
   matter for the purposes of producing a value.
 
-# Modifying the behaviour of saving
+## Overriding pickling
 
 HitSave uses a customised version of python pickling.
 
@@ -24,6 +41,4 @@ HitSave uses a customised version of python pickling.
 - Some objects, for example standard datasets, do not need to be saved, because
   they are already present on disk or handled by pytorch's dataset downloader.
 
-## Overriding pickling
-
-[todo]
+[todo] code dependency should also track the pickler used.
