@@ -1,12 +1,12 @@
-.. hitsave documentation master file, created by
+.. HitSave documentation master file, created by
    sphinx-quickstart on Tue Oct 25 09:31:09 2022.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Hitsave: instant cloud caching for your data.
+HitSave: instant cloud caching for your data.
 =============================================
 
-Hitsave lets you track your experiments and data in a code-dependent way.
+HitSave lets you track your experiments and data in a code-dependent way.
 
 Example
 -------
@@ -29,7 +29,7 @@ Contents
 ========
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Guides
 
    introduction
@@ -41,7 +41,13 @@ Contents
    guides/customise
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
+   :caption: Tutorials
+
+   tutorials/balloons
+
+.. toctree::
+   :maxdepth: 1
    :caption: API reference
 
    module/decorators

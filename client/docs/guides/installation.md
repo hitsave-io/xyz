@@ -15,7 +15,7 @@ cd $MY_PROJECTS
 git clone git@github.com:hitsave-io/hitsave.git
 ```
 
-Then, you can install hitsave using pip.
+Then, you can install HitSave using pip.
 
 ```sh
 pip install -e $MY_PROJECTS/hitsave
@@ -23,7 +23,7 @@ pip install -e $MY_PROJECTS/hitsave
 
 ## Creating an API key
 
-You can use hitsave API keys to authorise your computer
+You can use HitSave API keys to authorise your computer
 
 To generate an API key from your terminal, use
 

@@ -1,4 +1,4 @@
-# hitsave
+# HitSave
 
 Holistic caching for python.
 
