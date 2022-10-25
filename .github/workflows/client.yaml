@@ -4,6 +4,7 @@
 name: Client Python Package
 
 on:
+  workflow_dispatch:
   push:
     branches: [ "main" ]
   pull_request:
