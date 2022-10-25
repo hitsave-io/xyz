@@ -1,5 +1,5 @@
-HitSave is a library for saving your data on the cloud in a reproducible and
-hassle-free way.
+HitSave is a cloud service and python library for saving your data on the cloud
+in a reproducible and hassle-free way.
 
 The core object in HitSave is the `@memo` decorator. `@memo` behaves similarly
 to `@functools.lru_cache` with a few key differences:

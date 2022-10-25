@@ -14,3 +14,8 @@ typing_extensions
 aiohttp
 aiofiles
 blake3
+
+# docs
+sphinx
+myst-parser
+sphinx-book-theme

@@ -84,3 +84,4 @@ function where the output is picklable.
 
 - run the tests with `pytest`
 - run the linter with `black .`
+- run the docgen with `cd docs`; `make html`
