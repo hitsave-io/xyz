@@ -35,6 +35,9 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           if [ -f dev_requirements.txt ]; then pip install -r dev_requirements.txt; fi
           python -m pip install -e .
+      - name: Build documentation
+        working-directory: client/docs
+        run: make html
       - name: Lint with black
         working-directory: client
         run: |
