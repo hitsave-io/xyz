@@ -27,5 +27,5 @@ dependencies = [
 hitsave = "hitsave:main_cli"
 
 [project.urls]
-"Homepage" = "https://github.com/edayers/hitsave"
-"Bug Tracker" = "https://github.com/edayers/hitsave/issues"
+"Homepage" = "https://github.com/hitsave-io/hitsave"
+"Bug Tracker" = "https://github.com/hitsave-io/hitsave/issues"

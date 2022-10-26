@@ -3,6 +3,7 @@ import json
 import logging
 import os.path
 from typing import Dict, Optional
+import webbrowser
 from aiohttp import web
 import aiohttp
 from hitsave.config import Config
@@ -112,8 +113,10 @@ async def loopback_login():
     await runner.setup()
     site = web.TCPSite(runner, "localhost", redirect_port)
     await site.start()
-    decorated = decorate_url(href=sign_in_url, text=">> sign in with github <<")
-    eprint("Please follow the link below to log in:", "\n\n", decorated, "\n", sep="")
+    # [todo] https://docs.python.org/3/library/webbrowser.html
+    decorated = decorate_ansi(sign_in_url, fg="blue")
+    eprint("Opening", decorated)
+    webbrowser.open_new(sign_in_url)
 
     result = await fut
     # [todo] are these stopper thingies needed?
