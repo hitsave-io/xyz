@@ -7,15 +7,20 @@ from typing import Any, List, Union
 from hitsave.config import Config
 import os.path
 from blake3 import blake3
+import requests
 import os
 import shutil
 from pathlib import Path, PurePath
 import pathlib
 from stat import S_IREAD, S_IRGRP, S_IROTH
-
+from hitsave.cloudstore import dumps as csdumps
 import logging
 
 logger = logging.getLogger("hitsave")
+
+headers: Any = {
+    "Authorization": Config.current().api_key,
+}
 
 
 @dataclass
@@ -34,6 +39,9 @@ class FileSnapshot:
     time: datetime
     """ Time at which the file was snap-shotted. """
 
+    content_length: int
+    """ Number of bytes of the file. """
+
     @property
     def local_cache_path(self) -> Path:
         """Returns the absolute path of the local cache file."""
@@ -50,7 +58,22 @@ class FileSnapshot:
         if not force and self.has_local_cache:
             # no need to download
             return
-        raise NotImplementedError()
+        r = requests.request(
+            "GET",
+            f"{self.url}/blob/{self.digest}",
+            headers=headers,
+        )
+        r.raise_for_status()
+        # [todo] duplicated code.
+        # [todo] exclusive file lock.
+        with open(self.local_cache_path, "wb") as c:
+                c.write(r.content)
+        # snapshot files are read only.
+        # ref: https://stackoverflow.com/a/28492823/352201
+        os.chmod(
+            self.local_cache_path, S_IREAD | S_IRGRP
+        )  # [todo] what about S_IROTH?
+        return
 
     def open(self, mode="t", **kwargs) -> BufferedReader:
         """Open the snapshot in read mode. (writing to a snapshot is not allowed.)"""
@@ -124,14 +147,18 @@ class FileSnapshot:
         with open(path, "rb") as fd:
             block_size = 2**20
             h = blake3()
+            content_length = 0
             while True:
                 data = fd.read(block_size)
+                content_length += len(data)
                 if not data:
                     break
                 h.update(data)
             digest = h.hexdigest()
             fd.seek(0)
-            snap = FileSnapshot(digest=digest, time=time, relpath=relpath)
+            snap = FileSnapshot(
+                digest=digest, time=time, relpath=relpath, content_length=content_length
+            )
             if not snap.has_local_cache:
                 # [todo] exclusive file lock.
                 with open(snap.local_cache_path, "wb") as c:
@@ -149,6 +176,28 @@ class FileSnapshot:
                 )  # [todo] what about S_IROTH?
             # [todo] if not uploaded, initiate an upload here using /blobs
         return snap
+
+    def upload(self):
+        base_url = Config.current().cloud_url
+        url = f"{base_url}/blob"
+        # [todo] check whether the blob has already been uploaded.
+        # [todo] stream from file.
+        with self.open(mode="b") as f:
+            bs = f.read()
+            r = requests.request(
+                "PUT",
+                url,
+                headers=headers,
+                data=csdumps(
+                    {
+                        "content_hash": self.digest,
+                        "content_length": self.content_length,
+                    },
+                    bs,
+                ),
+            )
+            r.raise_for_status()
+            logger.info(f"Uploaded {self.relpath} {self.content_length} bytes.")
 
 
 @dataclass
@@ -238,3 +287,7 @@ class DirectorySnapshot:
         digest = h.hexdigest()
         snap = cls(relpath=relpath, files=files, digest=digest)
         return snap
+
+    def upload(self):
+        for file in self.files:
+            file.upload()
