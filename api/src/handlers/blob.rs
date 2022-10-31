@@ -1,8 +1,10 @@
+use crate::extractors::with_blob::WithBlob;
 use crate::middlewares::api_auth::Auth;
-use crate::persisters::Query;
+use crate::persisters::blob::BlobInsert;
+use crate::persisters::{Persist, Query};
 use crate::state::AppState;
 use actix_web::{
-    get,
+    error, get, put,
     web::{self, Path},
     Error, HttpResponse,
 };
@@ -23,6 +25,18 @@ async fn get_blob(
     Ok(blob)
 }
 
+#[put("")]
+async fn put_blob(
+    insert: WithBlob<BlobInsert>,
+    auth: Auth,
+    state: AppState,
+) -> Result<String, error::Error> {
+    let res = insert.persist(Some(&auth), &state).await?;
+
+    Ok(res.to_string())
+}
+
 pub fn init(cfg: &mut web::ServiceConfig) {
     cfg.service(get_blob);
+    cfg.service(put_blob);
 }
