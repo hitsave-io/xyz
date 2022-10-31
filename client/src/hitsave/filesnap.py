@@ -261,11 +261,6 @@ class DirectorySnapshot:
         path = Path(path).resolve()
         if workspace_dir is None:
             workspace_dir = Config.current().workspace_dir
-        if not path.is_relative_to(workspace_dir):
-            # [todo]
-            raise NotImplementedError(
-                "Directory snapshots that are not in the project directory are not supported yet."
-            )
         relpath = path.relative_to(workspace_dir)
 
         def rec(p: Path):
