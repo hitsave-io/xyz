@@ -4,6 +4,7 @@ from importlib.machinery import ModuleSpec
 import importlib.util
 import builtins
 import inspect
+from pathlib import Path
 import sys
 from symtable import symtable, Symbol, SymbolTable, Function
 import functools
@@ -11,8 +12,9 @@ import ast
 import pprint
 import os.path
 import logging
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Literal, Optional, Tuple, Union
 from hitsave.graph import DirectedGraph
+from hitsave._version import __version__
 from hitsave.util import cache, decorate_ansi
 
 logger = logging.getLogger("hitsave/codegraph")
@@ -208,37 +210,78 @@ sourcefile → module_name
 
 
 @cache
-def module_version(module_name: str) -> str:
+def module_version(module_name: str) -> Optional[str]:
     m = sys.modules.get(module_name)
-    assert m is not None
+    assert m is not None, module_name
     if hasattr(m, "__version__"):
         v = m.__version__
         assert v is not None
         return v
-    print(f"module has no version!")
-    return "???"
+    return None
+
+
+def is_relative_import(module_name: str) -> bool:
+    return module_name.startswith(".")
+
+
+def head_module(module_name) -> str:
+    if "." in module_name:
+        parts = module_name.split(".")
+        head = parts[0]
+        assert head != "", "relative imports not supported"
+        return head
+    return module_name
+
+
+def _mk_extern_package_from_site_package(module_name: str):
+    v = module_version(module_name)
+    if v is not None:
+        return ExternPackage(name=module_name, version=v)
+    if "." in module_name:
+        head = head_module(module_name)
+        v = module_version(head)
+        if v is not None:
+            return ExternPackage(name=head, version=v)
+    raise ValueError(f"Can't find a module version for {module_name}.")
 
 
 @cache
 def module_as_external_package(module_name: str) -> Optional[ExternPackage]:
+    """Looks at the module name and tries to determine whether the module should be considered as being
+    external for the project.
+
+    An ExternPackage is a leaf of the code dependency DAG, rather than exploring the source of an external package, we instead
+    hash it according to the package version.
+    """
+    if not is_relative_import(module_name) and head_module(module_name) == "hitsave":
+        # special case, hitsave is always an extern package
+        return ExternPackage("hitsave", __version__)
+    m = sys.modules.get(module_name)
     o = get_origin(module_name)
     assert o is not None
     if "site-packages" in o:
-        # [todo] there was a way more canonical way to do this.
-        return ExternPackage(module_name, module_version(module_name))
-    if "lib/python3" in o:
+        # [todo] there should be a canonical way to do this.
+        return _mk_extern_package_from_site_package(module_name)
+    if ("lib/python3" in o) or (o == "built-in"):
         v = sys.version_info
         v = f"{v.major}.{v.minor}"
         return ExternPackage("__builtin__", v)
+    # [todo] another case is packages that have been installed by the user using `pip install -e ...`
+    # the rule should be configurable, but we treat it as an extern package iff
+    # - it has to be a package (module has a __path__ attr)
+    # - it has a __version__ attribute
+    return None
 
 
 @cache
 def get_module_spec(module_name: str) -> ModuleSpec:
     m = sys.modules.get(module_name)
+    spec = None
     if m is not None:
         assert hasattr(m, "__spec__")
         spec = getattr(m, "__spec__")
-    else:
+    if spec is None:
+        # [todo] this can raise a value error if `module_name = '__main__'` and we are degubbing.
         spec = importlib.util.find_spec(module_name)
     assert spec is not None
     return spec
@@ -273,18 +316,18 @@ def module_name_of_file(path: str) -> Optional[str]:
 
 
 def get_origin(module_name: str) -> str:
-    """Returns a string with the modules file location."""
+    """Returns a string with the module's file path as a string.
+
+    If the module is not found, throw an error.
+    If the module is a builtin, returns 'built-in'.
+    """
     m = sys.modules.get(module_name)
-    if m is not None:
-        o = getattr(m, "__file__", None)
-        assert o is not None
-        return o
-    else:
-        s = get_module_spec(module_name)
-        assert s is not None
-        o = s.origin
-        assert o is not None
-        return o
+    f = getattr(m, "__file__", None)
+    if f is not None:
+        return f
+    spec = get_module_spec(module_name)
+    assert hasattr(spec, "origin")
+    return getattr(spec, "origin")
 
 
 @cache
