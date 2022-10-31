@@ -266,3 +266,20 @@ def get_git_root():
         return base.decode().strip()
     except CalledProcessError:
         return None
+
+
+def human_size(bytes: int, units=[" bytes", "KB", "MB", "GB", "TB", "PB", "EB"]):
+    """Returns a human readable string representation of bytes.
+
+    [todo] use humanize library (so you can localise too)
+    """
+    if bytes == 1:
+        return "1 byte"
+    if bytes < (2**10):
+        return str(bytes) + units[0]
+    ll = math.log2(bytes)
+    i = int(ll // 10)
+    if i >= len(units):
+        return "2^" + str(math.ceil(math.log2(bytes))) + " bytes"
+    f = bytes / (2 ** (i * 10))
+    return f"{f:.1f}{units[i]}"
