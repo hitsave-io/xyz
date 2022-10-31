@@ -60,40 +60,43 @@ def find_cache_directory():
     """Returns the user-caching directory for the system. Trying to do it as canonically as possible."""
     if sys.platform == "darwin":
         # running macos https://apple.stackexchange.com/questions/316729/what-is-the-equivalent-of-cache-on-macos
-        p = "~/Library/Caches"
+        p = Path("~/Library/Caches")
     elif sys.platform == "linux":
         # https://wiki.archlinux.org/title/XDG_Base_Directory#User_directories
-        p = os.environ.get("XDG_CACHE_HOME", "~/.config")
+        p = Path(os.environ.get("XDG_CACHE_HOME", "~/.config"))
     else:
         # [todo] windows
         logger.debug(f"Unknown platform {sys.platform}, defaulting to tmpdir.")
-        p = tempfile.gettempdir()
-    p = os.path.expanduser(p)
-    p = os.path.join(p, "hitsave-io")
+        p = Path(tempfile.gettempdir())
+    p = p.expanduser().resolve() / "hitsave"
+    p.mkdir(exist_ok=True)
+    (p / "blobs").mkdir(exist_ok=True)
+    assert p.exists()
     return p
 
 
 T = TypeVar("T")
 
 
-def interpret_var_str(type: Type[T], value: str) -> T:
+def interpret_var_str(t: Type[T], value: str) -> T:
+    """Given a string attained from an environment variable, make a best-effort attempt to parse it to an instance of the given type."""
     # [todo] this must be in argparse or something
-    if type == str:
+    if t == str:
         return value  # type: ignore
-    if type == int:
+    if t == int:
         return int(value)  # type: ignore
-    if type == bool:
+    if t == bool:
         return value not in ["False", "false", "0", "no"]  # type: ignore
-    if type == Path:
+    if t == Path:
         return Path(value)  # type: ignore
-    X = as_optional(type)
+    X = as_optional(t)
     if X is not None:
         if value in ["None", "null", "undefined"]:
             return None  # type: ignore
         else:
             return interpret_var_str(X, value)
 
-    raise NotImplementedError(f"Don't know how to interpret {type}")
+    raise NotImplementedError(f"Don't know how to interpret {t}")
 
 
 @dataclass
@@ -108,14 +111,14 @@ class Config:
     - merge with hitsave.toml files. `~/.config/hitsave.toml`, `$PROJECT/hitsave.toml` etc.
     """
 
-    local_cache_dir: str
+    local_cache_dir: Path
     """ This is the directory where hitsave should store local caches of data. """
     cloud_url: str
     """ URL for hitsave cloud API server.   """
     api_key: Optional[str]
     """ API key for hitsave cloud. """
 
-    workspace_dir: str
+    workspace_dir: Path
     """ Directory for the current project, should be the same as workspace_folder in vscode. It defaults to the nearest
     parent folder containing pyproject.toml or git root. """
 
@@ -144,7 +147,7 @@ class Config:
             local_cache_dir=find_cache_directory(),
             cloud_url="https://api.hitsave.io",
             api_key=None,
-            workspace_dir=str(find_workspace_folder()),
+            workspace_dir=find_workspace_folder(),
         )
 
     @classmethod
