@@ -6,7 +6,10 @@ use crate::persisters::{Persist, Query};
 use crate::state::State;
 use actix_web::web;
 use sqlx::{
-    types::{JsonValue, Uuid},
+    types::{
+        chrono::{DateTime, Utc},
+        JsonValue, Uuid,
+    },
     Error,
 };
 
@@ -25,6 +28,8 @@ pub struct EvalInsert {
     pub content_hash: String,
     pub content_length: i64,
     pub is_experiment: bool,
+    pub start_time: DateTime<Utc>,
+    pub elapsed_process_time: i64,
 }
 
 struct EvalInsertResult {
@@ -51,7 +56,7 @@ impl Persist for EvalInsert {
 
     async fn persist(self, auth: Option<&Auth>, state: &State) -> Result<Self::Ret, Self::Error> {
         let auth = auth.ok_or(EvalError::Unauthorized)?;
-
+        println!("{:?}", &self);
         // Use a transaction as we have to modify two tables.
         let mut tx = state.db_conn.begin().await?;
 
@@ -86,6 +91,7 @@ impl Persist for EvalInsert {
         // already existed and caused a conflict. But we don't get conflicts right now because
         // there is now unique constraint enforced across the three critical rows (fn_key, fn_hash,
         // args_hash).
+        // TODO: but what if you attempt an upsert which changes the value of `is_experiment`?!?
         let eval_res = query_as!(
             EvalInsertResult,
             r#"
@@ -139,7 +145,7 @@ impl Query for web::Query<Params> {
         let res = query_as!(
             Eval,
             r#"
-            SELECT fn_key, fn_hash, args, args_hash, content_hash, is_experiment 
+            SELECT fn_key, fn_hash, args, args_hash, content_hash, is_experiment, start_time, elapsed_process_time 
             FROM evals e 
             JOIN blobs b
                 ON b.id = e.blob_id
