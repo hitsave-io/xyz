@@ -17,9 +17,9 @@ logger = logging.getLogger("hitsave")
 
 def dumps(meta: dict, blob: bytes):
     """Hitsave eval upload blob upload encoding:"""
-    meta_json = json.dumps(meta)
+    meta_json = json.dumps(meta).encode("utf-8")
     json_len = len(meta_json).to_bytes(4, byteorder="big")
-    return json_len + meta_json.encode("utf-8") + blob
+    return json_len + meta_json + blob
 
 
 @dataclass
