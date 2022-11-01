@@ -16,6 +16,7 @@ from hitsave.authenticate import (
     loopback_login,
 )
 from hitsave.config import Config
+from hitsave.localstore import LocalStore
 from hitsave.util import decorate_ansi, decorate_url, eprint, is_interactive_terminal
 
 app = typer.Typer()
@@ -123,6 +124,20 @@ def keygen(label: Optional[str] = None):
     """
     asyncio.run(keygen_async())
 
+
+@app.command()
+def clear_local():
+    """Deletes the local eval store (not cached blobs)."""
+    local_store = LocalStore()
+    eprint(f"Deleting {len(local_store)} entries at {local_store.cache_path}")
+    local_store.clear()
+
+
+"""
+[todo] clear cloud cache
+[todo] snapshot a directory, upload it and return the digest.
+[todo] snapshot a file
+ """
 
 if __name__ == "__main__":
     app()

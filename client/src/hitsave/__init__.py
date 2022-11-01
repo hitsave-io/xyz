@@ -4,14 +4,21 @@ import sys
 from .deephash import deephash
 from .deepeq import deepeq
 from .deep import reduce, reconstruct, traverse
-from .decorator import memo
+from .decorator import memo, experiment
 from .util import decorate_ansi, eprint, is_interactive_terminal
 from .cli import app as main_cli
 from .config import Config
 from ._version import __version__
 from .filesnap import FileSnapshot, DirectorySnapshot
 
-__all__ = ["memo", "main_cli", "FileSnapshot", "DirectorySnapshot", "__version__"]
+__all__ = [
+    "memo",
+    "main_cli",
+    "FileSnapshot",
+    "DirectorySnapshot",
+    "__version__",
+    "experiment",
+]
 
 try:
     import hitsave.torch

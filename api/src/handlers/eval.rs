@@ -26,6 +26,7 @@ pub struct Params {
     pub fn_key: Option<String>,
     pub fn_hash: Option<String>,
     pub args_hash: Option<String>,
+    pub poll: Option<bool>,
 }
 
 #[get("")]
