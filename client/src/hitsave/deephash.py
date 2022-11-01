@@ -1,4 +1,4 @@
-from typing import Iterable, Union
+from typing import Iterable, Set, Type, Union
 from blake3 import blake3
 from functools import singledispatch, lru_cache
 from dataclasses import is_dataclass, fields
@@ -7,6 +7,7 @@ from hitsave.codegraph import CodeGraph, CodeVertex, ExternPackage, Vertex
 from hitsave.deep import reduce
 from hitsave.util import cache
 import inspect
+import warnings
 
 
 @singledispatch
@@ -54,6 +55,7 @@ def _none_to_bytes(x):
 # [todo] consider having it be recursive and cached instead.
 # [todo] protection against cyclic datastructures? introduces overhead.
 # [todo] consider having values also be cached by looking at the dependencies of their expression.
+# [todo] rename 'digest'
 
 
 def run_deephash(item, hasher):
@@ -75,7 +77,11 @@ def run_deephash(item, hasher):
         else:
             # [todo] here, if it's a function we call fn_hash.
             # some issues with cycles etc. need to rearchitect this.
-            raise NotImplementedError(f"Don't know how to hash {type(item)}.")
+            warnings.warn(
+                f"Don't know how to hash {type(item).__name__}, skipping. To suppress this warning [todo]",
+                UserWarning,
+            )
+            # raise NotImplementedError(f"Don't know how to hash {type(item)}.")
     hasher.update(b")")
 
 
@@ -96,6 +102,8 @@ def local_hash_Vertex(v: Vertex):
             return fn_local_hash(o)
         elif hasattr(o, "__wrapped__") and inspect.isfunction(o.__wrapped__):
             return fn_local_hash(o.__wrapped__)
+        elif inspect.isclass(o):
+            return fn_local_hash(o)
         else:
             return deephash(o)
     else:
