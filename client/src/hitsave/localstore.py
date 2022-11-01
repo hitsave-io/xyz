@@ -3,6 +3,9 @@ from hitsave.types import Eval, EvalKey, EvalStore, StoreMiss
 from hitsave.config import Config
 from diskcache import Cache
 import os.path
+import logging
+
+logger = logging.getLogger("hitsave")
 
 
 class LocalStore(EvalStore):
@@ -11,6 +14,10 @@ class LocalStore(EvalStore):
     def __init__(self, store_dir=Config.current().local_cache_dir):
         cache_path = os.path.join(store_dir, "evalstore.diskcache")
         self._store = Cache(cache_path)
+
+    @property
+    def cache_path(self):
+        return self._store.directory
 
     def close(self):
         self._store.close()
@@ -33,3 +40,6 @@ class LocalStore(EvalStore):
 
     def clear(self):
         self._store.clear()
+
+    def __len__(self):
+        return len(self._store)  # type: ignore
