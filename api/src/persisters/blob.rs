@@ -1,4 +1,4 @@
-use crate::handlers::blob::BlobParams;
+use crate::handlers::blob::{BlobParams, BlobParamsHead};
 use crate::middlewares::api_auth::Auth;
 use crate::persisters::s3store::BlobMetadata;
 use crate::persisters::{s3store::StoreError, Persist, Query};
@@ -104,8 +104,42 @@ impl Query for Path<BlobParams> {
     }
 }
 
+#[async_trait]
+impl Query for Path<BlobParamsHead> {
+    type Resolve = ();
+    type Error = BlobError;
+
+    async fn fetch(self, auth: Option<&Auth>, state: &State) -> Result<Self::Resolve, Self::Error> {
+        let auth = auth.ok_or(BlobError::Unauthorized)?;
+        let content_hash = self.into_inner().content_hash;
+
+        // 1. Check the hash is valid.
+        let _hash = Hash::from_hex(&content_hash)?;
+
+        // 2. Check postgres to make sure they are authed.
+        let res = query!(
+            r#"
+                SELECT count(id) FROM blobs
+                WHERE   content_hash = $1
+                    AND user_id = user_from_key($2)
+           "#,
+            content_hash,
+            auth.key
+        )
+        .fetch_one(&state.db_conn)
+        .await?;
+
+        if res.count != Some(1) {
+            return Err(BlobError::NotFound);
+        }
+
+        Ok(())
+    }
+}
+
 pub enum BlobError {
     Unauthorized,
+    NotFound,
     InvalidHash,
     StoreError,
     Sqlx(sqlx::Error),
@@ -129,6 +163,7 @@ impl From<BlobError> for StoreError {
         match e {
             BlobError::Unauthorized => StoreError::Unauthorized,
             BlobError::InvalidHash => StoreError::InvalidHash,
+            BlobError::NotFound => StoreError::NotFound,
             // ...especially this!
             BlobError::StoreError => StoreError::Unauthorized,
             BlobError::Sqlx(e) => StoreError::Sqlx(e),
@@ -147,6 +182,7 @@ impl From<BlobError> for Error {
         match e {
             BlobError::Unauthorized => error::ErrorUnauthorized("unauthorized access"),
             BlobError::InvalidHash => error::ErrorBadRequest("invalid hash"),
+            BlobError::NotFound => error::ErrorNotFound("resource not found"),
             BlobError::StoreError => error::ErrorInternalServerError("could not retrieve blob"),
             BlobError::Sqlx(_) => error::ErrorInternalServerError("could not retrieve blob"),
         }
