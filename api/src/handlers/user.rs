@@ -1,10 +1,12 @@
 use crate::handlers::login::{login_handler, LoginError};
+use crate::middlewares::jwt_auth::Auth;
+use crate::models::user::User;
 use crate::persisters::{
-    user::{UserUpsert, UserUpsertError},
-    Persist,
+    user::{UserGet, UserGetError, UserUpsert, UserUpsertError},
+    Persist, Query,
 };
 use crate::state::AppState;
-use actix_web::{error, post, put, web, Error, Result};
+use actix_web::{error, get, post, put, web, Error, Result};
 
 impl From<UserUpsertError> for Error {
     fn from(e: UserUpsertError) -> Self {
@@ -75,6 +77,27 @@ impl From<LoginError> for Error {
     }
 }
 
+impl From<UserGetError> for Error {
+    fn from(e: UserGetError) -> Self {
+        match e {
+            UserGetError::Sqlx(e) => {
+                log::error!("error retrieving user from database: {:?}", e);
+                error::ErrorInternalServerError("unable to retrieve user")
+            }
+        }
+    }
+}
+
+#[get("")]
+async fn get(auth: Auth, state: AppState) -> Result<web::Json<User>> {
+    let get_user = UserGet {
+        id: auth.claims.sub,
+    };
+
+    let user = get_user.fetch(None, &state).await?;
+    Ok(web::Json(user))
+}
+
 #[post("/login")]
 async fn login(form: web::Query<Login>, state: AppState) -> Result<String> {
     // this is the step 4 endpoint. it needs to break out into login handler code, and
@@ -97,5 +120,6 @@ async fn put(form: web::Json<UserUpsert>, state: AppState) -> Result<web::Json<s
 
 pub fn init(cfg: &mut web::ServiceConfig) {
     cfg.service(put);
+    cfg.service(get);
     cfg.service(login);
 }

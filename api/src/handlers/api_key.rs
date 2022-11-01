@@ -1,4 +1,4 @@
-use crate::middlewares::jwt_auth::AuthorizationService;
+use crate::middlewares::jwt_auth::Auth;
 use crate::models::api_key::{ApiKey, ApiKeyError};
 use crate::persisters::{api_key::KeyInsert, Persist};
 use crate::state::AppState;
@@ -25,7 +25,7 @@ pub struct GenRequest {
 async fn generate_new_api_key(
     form: web::Query<GenRequest>,
     state: AppState,
-    auth: AuthorizationService,
+    auth: Auth,
 ) -> Result<String> {
     let gen_req = form.into_inner();
     let api_key = ApiKey::random();
