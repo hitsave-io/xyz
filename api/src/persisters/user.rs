@@ -1,5 +1,6 @@
 use crate::middlewares::api_auth::Auth;
-use crate::persisters::Persist;
+use crate::models::user::User;
+use crate::persisters::{Persist, Query};
 use crate::state::State;
 
 use sqlx::{types::Uuid, Error};
@@ -23,6 +24,46 @@ pub struct UserUpsert {
     pub gh_token: String,
     pub gh_avatar_url: String,
     pub email_verified: bool,
+}
+
+pub struct UserGet {
+    pub id: Uuid,
+}
+
+pub enum UserGetError {
+    Sqlx(sqlx::Error),
+}
+
+impl From<sqlx::Error> for UserGetError {
+    fn from(e: sqlx::Error) -> Self {
+        Self::Sqlx(e)
+    }
+}
+
+#[async_trait]
+impl Query for UserGet {
+    type Resolve = User;
+    type Error = UserGetError;
+
+    async fn fetch(
+        self,
+        _auth: Option<&Auth>,
+        state: &State,
+    ) -> Result<Self::Resolve, Self::Error> {
+        let res = query_as!(
+            User,
+            r#"
+            SELECT id, gh_id, gh_email, gh_login, gh_token, gh_avatar_url, email_verified 
+            FROM users
+            WHERE id = $1
+            "#,
+            &self.id,
+        )
+        .fetch_one(&state.db_conn)
+        .await?;
+
+        Ok(res)
+    }
 }
 
 #[async_trait]
