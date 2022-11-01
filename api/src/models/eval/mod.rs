@@ -14,6 +14,7 @@ pub struct Eval {
     pub is_experiment: bool,
     pub start_time: chrono::DateTime<chrono::Utc>,
     pub elapsed_process_time: i64,
+    pub accesses: i64,
 }
 
 #[derive(Debug)]
