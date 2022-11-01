@@ -53,6 +53,7 @@ class SavedFunction(Generic[P, R]):
                 args=dict(ba.arguments),
                 start_time=start_time,
                 elapsed_process_time=end_process_time - start_process_time,
+                is_experiment = self.is_experiment,
             )
             session.store.set(e)
             logger.info(f"Saved value for {fn_key.pp()}.")
