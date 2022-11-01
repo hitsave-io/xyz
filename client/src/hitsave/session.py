@@ -33,7 +33,7 @@ class Session:
             stores.append(LocalStore())
         if len(stores) == 0:
             logger.warn("No stores for evaluations.")
-        self.store = ComposeStore([LocalStore(), CloudStore()])
+        self.store = ComposeStore(stores)
         self.codegraph = CodeGraph()
         self.id = uuid.uuid4()
 

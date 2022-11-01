@@ -52,6 +52,7 @@ class SavedFunction(Generic[P, R]):
                 elapsed_process_time=end_process_time - start_process_time,
             )
             session.store.set(e)
+            logger.info(f"Saved value for {fn_key.pp()}.")
             return result
         else:
             logger.info(f"Found cached value for {fn_key.pp()}")

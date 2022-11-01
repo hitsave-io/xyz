@@ -26,6 +26,7 @@ pub enum StoreError {
     InvalidHash,
     MissingPayload,
     Unauthorized,
+    NotFound,
     S3(SdkError<PutObjectError>),
     WithBlob(WithBlobError),
     Sqlx(sqlx::error::Error),
@@ -47,6 +48,7 @@ impl std::fmt::Display for StoreError {
             StoreError::InvalidHash => writeln!(f, "Invalid hash"),
             StoreError::MissingPayload => writeln!(f, "Missing payload"),
             StoreError::Unauthorized => writeln!(f, "Unauthorized"),
+            StoreError::NotFound => writeln!(f, "Not found"),
             StoreError::S3(_) => writeln!(f, "Error storing BLOB"),
             StoreError::WithBlob(_) => writeln!(f, "Error decoding BLOB transfer protocol"),
             StoreError::Sqlx(_) => writeln!(f, "Error storing BLOB metadata"),
@@ -77,6 +79,7 @@ impl From<StoreError> for actix_web::Error {
             StoreError::InvalidHash => error::ErrorBadRequest("invalid hash"),
             StoreError::MissingPayload => error::ErrorBadRequest("missing payload"),
             StoreError::Unauthorized => error::ErrorUnauthorized("unauthorized"),
+            StoreError::NotFound => error::ErrorNotFound("resource not found"),
             StoreError::WithBlob(e) => {
                 log::error!("error extracting BLOB from request: {:?}", e);
                 error::ErrorBadRequest("invalid encoding")
