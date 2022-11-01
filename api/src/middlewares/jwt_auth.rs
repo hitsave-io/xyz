@@ -7,7 +7,7 @@ use crate::handlers::login::Claims;
 use crate::CONFIG;
 
 #[derive(Debug)]
-pub struct AuthorizationService {
+pub struct Auth {
     pub claims: Claims,
 }
 
@@ -26,17 +26,17 @@ impl From<AuthError> for actix_web::Error {
             }
             AuthError::InvalidToken(e) => {
                 log::error!("unauthorized request; invalid JWT: {:?}", e);
-                error::ErrorUnauthorized("no Authorization header included in request")
+                error::ErrorUnauthorized("unauthorized; invalid JWT")
             }
         }
     }
 }
 
-impl AuthorizationService {}
+impl Auth {}
 
-impl FromRequest for AuthorizationService {
+impl FromRequest for Auth {
     type Error = AuthError;
-    type Future = Ready<Result<AuthorizationService, Self::Error>>;
+    type Future = Ready<Result<Auth, Self::Error>>;
 
     fn from_request(req: &HttpRequest, _payload: &mut dev::Payload) -> Self::Future {
         let token = req
@@ -59,12 +59,12 @@ impl FromRequest for AuthorizationService {
                     &DecodingKey::from_secret(key),
                     &Validation::new(Algorithm::HS256),
                 ) {
-                    Ok(token_data) => ok::<AuthorizationService, AuthError>(AuthorizationService {
+                    Ok(token_data) => ok::<Auth, AuthError>(Auth {
                         claims: token_data.claims,
                     }),
                     Err(e) => {
                         log::error!("invalid JWT: {:?}", e);
-                        err::<AuthorizationService, AuthError>(AuthError::InvalidToken(e))
+                        err::<Auth, AuthError>(AuthError::InvalidToken(e))
                     }
                 }
             }
