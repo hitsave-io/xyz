@@ -180,6 +180,7 @@ def validate(t: Type, item) -> bool:
     X = as_list(t)
     if X is not None:
         assert isinstance(item, list)
+
         return all([validate(X, x) for x in item])
 
     if isinstance(item, t):
