@@ -180,11 +180,16 @@ def validate(t: Type, item) -> bool:
     X = as_list(t)
     if X is not None:
         assert isinstance(item, list)
-        return all([validate(X,x) for x in item])
+        return all([validate(X, x) for x in item])
 
     if isinstance(item, t):
         if is_dataclass(item):
-            return all([validate(field.type, getattr(item, field.name)) for field in fields(item)])
+            return all(
+                [
+                    validate(field.type, getattr(item, field.name))
+                    for field in fields(item)
+                ]
+            )
         return True
     raise NotImplementedError(f"Don't know how to validate {t}")
 
