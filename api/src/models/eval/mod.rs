@@ -11,6 +11,7 @@ pub struct Eval {
     pub args: Option<JsonValue>,
     pub args_hash: String,
     pub content_hash: String,
+    pub is_experiment: bool,
 }
 
 #[derive(Debug)]

@@ -24,6 +24,7 @@ pub struct EvalInsert {
     pub args_hash: String,
     pub content_hash: String,
     pub content_length: i64,
+    pub is_experiment: bool,
 }
 
 struct EvalInsertResult {
@@ -91,13 +92,13 @@ impl Persist for EvalInsert {
             WITH s AS (
                 SELECT id
                 FROM evals
-                WHERE user_id = user_from_key($6)
+                WHERE user_id = user_from_key($7)
                 AND fn_key = $1
                 AND fn_hash = $2
                 AND args_hash = $4
             ), i AS (
-                INSERT INTO evals (fn_key, fn_hash, args, args_hash, blob_id, user_id) 
-                VALUES ($1, $2, $3, $4, $5, user_from_key($6))
+                INSERT INTO evals (fn_key, fn_hash, args, args_hash, is_experiment, blob_id, user_id) 
+                VALUES ($1, $2, $3, $4, $5, $6, user_from_key($7))
                 ON CONFLICT DO NOTHING
                 RETURNING id
             )
@@ -110,6 +111,7 @@ impl Persist for EvalInsert {
             self.fn_hash,
             self.args,
             self.args_hash,
+            self.is_experiment,
             blob_res.id.expect("huh"),
             auth.key
         )
@@ -137,7 +139,7 @@ impl Query for web::Query<Params> {
         let res = query_as!(
             Eval,
             r#"
-            SELECT fn_key, fn_hash, args, args_hash, content_hash 
+            SELECT fn_key, fn_hash, args, args_hash, content_hash, is_experiment 
             FROM evals e 
             JOIN blobs b
                 ON b.id = e.blob_id
