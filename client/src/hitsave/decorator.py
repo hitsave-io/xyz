@@ -27,6 +27,9 @@ class SavedFunction(Generic[P, R]):
 
     func: Callable[P, R]
 
+    is_experiment: bool = field(default=False)
+    """ An experiment is a variant of a SavedFunction which will not be deleted by the cache cleaning code. """
+
     local_only: bool = field(default=False)  # [todo] not used yet
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
@@ -81,3 +84,22 @@ def memo(func=None, **kwargs):  # type: ignore
     raise TypeError(
         f"@{memo.__name__} requires that the given saved object {func} is callable."
     )
+
+
+@overload
+def experiment(func: Callable[P, R]) -> SavedFunction[P, R]:
+    ...
+
+
+@overload
+def experiment() -> Callable[[Callable[P, R]], SavedFunction[P, R]]:
+    ...
+
+
+def experiment(func=None, **kwargs):  # type: ignore
+    """Define an experiment that saves to the cloud.
+
+    `@experiment` behaves the same as `@memo`, the difference is that experiments are never deleted
+    from the server. Also, by default experiments track the creation of artefacts such as logs and runs.
+    """
+    return memo(func=func, is_experiment=True, **kwargs)  # type: ignore

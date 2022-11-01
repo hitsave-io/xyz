@@ -85,6 +85,7 @@ class CloudStore:
                 ),
                 args=result["args"],
                 result=content,
+                is_experiment=result.get("is_experiment", False),
             )
             return e
         return StoreMiss("No results.")
@@ -102,6 +103,7 @@ class CloudStore:
                 args=e.args,
                 content_hash=content_hash,
                 content_length=content_length,
+                is_experiment=e.is_experiment,
             ),
             pickled,
         )

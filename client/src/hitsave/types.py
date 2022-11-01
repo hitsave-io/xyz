@@ -65,6 +65,9 @@ class Eval(Generic[R]):
     elapsed_process_time: Optional[int] = field(default=None)
     """ process time elapsed in nanoseconds.  """
 
+    is_experiment: bool = field(default=False)
+    """ True when the saved function is an experiment (as opposed to a memo). Experiments should never be deleted by cache cleaners. """
+
 
 @dataclass
 class StoreMiss:
