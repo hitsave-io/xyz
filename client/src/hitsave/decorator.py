@@ -11,7 +11,7 @@ from functools import update_wrapper
 from hitsave.session import Session
 from hitsave.types import Eval, EvalKey, StoreMiss
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 import time
 from typing_extensions import ParamSpec  # needed for ≤3.9
 
@@ -43,7 +43,7 @@ class SavedFunction(Generic[P, R]):
         r = session.store.get(key)
         if isinstance(r, StoreMiss):
             logger.info(f"No stored value for {fn_key.pp()}: {r.reason}")
-            start_time = datetime.utcnow()
+            start_time = datetime.now(timezone.utc)
             start_process_time = time.process_time_ns()
             result = self.func(*args, **kwargs)
             end_process_time = time.process_time_ns()
