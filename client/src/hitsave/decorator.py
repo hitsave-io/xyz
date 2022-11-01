@@ -43,7 +43,7 @@ class SavedFunction(Generic[P, R]):
         r = session.store.get(key)
         if isinstance(r, StoreMiss):
             logger.info(f"No stored value for {fn_key.pp()}: {r.reason}")
-            start_time = datetime.now()
+            start_time = datetime.utcnow()
             start_process_time = time.process_time_ns()
             result = self.func(*args, **kwargs)
             end_process_time = time.process_time_ns()
@@ -53,7 +53,7 @@ class SavedFunction(Generic[P, R]):
                 args=dict(ba.arguments),
                 start_time=start_time,
                 elapsed_process_time=end_process_time - start_process_time,
-                is_experiment = self.is_experiment,
+                is_experiment=self.is_experiment,
             )
             session.store.set(e)
             logger.info(f"Saved value for {fn_key.pp()}.")
