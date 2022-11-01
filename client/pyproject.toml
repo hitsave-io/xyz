@@ -21,6 +21,7 @@ dependencies = [
   "requests ~= 2.28",
   "typing_extensions",
   "aiofiles",
+  "python-dateutil",
 ]
 
 [project.scripts]

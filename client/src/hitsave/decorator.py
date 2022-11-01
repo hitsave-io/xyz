@@ -11,7 +11,7 @@ from functools import update_wrapper
 from hitsave.session import Session
 from hitsave.types import Eval, EvalKey, StoreMiss
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 import time
 from typing_extensions import ParamSpec  # needed for ≤3.9
 
@@ -27,6 +27,9 @@ class SavedFunction(Generic[P, R]):
 
     func: Callable[P, R]
 
+    is_experiment: bool = field(default=False)
+    """ An experiment is a variant of a SavedFunction which will not be deleted by the cache cleaning code. """
+
     local_only: bool = field(default=False)  # [todo] not used yet
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
@@ -40,7 +43,7 @@ class SavedFunction(Generic[P, R]):
         r = session.store.get(key)
         if isinstance(r, StoreMiss):
             logger.info(f"No stored value for {fn_key.pp()}: {r.reason}")
-            start_time = datetime.now()
+            start_time = datetime.now(timezone.utc)
             start_process_time = time.process_time_ns()
             result = self.func(*args, **kwargs)
             end_process_time = time.process_time_ns()
@@ -50,6 +53,7 @@ class SavedFunction(Generic[P, R]):
                 args=dict(ba.arguments),
                 start_time=start_time,
                 elapsed_process_time=end_process_time - start_process_time,
+                is_experiment=self.is_experiment,
             )
             session.store.set(e)
             logger.info(f"Saved value for {fn_key.pp()}.")
@@ -81,3 +85,22 @@ def memo(func=None, **kwargs):  # type: ignore
     raise TypeError(
         f"@{memo.__name__} requires that the given saved object {func} is callable."
     )
+
+
+@overload
+def experiment(func: Callable[P, R]) -> SavedFunction[P, R]:
+    ...
+
+
+@overload
+def experiment() -> Callable[[Callable[P, R]], SavedFunction[P, R]]:
+    ...
+
+
+def experiment(func=None, **kwargs):  # type: ignore
+    """Define an experiment that saves to the cloud.
+
+    `@experiment` behaves the same as `@memo`, the difference is that experiments are never deleted
+    from the server. Also, by default experiments track the creation of artefacts such as logs and runs.
+    """
+    return memo(func=func, is_experiment=True, **kwargs)  # type: ignore

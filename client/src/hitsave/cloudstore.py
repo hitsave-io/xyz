@@ -1,4 +1,5 @@
 from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from typing import Optional, Union
 from hitsave.codegraph import CodeVertex
 from hitsave.types import EvalKey, Eval, StoreMiss
@@ -9,15 +10,16 @@ import json
 from blake3 import blake3
 from hitsave.config import Config
 import pickle
+import dateutil.parser
 
 logger = logging.getLogger("hitsave")
 
 
 def dumps(meta: dict, blob: bytes):
     """Hitsave eval upload blob upload encoding:"""
-    meta_json = json.dumps(meta)
+    meta_json = json.dumps(meta).encode("utf-8")
     json_len = len(meta_json).to_bytes(4, byteorder="big")
-    return json_len + meta_json.encode("utf-8") + blob
+    return json_len + meta_json + blob
 
 
 @dataclass
@@ -34,24 +36,32 @@ class CloudStore:
     def close(self):
         pass
 
-    def get(self, key: EvalKey) -> Union[Eval, StoreMiss]:
-        ks = str(key)
+    def request(self, key: EvalKey, method: str = "GET") -> requests.Response:
         q = dict(
             fn_key=str(key.fn_key),
             fn_hash=key.fn_hash,
             args_hash=key.args_hash,
+            # if poll is true, we increment a counter in the HitSave database. We use this to show you metrics about time saved etc.
+            poll="true",
         )
+        assert self.api_key is not None
         headers = {
             "Authorization": self.api_key,
         }
+        r = requests.request(
+            method,
+            f"{self.url}/eval",
+            params=q,
+            headers=headers,
+        )
+        return r
+
+    def poll(self, key: EvalKey) -> None:
+        self.request(key)
+
+    def get(self, key: EvalKey) -> Union[Eval, StoreMiss]:
         try:
-            assert self.api_key is not None
-            r = requests.request(
-                "GET",
-                f"{self.url}/eval",
-                params=q,
-                headers=headers,
-            )
+            r = self.request(key)
             if r.status_code == 404:
                 return StoreMiss("Not found.")
             if r.status_code == 403:
@@ -72,7 +82,9 @@ class CloudStore:
             r = requests.request(
                 "GET",
                 f"{self.url}/blob/{content_hash}",
-                headers=headers,
+                headers={
+                    "Authorization": self.api_key,
+                },
             )
             r.raise_for_status()
             bs = r.content
@@ -85,6 +97,9 @@ class CloudStore:
                 ),
                 args=result["args"],
                 result=content,
+                is_experiment=result.get("is_experiment", False),
+                start_time=dateutil.parser.isoparse(result["start_time"]),
+                elapsed_process_time=result["elapsed_process_time"],
             )
             return e
         return StoreMiss("No results.")
@@ -102,6 +117,9 @@ class CloudStore:
                 args=e.args,
                 content_hash=content_hash,
                 content_length=content_length,
+                is_experiment=e.is_experiment,
+                start_time=e.start_time.isoformat(),
+                elapsed_process_time=e.elapsed_process_time,
             ),
             pickled,
         )

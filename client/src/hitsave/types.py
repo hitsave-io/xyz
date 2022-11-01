@@ -58,12 +58,13 @@ class Eval(Generic[R]):
 
     key: EvalKey
     result: R
-    args: Optional[Dict[str, Any]] = field(default=None)
-    start_time: Optional[datetime] = field(default=None)
+    start_time: datetime
     """ time when the evaluation started  """
-
-    elapsed_process_time: Optional[int] = field(default=None)
+    elapsed_process_time: int
     """ process time elapsed in nanoseconds.  """
+    is_experiment: bool
+    """ True when the saved function is an experiment (as opposed to a memo). Experiments should never be deleted by cache cleaners. """
+    args: Optional[Dict[str, Any]] = field(default=None)
 
 
 @dataclass
