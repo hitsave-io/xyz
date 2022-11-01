@@ -1,4 +1,5 @@
 from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from typing import Optional, Union
 from hitsave.codegraph import CodeVertex
 from hitsave.types import EvalKey, Eval, StoreMiss
@@ -86,7 +87,7 @@ class CloudStore:
                 args=result["args"],
                 result=content,
                 is_experiment=result.get("is_experiment", False),
-                start_time=date.fromisoformat(result["start_time"]),
+                start_time=datetime.fromisoformat(result["start_time"]),
                 elapsed_process_time=result["elapsed_process_time"],
             )
             return e
