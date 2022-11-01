@@ -54,6 +54,9 @@ pub struct BlobPayload {
     payload: Payload,
 }
 
+// TODO: this is RIDDLED. We have fixed a serious synchronization problem by just setting the
+// number of workers on the HTTP server to 1 (i.e. making it single-threaded).
+// Waiting on proper fix: see https://github.com/awslabs/aws-sdk-rust/discussions/458#discussioncomment-4022492
 unsafe impl Send for BlobPayload {}
 unsafe impl Sync for BlobPayload {}
 
@@ -84,16 +87,16 @@ impl Stream for BlobPayload {
     }
 }
 
-/// This future is responsible for accumulating the first 8 bytes of the payload, which are to be
+/// This future is responsible for accumulating the first 4 bytes of the payload, which are to be
 /// interpreted as the length, in bytes, of the metadata block following.
 pub struct BTExtractMetadataFut<M> {
     /// The `Payload` we are reading from actix.
     payload: Payload,
     /// The buffer we use to accumulate the size of the metadata JSON string in bytes. This is the
-    /// first 8 bytes of the payload.
+    /// first 4 bytes of the payload.
     size_buf: bytes::BytesMut,
     /// The size, in bytes, of the metadata. Before we have determined this value by reading the
-    /// first 8 bytes of the `Payload`, this is `None`. We can rely on the `Some` vs. `None` of
+    /// first 4 bytes of the `Payload`, this is `None`. We can rely on the `Some` vs. `None` of
     /// this value to know which phase of decoding we are in.
     metadata_len: Option<usize>,
     /// The amount of metadata we have actually received so far.

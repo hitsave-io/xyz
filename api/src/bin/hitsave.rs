@@ -33,6 +33,7 @@ async fn main() -> std::io::Result<()> {
             .service(web::scope("/user").configure(handlers::user::init))
             .service(web::scope("/api_key").configure(handlers::api_key::init))
     })
+    .workers(1)
     .keep_alive(std::time::Duration::from_secs(300))
     .bind(("0.0.0.0", state2.config.port))?
     .run()
