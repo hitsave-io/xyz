@@ -86,6 +86,8 @@ class CloudStore:
                 args=result["args"],
                 result=content,
                 is_experiment=result.get("is_experiment", False),
+                start_time=date.fromisoformat(result["start_time"]),
+                elapsed_process_time=result["elapsed_process_time"],
             )
             return e
         return StoreMiss("No results.")
@@ -104,6 +106,8 @@ class CloudStore:
                 content_hash=content_hash,
                 content_length=content_length,
                 is_experiment=e.is_experiment,
+                start_time=e.start_time.isoformat(),
+                elapsed_process_time=e.elapsed_process_time,
             ),
             pickled,
         )
