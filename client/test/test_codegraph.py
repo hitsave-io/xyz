@@ -50,8 +50,17 @@ FOP = {"x": lambda x: x + x + dd}
 
 
 class Hello:
+    def __init__(self):
+        self.x = 4
+        self.y = f(10)
+
     def asdf(self):
         return self
+
+
+def hhh():
+    h = Hello()
+    return h.asdf()
 
 
 THIS_MODULE = f.__module__

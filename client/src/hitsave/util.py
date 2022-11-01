@@ -6,6 +6,7 @@ import json
 from subprocess import check_output, CalledProcessError
 from typing import Any, TypeVar, get_origin, get_args, Type, Optional, Union, List
 import sys
+import math
 
 if hasattr(functools, "cache"):
     cache = functools.cache
@@ -166,6 +167,33 @@ class TypedJsonDecoder(json.JSONDecoder):
         return ofdict(self.T, jj)
 
 
+@classdispatch
+def validate(t: Type, item) -> bool:
+    """Validates that the given item is of the given type."""
+    # [todo] type assertion `bool ↝ item is t`
+    o = as_optional(t)
+    if o is not None:
+        if t is None:
+            return True
+        else:
+            return validate(o, item)
+    X = as_list(t)
+    if X is not None:
+        assert isinstance(item, list)
+        return all([validate(X, x) for x in item])
+
+    if isinstance(item, t):
+        if is_dataclass(item):
+            return all(
+                [
+                    validate(field.type, getattr(item, field.name))
+                    for field in fields(item)
+                ]
+            )
+        return True
+    raise NotImplementedError(f"Don't know how to validate {t}")
+
+
 # ref: https://stackoverflow.com/questions/4842424/list-of-ansi-color-escape-sequences
 
 
@@ -266,3 +294,20 @@ def get_git_root():
         return base.decode().strip()
     except CalledProcessError:
         return None
+
+
+def human_size(bytes: int, units=[" bytes", "KB", "MB", "GB", "TB", "PB", "EB"]):
+    """Returns a human readable string representation of bytes.
+
+    [todo] use humanize library (so you can localise too)
+    """
+    if bytes == 1:
+        return "1 byte"
+    if bytes < (2**10):
+        return str(bytes) + units[0]
+    ll = math.log2(bytes)
+    i = int(ll // 10)
+    if i >= len(units):
+        return "2^" + str(math.ceil(math.log2(bytes))) + " bytes"
+    f = bytes / (2 ** (i * 10))
+    return f"{f:.1f}{units[i]}"
