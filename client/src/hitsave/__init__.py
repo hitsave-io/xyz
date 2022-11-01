@@ -13,6 +13,11 @@ from .filesnap import FileSnapshot, DirectorySnapshot
 
 __all__ = ["memo", "main_cli", "FileSnapshot", "DirectorySnapshot", "__version__"]
 
+try:
+    import hitsave.torch
+except ModuleNotFoundError:
+    pass
+
 
 @atexit.register
 def exit_message():

@@ -3,8 +3,6 @@
 This file contains a variant of the reduce/reconstruct scheme
 used by pickle and deepcopy.
 
-The plan is to wrap these in a `
-
 References:
 - https://github.com/python/cpython/blob/3.10/Lib/copy.py
 - https://github.com/python/cpython/blob/3.10/Lib/copyreg.py
@@ -47,6 +45,10 @@ def register_reducer(type):
     return reg
 
 
+def register_opaque(type):
+    dispatch_table[type] = lambda x: None
+
+
 @register_reducer(list)
 def list_reductor(l: list) -> Tuple:
     return (list, (), None, l)
@@ -67,8 +69,6 @@ def _sortkey(x):
     return (type(x).__name__, repr(x))
 
 
-""" Set of scalar values that can't be reduced.
-[todo] make these configurable. """
 opaque = set(
     [
         type(None),
@@ -83,18 +83,20 @@ opaque = set(
         type,
     ]
 )
-
-""" Output of __reduce__.
-
-Slightly deviate from the spec in that listiter and dictiter can be
-sequences and dicts.
-
-[todo] add support for kwargs on constructor.
- """
+""" Set of scalar values that can't be reduced.
+[todo] make these configurable. """
 
 
 @dataclass
 class ReductionValue:
+    """Output of __reduce__.
+
+    Slightly deviate from the spec in that listiter and dictiter can be
+    sequences and dicts.
+
+    [todo] add support for kwargs on constructor.
+    """
+
     func: Callable
     args: Tuple
     state: Optional[Union[dict, Tuple]] = field(default=None)

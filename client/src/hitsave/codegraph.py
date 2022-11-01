@@ -6,13 +6,13 @@ import builtins
 import inspect
 from pathlib import Path
 import sys
-from symtable import symtable, Symbol, SymbolTable, Function
+from symtable import symtable, Symbol, SymbolTable, Function, Class
 import functools
 import ast
 import pprint
 import os.path
 import logging
-from typing import Any, Dict, Literal, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Literal, Optional, Tuple, Union
 from hitsave.graph import DirectedGraph
 from hitsave._version import __version__
 from hitsave.util import cache, decorate_ansi
@@ -61,12 +61,20 @@ class CodeVertex:
         m = self.module
         if self.decl_name is None:
             return m
+        if "." in self.decl_name:
+            xs = self.decl_name.split(".")
+            for x in xs:
+                m = getattr(m, x)
+            return m
         d = getattr(m, self.decl_name)
         return d
 
     @property
     def module(self):
-        """Returns the module without executing it."""
+        """Returns the module that this vertex lives in.
+
+        This does not cause the module to be loaded.
+        """
         # [note] this loads the module but _does not execute it_ and doesn't add to sys.modules.
         if self.module_name in sys.modules:
             return sys.modules[self.module_name]
@@ -77,18 +85,22 @@ class CodeVertex:
 
     @property
     def module_spec(self):
+        """Get the spec of the module that this vertex lives in."""
         return get_module_spec(self.module_name)
 
     @property
     def value(self):
+        """Get the python object that this code vertex represents."""
         m = self.module
         if self.decl_name is None:
             return m
-        else:
-            return getattr(m, self.decl_name)
+        if "." in self.decl_name:
+            raise NotImplementedError("Nested declaration names are not implemented.")
+        return getattr(m, self.decl_name)
 
     @classmethod
     def of_str(cls, s):
+        """Parse a code vertex from a string "module_name:decl_name"."""
         if ":" not in s:
             return cls(s, None)
         module_name, id = s.split(":")
@@ -97,37 +109,42 @@ class CodeVertex:
 
     @classmethod
     def of_object(cls, o):
+        """Create a CodeVertex from a python object."""
         assert hasattr(o, "__qualname__")
         assert hasattr(o, "__module__")
         return cls(o.__module__, o.__qualname__)
 
     @property
     def symbol(self) -> Symbol:
+        """Return the SymbolTable Symbol for this vertex."""
         assert self.decl_name is not None, "No symbol for entire module."
 
-        mst = symtable_of_module_name(self.module_name)
+        st = symtable_of_module_name(self.module_name)
         if "." in self.decl_name:
-            # [todo]
-            raise NotImplementedError(
-                f"cannot yet work with nested symbols {self.decl_name}."
-            )
-        return mst.lookup(self.decl_name)
-
-    """ Returns true if the symbol is a namespace, which means that there is some
-    internal structure; eg a function, a class. """
+            parts = self.decl_name.split(".")
+            for part in parts[:-1]:
+                s = st.lookup(part)
+                if s.is_namespace():
+                    st = s.get_namespace()
+            s = st.lookup(parts[-1])
+            return s
+            # [todo] test this
+        return st.lookup(self.decl_name)
 
     def is_namespace(self) -> bool:
+        """Returns true if the symbol is a namespace, which means that there is some
+        internal structure; eg a function, a class."""
         assert self.decl_name is not None
         return self.symbol.is_namespace()
 
-    """ Returns true if the symbol was declared from an `import` statement. """
-
     def is_import(self) -> bool:
+        """Returns true if the symbol was declared from an `import` statement."""
         if self.decl_name is None:
             return False
         return self.symbol.is_imported()
 
-    def get_edges(self):
+    def get_edges(self) -> Iterable["Vertex"]:
+        """Iterates over all of the immediate code dependencies of this vertex."""
         p = module_as_external_package(self.module_name)
         if p is not None:
             yield p
@@ -138,6 +155,8 @@ class CodeVertex:
             yield imports[self.decl_name]
             return
         if self.is_namespace():
+            # a namespace means that the symbol is a function, class or module, and so can contain more symbols.
+
             nss = self.symbol.get_namespaces()
             for ns in nss:
                 if isinstance(ns, Function):
@@ -147,6 +166,11 @@ class CodeVertex:
                             # ignore builtins
                             continue
                         yield CodeVertex(self.module_name, decl_name)
+                elif isinstance(ns, Class):
+                    assert self.decl_name is not None
+                    # [todo] a class depends on all of the methods, _and_ the fields.
+                    for mn in ns.get_methods():
+                        yield CodeVertex(self.module_name, self.decl_name + "." + mn)
                 else:
                     raise NotImplementedError(
                         f"Don't know how to explore deps of {self}"
