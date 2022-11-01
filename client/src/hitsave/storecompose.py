@@ -32,7 +32,7 @@ class ComposeStore:
                 # we hit, but we still want to tell later stores that
                 # we used the eval again so that they can log metrics etc.
                 for x in rest:
-                    if hasattr(x, 'poll'):
+                    if hasattr(x, "poll"):
                         x.poll(key)
             return r
 
