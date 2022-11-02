@@ -201,6 +201,7 @@ class FileSnapshot:
                 {
                     "content_hash": self.digest,
                     "content_length": self.content_length,
+                    "label": self.name,
                 },
                 f,
             )
