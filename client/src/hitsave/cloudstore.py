@@ -17,6 +17,8 @@ from itertools import chain
 import tempfile
 import dateutil.parser
 
+from hitsave.visualize import visualize_rec
+
 logger = logging.getLogger("hitsave")
 
 # streaming uploads https://requests.readthedocs.io/en/latest/user/advanced/#streaming-uploads
@@ -144,17 +146,24 @@ class CloudStore:
                 h.update(x)
             digest = h.hexdigest()
             tape.seek(0)
+            args = e.args
+            if args is not None:
+                assert isinstance(args, dict)
+                args = {k: visualize_rec(v) for k, v in args.items()}
+                # [todo] if an arg is too big, we blobify it and replace with {__kind__: blob, ...}
+
             result = encode_hitsavemsg(
                 dict(
                     fn_key=str(e.key.fn_key),
                     fn_hash=e.key.fn_hash,
                     args_hash=e.key.args_hash,
-                    args=e.args,
+                    args=args,
                     content_hash=digest,
                     content_length=content_length,
                     is_experiment=e.is_experiment,
                     start_time=e.start_time.isoformat(),
                     elapsed_process_time=e.elapsed_process_time,
+                    result_json = visualize_rec(e.result)
                 ),
                 tape,
             )

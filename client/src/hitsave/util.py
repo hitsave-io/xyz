@@ -102,8 +102,7 @@ class MyJsonEncoder(json.JSONEncoder):
                     continue
                 r[k] = v
             return r
-
-        raise NotImplementedError(f"Don't know how to encode {type(o)}.")
+        return json.JSONEncoder.default(self, o)
 
 
 T = TypeVar("T")
