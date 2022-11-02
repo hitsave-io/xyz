@@ -17,7 +17,7 @@ def g(y):
 
 @memo
 def gg(y):
-    return np.random.rand(2**y)
+    return np.ones(2**y)
 
 
 @memo()
