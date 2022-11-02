@@ -1,23 +1,17 @@
 import { LoaderFunction, redirect } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, Outlet } from "@remix-run/react";
 
-export const loader: LoaderFunction = async ({ request }) => {
+const jwt = async (request: Request): string => {
   const cookie = request.headers.get("Cookie");
 
   if (!cookie) {
-    return redirect("http://127.0.0.1:3000/");
+    throw Error("Unauthorized");
   } else {
     const parsed = parseCookie(cookie);
-    const user = await fetch("http://127.0.0.1:8080/user", {
-      headers: {
-        Authorization: `Bearer ${parsed.jwt}`,
-      },
-    });
-
-    if (user.status != 200) {
-      throw new Error("uh-oh, it's fooked");
+    if (!parsed.hasOwnProperty("jwt")) {
+      throw Error("Unauthorized");
     } else {
-      return await user.json();
+      return parsed.jwt;
     }
   }
 };
@@ -30,6 +24,21 @@ const parseCookie = (cookie: string): { [key: string]: string } => {
       acc[decodeURIComponent(v[0].trim())] = decodeURIComponent(v[1].trim());
       return acc;
     }, {});
+};
+
+export const loader: LoaderFunction = async ({ request }) => {
+  const token = await jwt(request);
+  const user = await fetch("http://127.0.0.1:8080/user", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (user.status != 200) {
+    throw new Error("Unable to load user data.");
+  } else {
+    return await user.json();
+  }
 };
 
 export default function Dashboard() {
@@ -45,6 +54,7 @@ export default function Dashboard() {
         width={150}
         style={{ borderRadius: 9999 }}
       />
+      <Outlet />
     </>
   );
 }

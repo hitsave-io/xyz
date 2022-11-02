@@ -1,4 +1,4 @@
-use crate::middlewares::jwt_auth::Auth;
+use crate::middlewares::auth::Auth;
 use crate::models::api_key::{ApiKey, ApiKeyError};
 use crate::persisters::{api_key::KeyInsert, Persist};
 use crate::state::AppState;
@@ -31,13 +31,12 @@ async fn generate_new_api_key(
     let api_key = ApiKey::random();
 
     let insert_key = KeyInsert {
-        user_id: auth.claims.sub,
         label: gen_req.label,
         key: &api_key.key,
     };
 
     insert_key
-        .persist(None, &state)
+        .persist(Some(&auth), &state)
         .await
         .inspect_err(|e| error!("could not insert new API key into database: {:?}", e))?;
 
