@@ -33,7 +33,7 @@ class SavedFunction(Generic[P, R]):
     local_only: bool = field(default=False)  # [todo] not used yet
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
-        session = Session.get_current_session()
+        session = Session.current()
         sig = inspect.signature(self.func)
         ba = sig.bind(*args, **kwargs)
         fn_key = CodeVertex.of_object(self.func)

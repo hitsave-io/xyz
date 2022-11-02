@@ -7,22 +7,19 @@ from typing import Any, List, Optional, Union
 from hitsave.config import Config
 import os.path
 from blake3 import blake3
-import requests
 import os
 import shutil
 from pathlib import Path, PurePath
 import pathlib
 from stat import S_IREAD, S_IRGRP, S_IROTH
-from hitsave.cloudstore import dumps as csdumps
+from hitsave.cloudstore import encode_hitsavemsg, request, create_header
 import logging
+from hitsave.session import Session
 
-from hitsave.util import human_size
+from hitsave.util import chunked_read, human_size
 
 logger = logging.getLogger("hitsave")
-
-headers: Any = {
-    "Authorization": Config.current().api_key,
-}
+BLOCK_SIZE = 2**20
 
 
 @dataclass
@@ -71,16 +68,13 @@ class FileSnapshot:
             # no need to download
             return
         logger.info(f"Downloading {self.name} ({human_size(self.content_length)})")
-        r = requests.request(
-            "GET",
-            f"{Config.current().cloud_url}/blob/{self.digest}",
-            headers=headers,
-        )
+        r = request("GET", f"/blob/{self.digest}")
         r.raise_for_status()
         # [todo] duplicated code.
         # [todo] exclusive file lock.
         with open(self.local_cache_path, "wb") as c:
-            c.write(r.content)
+            for chunk in r.iter_content(chunk_size=BLOCK_SIZE):
+                c.write(chunk)
         # snapshot files are read only.
         # ref: https://stackoverflow.com/a/28492823/352201
         os.chmod(self.local_cache_path, S_IREAD | S_IRGRP)  # [todo] what about S_IROTH?
@@ -166,14 +160,10 @@ class FileSnapshot:
             relpath = None
         time = datetime.now()
         with open(path, "rb") as fd:
-            block_size = 2**20
             h = blake3()
             content_length = 0
-            while True:
-                data = fd.read(block_size)
+            for data in chunked_read(fd):
                 content_length += len(data)
-                if not data:
-                    break
                 h.update(data)
             digest = h.hexdigest()
             fd.seek(0)
@@ -189,8 +179,7 @@ class FileSnapshot:
                 with open(snap.local_cache_path, "wb") as c:
                     while True:
                         # [todo] python must let you just pipe files?
-                        # ?? os.sendfile() https://docs.python.org/3/library/os.html#os.sendfile
-                        data = fd.read(block_size)
+                        data = fd.read(BLOCK_SIZE)
                         if not data:
                             break
                         c.write(data)
@@ -203,24 +192,20 @@ class FileSnapshot:
         return snap
 
     def upload(self):
-        base_url = Config.current().cloud_url
-        url = f"{base_url}/blob"
-        # [todo] check whether the blob has already been uploaded.
-        # [todo] stream from file.
+        r = request("HEAD", f"/blob/{self.digest}")
+        if r.status_code == 200:
+            logger.info(f"File {self.name} is already uploaded.")
+            return
         with self.open(mode="b") as f:
-            bs = f.read()
-            r = requests.request(
-                "PUT",
-                url,
-                headers=headers,
-                data=csdumps(
-                    {
-                        "content_hash": self.digest,
-                        "content_length": self.content_length,
-                    },
-                    bs,
-                ),
+            msg = encode_hitsavemsg(
+                {
+                    "content_hash": self.digest,
+                    "content_length": self.content_length,
+                },
+                f,
             )
+
+            r = request("PUT", "/blob", data=msg)
             r.raise_for_status()
             logger.info(f"Uploaded {self.name} ({human_size(self.content_length)}).")
 

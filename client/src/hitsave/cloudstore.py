@@ -1,25 +1,65 @@
+from io import BufferedReader
+import io
+from typing import IO, Any, Iterable, Iterator
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
 from typing import Optional, Union
 from hitsave.codegraph import CodeVertex
 from hitsave.types import EvalKey, Eval, StoreMiss
-import msgpack
-import requests
 import logging
 import json
 from blake3 import blake3
 from hitsave.config import Config
+from datetime import datetime
+from hitsave.util import chunked_read
 import pickle
+import requests
+from itertools import chain
+import tempfile
 import dateutil.parser
 
 logger = logging.getLogger("hitsave")
 
+# streaming uploads https://requests.readthedocs.io/en/latest/user/advanced/#streaming-uploads
+def create_header(meta: dict) -> bytes:
+    """Creates a header for the hitsave format"""
+    with io.BytesIO() as tape:
+        meta_json = json.dumps(meta).encode("utf-8")
+        json_len = len(meta_json).to_bytes(4, byteorder="big", signed=False)
+        tape.write(json_len)
+        tape.write(meta_json)
+        tape.seek(0)
+        return tape.read()
 
-def dumps(meta: dict, blob: bytes):
-    """Hitsave eval upload blob upload encoding:"""
-    meta_json = json.dumps(meta).encode("utf-8")
-    json_len = len(meta_json).to_bytes(4, byteorder="big")
-    return json_len + meta_json + blob
+
+def encode_hitsavemsg(meta: dict, payload: IO[bytes]) -> Iterator[bytes]:
+    yield create_header(meta)
+    yield from chunked_read(payload)
+
+
+def read_header(file: BufferedReader) -> dict:
+    l = int.from_bytes(file.read(4), byteorder="big", signed=False)
+    j = json.loads(file.read(l).decode("utf-8"))
+    return j
+
+
+def request(method: str, path, **kwargs):
+    """Runs a requests.request to the hitsave api, we provide the right authentication headers.
+
+    [todo] this will also reuse existing connections if it can.
+    """
+    api_key = Config.current().api_key
+    if api_key is None:
+        # [todo] should use AuthorizationError.
+        raise Exception(
+            "No API key found. Please create an API key with hitsave keygen"
+        )
+    headers: Any = {
+        "Authorization": Config.current().api_key,
+    }
+    headers.update(kwargs.get("headers", {}))
+    cloud_url = Config.current().cloud_url
+    r = requests.request(method, cloud_url + path, **kwargs, headers=headers)
+    return r
 
 
 @dataclass
@@ -30,13 +70,12 @@ class CloudStore:
     [todo] consider using [marshmallow](https://marshmallow.readthedocs.io/en/stable/) instead of pickle.
     """
 
-    url: str = field(default_factory=lambda: Config.current().cloud_url)
     api_key: Optional[str] = field(default_factory=lambda: Config.current().api_key)
 
     def close(self):
         pass
 
-    def request(self, key: EvalKey, method: str = "GET") -> requests.Response:
+    def request_eval(self, key: EvalKey, method: str = "GET") -> requests.Response:
         q = dict(
             fn_key=str(key.fn_key),
             fn_hash=key.fn_hash,
@@ -45,23 +84,15 @@ class CloudStore:
             poll="true",
         )
         assert self.api_key is not None
-        headers = {
-            "Authorization": self.api_key,
-        }
-        r = requests.request(
-            method,
-            f"{self.url}/eval",
-            params=q,
-            headers=headers,
-        )
+        r = request("GET", "/eval", params=q)
         return r
 
     def poll(self, key: EvalKey) -> None:
-        self.request(key)
+        self.request_eval(key)
 
     def get(self, key: EvalKey) -> Union[Eval, StoreMiss]:
         try:
-            r = self.request(key)
+            r = self.request_eval(key)
             if r.status_code == 404:
                 return StoreMiss("Not found.")
             if r.status_code == 403:
@@ -79,15 +110,12 @@ class CloudStore:
         for result in results:
             logger.info(f"downloaded result for {repr(key)}")
             content_hash = result["content_hash"]
-            r = requests.request(
-                "GET",
-                f"{self.url}/blob/{content_hash}",
-                headers={
-                    "Authorization": self.api_key,
-                },
-            )
+            r = request("GET", f"/blob/{content_hash}")
             r.raise_for_status()
+            # [todo] should really stream this. https://stackoverflow.com/questions/16694907/download-large-file-in-python-with-requests
             bs = r.content
+            # [todo] we need to use a custom pickler that throws when the instance being created changes.
+            # for example, if we are making a dataclass, we need to validate that all of the fields are present.
             content = pickle.loads(bs)
             e = Eval(
                 key=EvalKey(
@@ -105,36 +133,39 @@ class CloudStore:
         return StoreMiss("No results.")
 
     def set(self, e: Eval):
-        pickled = pickle.dumps(e.result)
-        content_hash = blake3(pickled).hexdigest()
-        content_length = len(pickled)
 
-        m = dumps(
-            dict(
-                fn_key=str(e.key.fn_key),
-                fn_hash=e.key.fn_hash,
-                args_hash=e.key.args_hash,
-                args=e.args,
-                content_hash=content_hash,
-                content_length=content_length,
-                is_experiment=e.is_experiment,
-                start_time=e.start_time.isoformat(),
-                elapsed_process_time=e.elapsed_process_time,
-            ),
-            pickled,
-        )
-
-        try:
-            assert self.api_key is not None
-            headers = {
-                "Content-type": "application/x-msgpack",  # https://github.com/msgpack/msgpack/issues/194
-                "Authorization": self.api_key,
-            }
-            r = requests.put(f"{self.url}/eval/", m, headers=headers)
-            r.raise_for_status()
-        except Exception as err:
-            # [todo] manage errors
-            logger.error(err)
+        content_length = 0
+        h = blake3()
+        with tempfile.SpooledTemporaryFile() as tape:
+            pickle.dump(e.result, tape)
+            tape.seek(0)
+            for x in chunked_read(tape):
+                content_length += len(x)
+                h.update(x)
+            digest = h.hexdigest()
+            tape.seek(0)
+            result = encode_hitsavemsg(
+                dict(
+                    fn_key=str(e.key.fn_key),
+                    fn_hash=e.key.fn_hash,
+                    args_hash=e.key.args_hash,
+                    args=e.args,
+                    content_hash=digest,
+                    content_length=content_length,
+                    is_experiment=e.is_experiment,
+                    start_time=e.start_time.isoformat(),
+                    elapsed_process_time=e.elapsed_process_time,
+                ),
+                tape,
+            )
+            try:
+                r = request("PUT", f"/eval/", data=result)
+                r.raise_for_status()
+            except Exception as err:
+                # [todo] manage errors
+                # they should all result in the user being given some friendly advice about
+                # how they can make sure their thing is uploaded.
+                logger.error(err)
 
 
 if __name__ == "__main__":
@@ -147,6 +178,9 @@ if __name__ == "__main__":
             args_hash="cabbage",
         ),
         result="hello world",
+        start_time=datetime.now(),
+        elapsed_process_time=1000,
+        is_experiment=False,
     )
 
     cs.set(e)

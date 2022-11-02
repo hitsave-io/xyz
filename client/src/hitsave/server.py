@@ -70,9 +70,7 @@ async def codelens(params: CodeLensParams):
             continue
         logger.debug(f"Found {k}.")
         f = sf.func
-        deps = len(
-            list(Session.get_current_session().codegraph.get_dependencies_obj(f))
-        )
+        deps = len(list(Session.current().codegraph.get_dependencies_obj(f)))
         # ref: https://docs.python.org/3/library/inspect.html#types-and-members
         ln = f.__code__.co_firstlineno - 1
         r = Range.mk(ln, 0, ln, len("@memo"))

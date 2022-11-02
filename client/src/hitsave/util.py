@@ -4,8 +4,21 @@ from functools import singledispatch
 from dataclasses import is_dataclass, Field, fields
 import json
 from subprocess import check_output, CalledProcessError
-from typing import Any, TypeVar, get_origin, get_args, Type, Optional, Union, List
+from typing import (
+    IO,
+    Any,
+    BinaryIO,
+    Iterator,
+    TypeVar,
+    get_origin,
+    get_args,
+    Type,
+    Optional,
+    Union,
+    List,
+)
 import sys
+from functools import partial
 import math
 
 if hasattr(functools, "cache"):
@@ -312,3 +325,12 @@ def human_size(bytes: int, units=[" bytes", "KB", "MB", "GB", "TB", "PB", "EB"])
         return "2^" + str(math.ceil(math.log2(bytes))) + " bytes"
     f = bytes / (2 ** (i * 10))
     return f"{f:.1f}{units[i]}"
+
+
+def chunked_read(x: IO[bytes], block_size=2**20) -> Iterator[bytes]:
+    """Repeatededly read in BLOCK_SIZE chunks from the BufferedReader until it's empty."""
+    # mad skills:
+    # iter(f, x) will call f repeatedly until x is returned and then stop!
+    # https://docs.python.org/3/library/functions.html#iter
+
+    return iter(partial(x.read, block_size), b"")
