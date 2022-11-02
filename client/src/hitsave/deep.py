@@ -11,12 +11,11 @@ References:
 Related work:
 - https://github.com/Suor/funcy
 
-# [todo]
 
-- namedtuple
-- set
-- frozenset
-- range, slice
+- [todo] namedtuple
+- [todo] set
+- [todo] frozenset
+- [todo] range, slice
 
 """
 import copyreg
@@ -35,6 +34,7 @@ def _uses_default_reductor(cls):
 
 
 dispatch_table = copyreg.dispatch_table.copy()
+""" Dispatch table for reducers. """
 
 
 def register_reducer(type):
@@ -46,7 +46,8 @@ def register_reducer(type):
 
 
 def register_opaque(type):
-    dispatch_table[type] = lambda x: None
+    """Register a type as not being reducible."""
+    dispatch_table[type] = None  # type: ignore
 
 
 @register_reducer(list)
@@ -93,8 +94,12 @@ class ReductionValue:
 
     Slightly deviate from the spec in that listiter and dictiter can be
     sequences and dicts.
+    The values are the same as the values in the tuple specified in the below
+    reference: https://docs.python.org/3/library/pickle.html#object.__reduce__
 
     [todo] add support for kwargs on constructor.
+    [todo] support the slots item.
+
     """
 
     func: Callable
@@ -163,19 +168,19 @@ class ReductionValue:
             raise NotImplementedError(f"cannot get the class from {self}")
 
 
-""" Similar to `__reduce__()`.
-If `None` is returned, that means that reduce treats the given object as _opaque_.
-This means that it won't bother unfolding it any further.
-"""
-
-
 def reduce(obj) -> Optional[ReductionValue]:
+    """Similar to `__reduce__()`.
+    If `None` is returned, that means that reduce treats the given object as _opaque_.
+    This means that it won't bother unfolding it any further.
+    """
+
     def core(obj) -> Any:
         cls = type(obj)
         dt = dispatch_table
-        reductor = dt.get(cls)
-        if reductor is not None:
-            return reductor(obj)
+        if cls in dt:
+            reductor = dt.get(cls)
+            if reductor is not None:
+                return reductor(obj)
         if cls in opaque:
             return None
         if _uses_default_reductor(cls) and is_dataclass(cls):
