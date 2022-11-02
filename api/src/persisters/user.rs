@@ -1,4 +1,4 @@
-use crate::middlewares::api_auth::Auth;
+use crate::middlewares::auth::Auth;
 use crate::models::user::User;
 use crate::persisters::{Persist, Query};
 use crate::state::State;
@@ -26,11 +26,10 @@ pub struct UserUpsert {
     pub email_verified: bool,
 }
 
-pub struct UserGet {
-    pub id: Uuid,
-}
+pub struct UserGet {}
 
 pub enum UserGetError {
+    Unauthorized,
     Sqlx(sqlx::Error),
 }
 
@@ -45,11 +44,12 @@ impl Query for UserGet {
     type Resolve = User;
     type Error = UserGetError;
 
-    async fn fetch(
-        self,
-        _auth: Option<&Auth>,
-        state: &State,
-    ) -> Result<Self::Resolve, Self::Error> {
+    async fn fetch(self, auth: Option<&Auth>, state: &State) -> Result<Self::Resolve, Self::Error> {
+        let jwt = auth
+            .ok_or(UserGetError::Unauthorized)?
+            .allow_only_jwt()
+            .map_err(|_| UserGetError::Unauthorized)?;
+
         let res = query_as!(
             User,
             r#"
@@ -57,7 +57,7 @@ impl Query for UserGet {
             FROM users
             WHERE id = $1
             "#,
-            &self.id,
+            &jwt.sub,
         )
         .fetch_one(&state.db_conn)
         .await?;

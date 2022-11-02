@@ -1,5 +1,5 @@
 use crate::extractors::with_blob::WithBlob;
-use crate::middlewares::api_auth::Auth;
+use crate::middlewares::auth::Auth;
 use crate::models::eval::{Eval, EvalError};
 use crate::persisters::{eval::EvalInsert, Persist, Query};
 use crate::state::AppState;
@@ -35,6 +35,8 @@ async fn get_by_params(
     auth: Auth,
     state: AppState,
 ) -> Result<web::Json<Vec<Eval>>, error::Error> {
+    let _api_key = auth.allow_only_api_key()?;
+
     let res = params.fetch(Some(&auth), &state).await?;
     Ok(web::Json(res))
 }
@@ -46,6 +48,8 @@ async fn put(
     auth: Auth,
     state: AppState,
 ) -> Result<String, error::Error> {
+    let _api_key = auth.allow_only_api_key()?;
+
     let res = insert.persist(Some(&auth), &state).await?;
 
     Ok(res.to_string())

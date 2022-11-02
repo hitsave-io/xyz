@@ -1,4 +1,4 @@
-use crate::middlewares::api_auth::Auth;
+use crate::middlewares::auth::Auth;
 use crate::models::api_key::ApiKeyError;
 use crate::persisters::Persist;
 use crate::state::State;
@@ -15,7 +15,6 @@ use crate::state::State;
 // Instead, we use API keys more like session tokens, as described in the link.
 #[derive(Serialize, Debug)]
 pub struct KeyInsert<'a> {
-    pub user_id: sqlx::types::Uuid,
     pub label: String,
     pub key: &'a String,
 }
@@ -30,12 +29,17 @@ impl Persist for KeyInsert<'_> {
     type Ret = ();
     type Error = ApiKeyError;
 
-    async fn persist(self, _auth: Option<&Auth>, state: &State) -> Result<Self::Ret, Self::Error> {
+    async fn persist(self, auth: Option<&Auth>, state: &State) -> Result<Self::Ret, Self::Error> {
+        let jwt = auth
+            .ok_or(ApiKeyError::Unauthorized)?
+            .allow_only_jwt()
+            .map_err(|_| ApiKeyError::Unauthorized)?;
+
         let res = query_as!(
             KeyInsertResult,
             r#"INSERT INTO api_keys AS a (user_id, label, key) VALUES ($1, $2, $3)
             RETURNING key, user_id"#,
-            self.user_id,
+            jwt.sub,
             self.label,
             self.key,
         )

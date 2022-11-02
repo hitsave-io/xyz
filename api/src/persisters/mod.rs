@@ -5,7 +5,7 @@ pub mod experiment;
 pub mod s3store;
 pub mod user;
 
-use crate::middlewares::api_auth::Auth;
+use crate::middlewares::auth::Auth;
 use crate::state::State;
 
 /// Abstraction over the notion of a query.
