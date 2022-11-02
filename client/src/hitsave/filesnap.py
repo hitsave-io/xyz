@@ -147,6 +147,7 @@ class FileSnapshot:
 
         The path is stored relative to your workspace directory (either the location of your `pyproject.toml` or git root).
         """
+        # [todo] accept file-like objects as well as paths.
         path = Path(path).resolve()
         # [todo] assert path is within project.
         # We should be very very careful about saving files from some arbitrary part of the disk.
