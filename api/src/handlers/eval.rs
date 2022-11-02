@@ -26,6 +26,7 @@ pub struct Params {
     pub fn_key: Option<String>,
     pub fn_hash: Option<String>,
     pub args_hash: Option<String>,
+    pub is_experiment: Option<bool>,
     pub poll: Option<bool>,
 }
 
@@ -35,8 +36,6 @@ async fn get_by_params(
     auth: Auth,
     state: AppState,
 ) -> Result<web::Json<Vec<Eval>>, error::Error> {
-    let _api_key = auth.allow_only_api_key()?;
-
     let res = params.fetch(Some(&auth), &state).await?;
     Ok(web::Json(res))
 }

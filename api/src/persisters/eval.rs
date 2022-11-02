@@ -143,10 +143,7 @@ impl Query for web::Query<Params> {
     type Error = EvalError;
 
     async fn fetch(self, auth: Option<&Auth>, state: &State) -> Result<Self::Resolve, Self::Error> {
-        let api_key = auth
-            .ok_or(EvalError::Unauthorized)?
-            .api_key()
-            .ok_or(EvalError::Unauthorized)?;
+        let auth = auth.ok_or(EvalError::Unauthorized)?;
 
         let params = self.into_inner();
 
@@ -158,12 +155,15 @@ impl Query for web::Query<Params> {
             WHERE (fn_key = $1 OR $1 IS NULL)
                 AND (fn_hash = $2 OR $2 IS NULL)
                 AND (args_hash = $3 OR $3 IS NULL)
-                AND e.user_id = user_from_key($4)
+                AND (is_experiment = $4 OR $4 IS NULL)
+                AND e.user_id = get_user_id($5, $6)
             "#,
                 params.fn_key,
                 params.fn_hash,
                 params.args_hash,
-                api_key,
+                params.is_experiment,
+                auth.jwt().map(|c| c.sub),
+                auth.api_key(),
             )
             .execute(&state.db_conn)
             .await?;
@@ -180,12 +180,15 @@ impl Query for web::Query<Params> {
             WHERE   (fn_key = $1 OR $1 IS NULL)
                 AND (fn_hash = $2 OR $2 IS NULL)
                 AND (args_hash = $3 OR $3 IS NULL)
-                AND e.user_id = user_from_key($4)
+                AND (is_experiment = $4 OR $4 IS NULL)
+                AND e.user_id = get_user_id($5, $6)
             "#,
             params.fn_key,
             params.fn_hash,
             params.args_hash,
-            api_key,
+            params.is_experiment,
+            auth.jwt().map(|c| c.sub),
+            auth.api_key(),
         )
         .fetch_all(&state.db_conn)
         .await?;
