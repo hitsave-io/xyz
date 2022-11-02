@@ -1,6 +1,7 @@
 pub mod api_key;
 pub mod blob;
 pub mod eval;
+pub mod experiment;
 pub mod s3store;
 pub mod user;
 

@@ -143,8 +143,6 @@ impl Query for web::Query<Params> {
         let auth = auth.ok_or(EvalError::Unauthorized)?;
         let params = self.into_inner();
 
-        println!("{:?}", params);
-
         if let Some(true) = params.poll {
             query!(
                 r#"
