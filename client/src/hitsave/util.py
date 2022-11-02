@@ -9,6 +9,7 @@ from typing import (
     Any,
     BinaryIO,
     Iterator,
+    Tuple,
     TypeVar,
     get_origin,
     get_args,
@@ -28,7 +29,7 @@ else:
 
 
 def classdispatch(func):
-    """Similar to `singledispatch`, except treats the first argument as a class to be dispatched on."""
+    """Similar to ``functools.singledispatch``, except treats the first argument as a class to be dispatched on."""
     funcname = getattr(func, "__name__", "class dispatch function")
     sdfunc = singledispatch(func)
 
@@ -61,21 +62,27 @@ def classdispatch(func):
 
 
 def is_optional(T: Type) -> bool:
-    """Returns true if `T == Union[NoneType, _] == Optional[_]`."""
+    """Returns true if ``T == Union[NoneType, _] == Optional[_]``."""
     return as_optional(T) is not None
 
 
 def as_optional(T: Type) -> Optional[Type]:
-    """If we have `T == Optional[X]`, returns `X`, otherwise returns `None`.
+    """If we have ``T == Optional[X]``, returns ``X``, otherwise returns ``None``.
 
+    Note that because ``Optional[X] == Union[X, type(None)]``, so
+    we have ``as_optional(Optional[Optional[X]]) ↝ X``
     ref: https://stackoverflow.com/questions/56832881/check-if-a-field-is-typing-optional
     """
     if get_origin(T) is Union:
         args = get_args(T)
         if type(None) in args:
-            args = [a for a in args if a is not type(None)]
-            if len(args) == 1:
-                return args[0]
+            ts = tuple(a for a in args if a is not type(None))
+            if len(ts) == 0:
+                return None
+            if len(ts) == 1:
+                return ts[0]
+            else:
+                return Union[ts]  # type: ignore
     return None
 
 
@@ -110,13 +117,13 @@ T = TypeVar("T")
 
 @classdispatch
 def ofdict(A: Type[T], a: Any) -> T:
-    """Converts an `a` to an instance of `A`, calling recursively if necessary.
-    We assume that `a` is a nested type made of dicts, lists and scalars.
+    """Converts an ``a`` to an instance of ``A``, calling recursively if necessary.
+    We assume that ``a`` is a nested type made of dicts, lists and scalars.
 
     The main usecase is to be able to treat dataclasses as a schema for json.
-    Ideally, `ofdict` should be defined such that `ofdict(type(x), json.loads(MyJsonEncoder().dumps(x)))` is deep-equal to `x` for all `x`.
+    Ideally, ``ofdict`` should be defined such that ``ofdict(type(x), json.loads(MyJsonEncoder().dumps(x)))`` is deep-equal to ``x`` for all ``x``.
 
-    Similar to [cattrs.structure](https://cattrs.readthedocs.io/en/latest/structuring.html#what-you-can-structure-and-how).
+    Similar to ` cattrs.structure <https://cattrs.readthedocs.io/en/latest/structuring.html#what-you-can-structure-and-how/>`_.
     """
     if A is Any:
         return a
