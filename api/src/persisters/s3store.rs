@@ -1,5 +1,5 @@
 use crate::extractors::with_blob::{BlobPayload, WithBlob, WithBlobError};
-use crate::middlewares::api_auth::Auth;
+use crate::middlewares::auth::Auth;
 use crate::models::eval::EvalError;
 use crate::persisters::Persist;
 use crate::state::State;

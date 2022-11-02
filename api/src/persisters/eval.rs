@@ -1,5 +1,5 @@
 use crate::handlers::eval::Params;
-use crate::middlewares::api_auth::Auth;
+use crate::middlewares::auth::Auth;
 use crate::models::eval::{Eval, EvalError};
 use crate::persisters::s3store::BlobMetadata;
 use crate::persisters::{Persist, Query};
@@ -55,8 +55,11 @@ impl Persist for EvalInsert {
     type Error = EvalError;
 
     async fn persist(self, auth: Option<&Auth>, state: &State) -> Result<Self::Ret, Self::Error> {
-        let auth = auth.ok_or(EvalError::Unauthorized)?;
-        println!("{:?}", &self);
+        let api_key = auth
+            .ok_or(EvalError::Unauthorized)?
+            .api_key()
+            .ok_or(EvalError::Unauthorized)?;
+
         // Use a transaction as we have to modify two tables.
         let mut tx = state.db_conn.begin().await?;
 
@@ -80,7 +83,7 @@ impl Persist for EvalInsert {
             SELECT id
             FROM s
             "#,
-            auth.key,
+            api_key,
             self.content_hash,
         )
         .fetch_one(&mut tx)
@@ -122,7 +125,7 @@ impl Persist for EvalInsert {
             self.start_time,
             self.elapsed_process_time,
             blob_res.id.expect("huh"),
-            auth.key
+            api_key
         )
         .fetch_one(&mut tx)
         .await?;
@@ -140,7 +143,11 @@ impl Query for web::Query<Params> {
     type Error = EvalError;
 
     async fn fetch(self, auth: Option<&Auth>, state: &State) -> Result<Self::Resolve, Self::Error> {
-        let auth = auth.ok_or(EvalError::Unauthorized)?;
+        let api_key = auth
+            .ok_or(EvalError::Unauthorized)?
+            .api_key()
+            .ok_or(EvalError::Unauthorized)?;
+
         let params = self.into_inner();
 
         if let Some(true) = params.poll {
@@ -156,7 +163,7 @@ impl Query for web::Query<Params> {
                 params.fn_key,
                 params.fn_hash,
                 params.args_hash,
-                auth.key,
+                api_key,
             )
             .execute(&state.db_conn)
             .await?;
@@ -178,7 +185,7 @@ impl Query for web::Query<Params> {
             params.fn_key,
             params.fn_hash,
             params.args_hash,
-            auth.key,
+            api_key,
         )
         .fetch_all(&state.db_conn)
         .await?;

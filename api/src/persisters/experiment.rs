@@ -1,5 +1,5 @@
 use crate::handlers::experiment::Params;
-use crate::middlewares::api_auth::Auth;
+use crate::middlewares::auth::Auth;
 use crate::models::eval::{Eval, EvalError};
 use crate::persisters::Query;
 use crate::state::State;
@@ -19,7 +19,11 @@ impl Query for web::Query<Params> {
     type Error = EvalError;
 
     async fn fetch(self, auth: Option<&Auth>, state: &State) -> Result<Self::Resolve, Self::Error> {
-        let auth = auth.ok_or(EvalError::Unauthorized)?;
+        let api_key = auth
+            .ok_or(EvalError::Unauthorized)?
+            .api_key()
+            .ok_or(EvalError::Unauthorized)?;
+
         let params = self.into_inner();
 
         let res = query_as!(
@@ -35,7 +39,7 @@ impl Query for web::Query<Params> {
             ORDER BY start_time DESC
             LIMIT $2
             "#,
-            auth.key,
+            api_key,
             params.count,
         )
         .fetch_all(&state.db_conn)

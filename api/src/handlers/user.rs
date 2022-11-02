@@ -1,5 +1,5 @@
 use crate::handlers::login::{login_handler, LoginError};
-use crate::middlewares::jwt_auth::Auth;
+use crate::middlewares::auth::Auth;
 use crate::models::user::User;
 use crate::persisters::{
     user::{UserGet, UserGetError, UserUpsert, UserUpsertError},
@@ -80,6 +80,7 @@ impl From<LoginError> for Error {
 impl From<UserGetError> for Error {
     fn from(e: UserGetError) -> Self {
         match e {
+            UserGetError::Unauthorized => error::ErrorUnauthorized("Error: Unauthorized"),
             UserGetError::Sqlx(e) => {
                 log::error!("error retrieving user from database: {:?}", e);
                 error::ErrorInternalServerError("unable to retrieve user")
@@ -90,11 +91,9 @@ impl From<UserGetError> for Error {
 
 #[get("")]
 async fn get(auth: Auth, state: AppState) -> Result<web::Json<User>> {
-    let get_user = UserGet {
-        id: auth.claims.sub,
-    };
+    // let get_user = UserGet { id: jwt.sub };
 
-    let user = get_user.fetch(None, &state).await?;
+    let user = UserGet {}.fetch(Some(&auth), &state).await?;
     Ok(web::Json(user))
 }
 

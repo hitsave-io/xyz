@@ -1,5 +1,5 @@
 use crate::extractors::with_blob::WithBlob;
-use crate::middlewares::api_auth::Auth;
+use crate::middlewares::auth::Auth;
 use crate::persisters::blob::BlobInsert;
 use crate::persisters::{Persist, Query};
 use crate::state::AppState;

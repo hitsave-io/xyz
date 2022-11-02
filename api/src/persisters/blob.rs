@@ -1,5 +1,5 @@
 use crate::handlers::blob::{BlobParams, BlobParamsHead};
-use crate::middlewares::api_auth::Auth;
+use crate::middlewares::auth::Auth;
 use crate::persisters::s3store::BlobMetadata;
 use crate::persisters::{s3store::StoreError, Persist, Query};
 use crate::state::State;
@@ -34,7 +34,10 @@ impl Persist for BlobInsert {
     type Error = BlobError;
 
     async fn persist(self, auth: Option<&Auth>, state: &State) -> Result<Self::Ret, Self::Error> {
-        let auth = auth.ok_or(BlobError::Unauthorized)?;
+        let api_key = auth
+            .ok_or(BlobError::Unauthorized)?
+            .api_key()
+            .ok_or(BlobError::Unauthorized)?;
 
         // Insert blob.
         let blob_res = query_as!(
@@ -56,7 +59,7 @@ impl Persist for BlobInsert {
             SELECT id
             FROM s
             "#,
-            auth.key,
+            api_key,
             self.content_hash,
         )
         .fetch_one(&state.db_conn)
@@ -73,7 +76,11 @@ impl Query for Path<BlobParams> {
     type Error = BlobError;
 
     async fn fetch(self, auth: Option<&Auth>, state: &State) -> Result<Self::Resolve, Self::Error> {
-        let auth = auth.ok_or(BlobError::Unauthorized)?;
+        let api_key = auth
+            .ok_or(BlobError::Unauthorized)?
+            .api_key()
+            .ok_or(BlobError::Unauthorized)?;
+
         let content_hash = self.into_inner().content_hash;
 
         // 1. Check the hash is valid.
@@ -87,7 +94,7 @@ impl Query for Path<BlobParams> {
                     AND user_id = user_from_key($2)
            "#,
             content_hash,
-            auth.key
+            api_key
         )
         .fetch_one(&state.db_conn)
         .await?;
@@ -110,7 +117,11 @@ impl Query for Path<BlobParamsHead> {
     type Error = BlobError;
 
     async fn fetch(self, auth: Option<&Auth>, state: &State) -> Result<Self::Resolve, Self::Error> {
-        let auth = auth.ok_or(BlobError::Unauthorized)?;
+        let api_key = auth
+            .ok_or(BlobError::Unauthorized)?
+            .api_key()
+            .ok_or(BlobError::Unauthorized)?;
+
         let content_hash = self.into_inner().content_hash;
 
         // 1. Check the hash is valid.
@@ -124,7 +135,7 @@ impl Query for Path<BlobParamsHead> {
                     AND user_id = user_from_key($2)
            "#,
             content_hash,
-            auth.key
+            api_key
         )
         .fetch_one(&state.db_conn)
         .await?;
