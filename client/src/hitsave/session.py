@@ -38,7 +38,7 @@ class Session:
         self.id = uuid.uuid4()
 
     @classmethod
-    def get_current_session(cls) -> "Session":
+    def current(cls) -> "Session":
         return current_session_var.get()
 
 

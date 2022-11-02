@@ -23,4 +23,4 @@ def test_human_size(snapshot):
         9990000000,
         9000000000000000000000,
     ]
-    snapshot.assert_match("\n".join(map(human_size, sizes)), "bytes")
+    snapshot.assert_match("\n".join(map(human_size, sizes)) + "\n", "bytes")
