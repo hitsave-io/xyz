@@ -1,5 +1,5 @@
 import { LoaderFunction, redirect } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, Outlet } from "@remix-run/react";
 
 export const loader: LoaderFunction = async ({ request }) => {
   const cookie = request.headers.get("Cookie");
@@ -45,6 +45,7 @@ export default function Dashboard() {
         width={150}
         style={{ borderRadius: 9999 }}
       />
+      <Outlet />
     </>
   );
 }
