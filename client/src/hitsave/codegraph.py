@@ -1,4 +1,30 @@
+"""
+This file contains the code that statically determines the dependencies of a SavedFunction.
+
+Each python module is a dictionary of declarations, some of which may themselves be dictionaries of declarations.
+The general name for these dictionaries is a __namespace__.
+
+Hence, every symbol in Python's execution environment can be written as a dot-separated module_name and dot-separated decl_name.
+The ``Symbol`` dataclass is defined by these two fields.
+
+Given a ``s : Symbol``, we need to find the dependency graph of the symbol.
+How to do this depends on the python object that the symbol is __bound__ to.
+
+For the purposes of computing dependencies, we distinguish between bindings as follows:
+
+- functions
+- classes
+- constants
+- imports; the ``x`` in ``from numpy import x``
+- external modules; eg `numpy:array`
+
+
+
+
+"""
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from enum import Enum
 import importlib
 from importlib.machinery import ModuleSpec
 import importlib.util
@@ -6,13 +32,27 @@ import builtins
 import inspect
 from pathlib import Path
 import sys
-from symtable import symtable, Symbol, SymbolTable, Function, Class
-import functools
+import symtable as st
+from symtable import SymbolTable
 import ast
 import pprint
 import os.path
 import logging
-from typing import Any, Dict, Iterable, Literal, Optional, Tuple, Union
+from types import ModuleType
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
+from hitsave.config import Config
+from hitsave.deephash import deephash
 from hitsave.graph import DirectedGraph
 from hitsave._version import __version__
 from hitsave.util import cache, decorate_ansi
@@ -21,20 +61,14 @@ logger = logging.getLogger("hitsave/codegraph")
 
 
 @dataclass
-class ExternPackage:
-    name: str
-    version: str
+class Symbol:
+    """Identifies a symbol for python objects."""
 
-    def __hash__(self):
-        return hash(repr(self))
-
-
-@dataclass
-class CodeVertex:
     module_name: str
     decl_name: Optional[str] = field(default=None)
 
     def __hash__(self):
+        """Note this only hashes on the string value, not the binding."""
         return hash(self.__str__())
 
     def __str__(self):
@@ -42,9 +76,6 @@ class CodeVertex:
             return self.module_name
         else:
             return f"{self.module_name}:{self.decl_name}"
-
-    def __repr__(self):
-        return self.__str__()
 
     def pp(self):
         """Pretty print with nice formatting."""
@@ -56,9 +87,9 @@ class CodeVertex:
         )
         return f"{m}:{d}"
 
-    def to_object(self):
-        """Returns the best-guess python object associated with the name."""
-        m = self.module
+    def get_bound_object(self) -> object:
+        """Returns the best-guess python object associated with the symbol."""
+        m = self.get_module()
         if self.decl_name is None:
             return m
         if "." in self.decl_name:
@@ -69,8 +100,7 @@ class CodeVertex:
         d = getattr(m, self.decl_name)
         return d
 
-    @property
-    def module(self):
+    def get_module(self) -> ModuleType:
         """Returns the module that this vertex lives in.
 
         This does not cause the module to be loaded.
@@ -78,25 +108,14 @@ class CodeVertex:
         # [note] this loads the module but _does not execute it_ and doesn't add to sys.modules.
         if self.module_name in sys.modules:
             return sys.modules[self.module_name]
-        spec = self.module_spec
+        spec = self.get_module_spec()
         if spec is None:
             raise ModuleNotFoundError(name=self.module_name)
         return importlib.util.module_from_spec(spec)
 
-    @property
-    def module_spec(self):
+    def get_module_spec(self):
         """Get the spec of the module that this vertex lives in."""
         return get_module_spec(self.module_name)
-
-    @property
-    def value(self):
-        """Get the python object that this code vertex represents."""
-        m = self.module
-        if self.decl_name is None:
-            return m
-        if "." in self.decl_name:
-            raise NotImplementedError("Nested declaration names are not implemented.")
-        return getattr(m, self.decl_name)
 
     @classmethod
     def of_str(cls, s):
@@ -109,13 +128,13 @@ class CodeVertex:
 
     @classmethod
     def of_object(cls, o):
-        """Create a CodeVertex from a python object."""
+        """Create a Symbol from a python object by trying to inspect what the Symbol and parent module are."""
         assert hasattr(o, "__qualname__")
         assert hasattr(o, "__module__")
+        # [todo] more helpful error.
         return cls(o.__module__, o.__qualname__)
 
-    @property
-    def symbol(self) -> Symbol:
+    def get_st_symbol(self) -> st.Symbol:
         """Return the SymbolTable Symbol for this vertex."""
         assert self.decl_name is not None, "No symbol for entire module."
 
@@ -133,80 +152,166 @@ class CodeVertex:
 
     def is_namespace(self) -> bool:
         """Returns true if the symbol is a namespace, which means that there is some
-        internal structure; eg a function, a class."""
+        internal structure; eg a function, a class, a module."""
         assert self.decl_name is not None
-        return self.symbol.is_namespace()
+        return self.get_st_symbol().is_namespace()
 
     def is_import(self) -> bool:
         """Returns true if the symbol was declared from an `import` statement."""
         if self.decl_name is None:
             return False
-        return self.symbol.is_imported()
-
-    def get_edges(self) -> Iterable["Vertex"]:
-        """Iterates over all of the immediate code dependencies of this vertex."""
-        p = module_as_external_package(self.module_name)
-        if p is not None:
-            yield p
-            return
-        if self.is_import():
-            imports = get_module_imports(self.module_name)
-            assert self.decl_name in imports
-            yield imports[self.decl_name]
-            return
-        if self.is_namespace():
-            # a namespace means that the symbol is a function, class or module, and so can contain more symbols.
-
-            nss = self.symbol.get_namespaces()
-            for ns in nss:
-                if isinstance(ns, Function):
-                    globals = ns.get_globals()
-                    for decl_name in globals:
-                        if hasattr(builtins, decl_name):
-                            # ignore builtins
-                            continue
-                        yield CodeVertex(self.module_name, decl_name)
-                elif isinstance(ns, Class):
-                    assert self.decl_name is not None
-                    # [todo] a class depends on all of the methods, _and_ the fields.
-                    for mn in ns.get_methods():
-                        yield CodeVertex(self.module_name, self.decl_name + "." + mn)
-                else:
-                    raise NotImplementedError(
-                        f"Don't know how to explore deps of {self}"
-                    )
-        # constants have no edges.
+        return self.get_st_symbol().is_imported()
 
 
-Vertex = Union[CodeVertex, ExternPackage]
+class BindingKind(Enum):
+    """Information about the kind of thing that the symbol is bound to."""
+
+    fun = 0
+    """ A function, including class methods. """
+    cls = 1
+    """ A class """
+    val = 2
+    """ A value. These are hashed by their python object value. """
+    imp = 3
+    """ Imported symbol. """
+    constant = 4
+    """ A constant, defining expression is hashed. """
+    external = 5
+    """ External package """
+
+
+class Binding(ABC):
+    kind: BindingKind
+    deps: Set[Symbol]
+    diffstr: str
+    """ A string that can be diffed with other versions of the binding to show the user what changed. """
+    digest: str
+    """ A string to uniquely identify the binding object. Note that this doesn't have to be a hex hash if not needed. """
+
+    def __hash__(self):
+        return self.digest
+
+
+@dataclass
+class ImportedBinding(Binding):
+    kind = BindingKind.imp
+    symb: Symbol
+
+    @property
+    def digest(self):
+        return str(self.symb)
+
+    @property
+    def deps(self):
+        return set([self.symb])
+
+    @property
+    def diffstr(self):
+        # [todo] would be cool to show a diff of the line of sourcecode here.
+        return str(self.symb)
+
+
+@dataclass
+class FnBinding(Binding):
+    kind = BindingKind.fun
+    sourcetext: str
+    deps: Set[Symbol]
+
+    @property
+    def digest(self):
+        return deephash(self.sourcetext)
+
+    @property
+    def diffstr(self):
+        return self.sourcetext
+
+
+@dataclass
+class ClassBinding(Binding):
+    kind = BindingKind.cls
+    sourcetext: str
+    code_deps: Set[Symbol]
+    methods: List[Symbol]
+
+    @property
+    def deps(self):
+        return self.code_deps.union(self.methods)
+
+    @property
+    def digest(self):
+        return deephash(self.sourcetext)
+
+    @property
+    def diffstr(self):
+        return self.sourcetext
+
+
+@dataclass
+class ValueBinding(Binding):
+    kind = BindingKind.val
+    repr: str
+    digest: str
+
+    @property
+    def deps(self):
+        return set()
+
+    @property
+    def diffstr(self):
+        return self.repr
+
+
+@dataclass
+class ExternalBinding(Binding):
+    kind = BindingKind.external
+    name: str
+    version: str
+
+    @property
+    def diffstr(self):
+        return self.version
+
+    @property
+    def deps(self):
+        return set()
+
+    @property
+    def digest(self):
+        vs = self.version.split(".")
+        amt = ["none", "major", "minor", "patch"].index(
+            Config.current().version_sensitivity
+        )
+        v = ".".join(vs[:amt])
+        return v
 
 
 class CodeGraph:
-    dg: DirectedGraph[Vertex, Any]
+    dg: DirectedGraph[Symbol, Any]
 
     def __init__(self):
         self.dg = DirectedGraph()
 
     def eat_obj(self, o):
-        v = CodeVertex.of_object(o)
+        v = Symbol.of_object(o)
         return self.eat(v)
 
-    def eat(self, v: Vertex):
+    def eat(self, v: Symbol):
         if self.dg.has_vertex(v):
             # assume already explored
             return
         self.dg.add_vertex(v)
-        if isinstance(v, CodeVertex):
-            for v2 in v.get_edges():
+        if isinstance(v, Symbol):
+            b = get_binding(v)
+            for v2 in b.deps:
                 self.eat(v2)
-                self.dg.set_edge(v, v2, ())
+                self.dg.set_edge(v, v2, b)
 
-    def get_dependencies(self, v: Vertex):
+    def get_dependencies(self, v: Symbol):
         self.eat(v)
         yield from self.dg.reachable_from(v)
 
     def get_dependencies_obj(self, o):
-        yield from self.get_dependencies(CodeVertex.of_object(o))
+        yield from self.get_dependencies(Symbol.of_object(o))
 
     def clear(self):
         self.dg = DirectedGraph()
@@ -249,6 +354,8 @@ def is_relative_import(module_name: str) -> bool:
 
 
 def head_module(module_name) -> str:
+    """Given a dot-separated module name such as ``torch.nn.functional``,
+    returns the 'head module' name ``torch``."""
     if "." in module_name:
         parts = module_name.split(".")
         head = parts[0]
@@ -260,17 +367,17 @@ def head_module(module_name) -> str:
 def _mk_extern_package_from_site_package(module_name: str):
     v = module_version(module_name)
     if v is not None:
-        return ExternPackage(name=module_name, version=v)
+        return ExternalBinding(name=module_name, version=v)
     if "." in module_name:
         head = head_module(module_name)
         v = module_version(head)
         if v is not None:
-            return ExternPackage(name=head, version=v)
+            return ExternalBinding(name=head, version=v)
     raise ValueError(f"Can't find a module version for {module_name}.")
 
 
 @cache
-def module_as_external_package(module_name: str) -> Optional[ExternPackage]:
+def module_as_external_package(module_name: str) -> Optional[ExternalBinding]:
     """Looks at the module name and tries to determine whether the module should be considered as being
     external for the project.
 
@@ -279,7 +386,7 @@ def module_as_external_package(module_name: str) -> Optional[ExternPackage]:
     """
     if not is_relative_import(module_name) and head_module(module_name) == "hitsave":
         # special case, hitsave is always an extern package
-        return ExternPackage("hitsave", __version__)
+        return ExternalBinding("hitsave", __version__)
     m = sys.modules.get(module_name)
     o = get_origin(module_name)
     assert o is not None
@@ -289,7 +396,7 @@ def module_as_external_package(module_name: str) -> Optional[ExternPackage]:
     if ("lib/python3" in o) or (o == "built-in"):
         v = sys.version_info
         v = f"{v.major}.{v.minor}"
-        return ExternPackage("__builtin__", v)
+        return ExternalBinding("__builtin__", v)
     # [todo] another case is packages that have been installed by the user using `pip install -e ...`
     # the rule should be configurable, but we treat it as an extern package iff
     # - it has to be a package (module has a __path__ attr)
@@ -365,29 +472,78 @@ def get_source(module_name: str) -> str:
 
 
 @cache
-def symtable_of_module_name(module_name: str) -> SymbolTable:
+def symtable_of_module_name(module_name: str) -> st.SymbolTable:
     o = get_origin(module_name)
     assert o is not None
-    return symtable(get_source(module_name), o, "exec")
-
-
-"""
-Parses the given module name, finds all of the constants in the module's source that are imported.
-"""
+    return st.symtable(get_source(module_name), o, "exec")
 
 
 @cache
-def get_module_imports(module_name: str) -> Dict[str, Vertex]:
+def _get_namespace_binding(s: Symbol):
+    assert s.is_namespace()
+
+    ns = s.get_st_symbol().get_namespace()
+    # [todo] what are some cases where there are multiple namespaces?
+    if isinstance(ns, st.Function):
+        deps = [
+            Symbol(s.module_name, decl_name)
+            for decl_name in ns.get_globals()
+            if not hasattr(builtins, decl_name)
+        ]
+        src = getsource(s)
+        assert src is not None, f"failed to find sourcecode for {str(s)}"
+        return FnBinding(deps=set(deps), sourcetext=src)
+    if isinstance(ns, st.Class):
+        assert s.decl_name is not None
+        methods = [
+            Symbol(s.module_name, s.decl_name + "." + mn) for mn in ns.get_methods()
+        ]
+        src = getsource(s)
+        assert src is not None, f"failed to find sourcecode for {str(s)}"
+
+        return ClassBinding(
+            sourcetext=src,
+            code_deps=set(),  # [todo] get field deps, get baseclass deps.
+            methods=methods,
+        )
+
+    raise NotImplementedError(f"Don't know how to get deps of namespace {str(s)}")
+
+
+def get_binding(s: Symbol) -> Binding:
+    p = module_as_external_package(s.module_name)
+    if p is not None:
+        return p
+
+    if s.is_import():
+        imports = get_module_imports(s.module_name)
+        assert s.decl_name in imports
+        i = imports[s.decl_name]
+        return ImportedBinding(symb=i)
+
+    if s.is_namespace():
+        # a namespace means that s is a function, class or module and contains references to symbols.
+        return _get_namespace_binding(s)
+    else:  # not a namespace
+        # [todo] we can't really cache this because values can change.
+        o = s.get_bound_object()
+        digest = deephash(o)
+        repr = pprint.pformat(o)
+        return ValueBinding(repr=repr, digest=digest)
+
+
+def get_digest(s: Symbol):
+    return get_binding(s).digest
+
+
+@cache
+def get_module_imports(module_name: str) -> Dict[str, Symbol]:
     """Returns all of the vertices that are imported from the given module name."""
     t = ast.parse(get_source(module_name))
     r = {}
 
-    def mk_vertex(module_name, fn_name=None) -> Vertex:
-        p = module_as_external_package(module_name)
-        if p is not None:
-            return p
-        else:
-            return CodeVertex(module_name, fn_name)
+    def mk_vertex(module_name, fn_name=None) -> Symbol:
+        return Symbol(module_name, fn_name)
 
     class V(ast.NodeVisitor):
         def visit_Import(self, node: ast.Import):
@@ -410,8 +566,8 @@ def get_module_imports(module_name: str) -> Dict[str, Vertex]:
     return r
 
 
-def pp_symbol(sym: Symbol):
-    assert type(sym) == Symbol
+def pp_symbol(sym: st.Symbol):
+    assert type(sym) == st.Symbol
     print("Symbol:", sym.get_name())
     ps = [
         "referenced",
@@ -436,3 +592,19 @@ def pp_symtable(st: SymbolTable):
         return (s, ", ".join(st.get_identifiers()), [rec(x) for x in st.get_children()])
 
     return pprint.pformat(rec(st))
+
+
+@cache
+def getsource(s: Symbol) -> Optional[str]:
+    o: Any = s.get_bound_object()
+    if inspect.isfunction(o) or inspect.isclass(o):
+        return inspect.getsource(o)
+    elif hasattr(o, "__wrapped__") and inspect.isfunction(o.__wrapped__):
+        return inspect.getsource(o.__wrapped__)
+    else:
+        return None
+
+
+def hash_function(g: CodeGraph, fn: Callable):
+    g.eat_obj(fn)
+    deps = {}

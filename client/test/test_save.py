@@ -17,6 +17,7 @@ def g(y):
 
 @memo
 def gg(y):
+    x = g(y)
     return np.ones(2**y)
 
 
@@ -44,7 +45,7 @@ def test_savesave():
 
 
 def test_biggies():
-    for x in range(25):
+    for x in range(20):
         print(len(gg(x)))
 
 

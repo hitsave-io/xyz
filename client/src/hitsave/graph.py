@@ -54,6 +54,7 @@ class DirectedGraph(Generic[V, E]):
         self.adj[src][tgt] = e
 
     def reachable_from(self, start: V) -> Iterator[V]:
+        yield start
         if not self.has_vertex(start):
             return
         visited = set()

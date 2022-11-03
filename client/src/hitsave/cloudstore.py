@@ -3,7 +3,7 @@ import io
 from typing import IO, Any, Iterable, Iterator
 from dataclasses import asdict, dataclass, field
 from typing import Optional, Union
-from hitsave.codegraph import CodeVertex
+from hitsave.codegraph import Symbol
 from hitsave.types import EvalKey, Eval, StoreMiss
 import logging
 import json
@@ -163,7 +163,7 @@ class CloudStore:
                     is_experiment=e.is_experiment,
                     start_time=e.start_time.isoformat(),
                     elapsed_process_time=e.elapsed_process_time,
-                    result_json = visualize_rec(e.result)
+                    result_json=visualize_rec(e.result),
                 ),
                 tape,
             )
