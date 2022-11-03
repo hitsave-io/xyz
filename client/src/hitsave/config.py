@@ -8,7 +8,7 @@ import sys
 import logging
 from pathlib import Path
 from typing import Optional, Type, TypeVar
-from hitsave.util import as_optional, is_optional, get_git_root
+from hitsave.util import Current, as_optional, is_optional, get_git_root
 
 """ This module is responsible for loading all of the environment based config options.
 
@@ -100,7 +100,7 @@ def interpret_var_str(t: Type[T], value: str) -> T:
 
 
 @dataclass
-class Config:
+class Config(Current):
     """This dataclass contains all of the configuration needed to use hitsave.
 
     [todo] some config that will be added later.
@@ -155,18 +155,3 @@ class Config:
         """Creates the config, including environment variables and [todo] hitsave config files."""
         return cls.init().merge_env()
 
-    @classmethod
-    def current(cls):
-        return current_config.get()
-
-
-current_config: ContextVar[Config] = ContextVar(
-    "current_config", default=Config.default()
-)
-
-
-@contextmanager
-def use_config(conf: Config):
-    t = current_config.set(conf)
-    yield conf
-    current_config.reset(t)
