@@ -1,44 +1,51 @@
-from typing import List
-from hitsave.types import Eval, EvalKey, EvalStore, StoreMiss
+from typing import Any, Dict, List, Union
+from hitsave.types import Eval, EvalKey, StoreAPI, StoreMiss
 
 
-class ComposeStore:
+class ComposeStore(StoreAPI):
     """Composition of multiple stores to make a layered cache.
     Earlier stores are polled first."""
 
-    _stores: List[EvalStore]
+    _stores: List[StoreAPI]
 
-    def __init__(self, stores: List[EvalStore]):
+    def __init__(self, stores: List[StoreAPI]):
         assert len(stores) > 0
         self._stores = stores
 
     def close(self):
         for s in self._stores:
-            s.close()
+            if hasattr(s, "close"):
+                s.close()  # type: ignore
 
-    def get(self, key: EvalKey):
+    def poll_eval(self, key: EvalKey, **kwargs) -> Union[Eval, StoreMiss]:
         if len(self._stores) == 0:
             return StoreMiss("No stores present")
 
-        def rec(stores):
+        def rec(stores: List[StoreAPI]) -> Union[Eval, StoreMiss]:
             store, rest = stores[0], stores[1:]
-            r = store.get(key)
+            r = store.poll_eval(key, **kwargs)
             if isinstance(r, StoreMiss) and len(rest) > 0:
                 r = rec(rest)
                 if not isinstance(r, StoreMiss):
                     assert isinstance(r, Eval)
-                    store.set(r)
+                    # [todo] propagate result to later stores.
+                    # store.set(r)
             else:
                 # we hit, but we still want to tell later stores that
                 # we used the eval again so that they can log metrics etc.
                 for x in rest:
                     if hasattr(x, "poll"):
-                        x.poll(key)
+                        # [todo] poll without downloading result.
+                        # x.poll(key)
+                        pass
             return r
 
         return rec(self._stores)
 
-    def set(self, e: Eval):
+    def start_eval(self, key: EvalKey, **kwargs):
         for store in self._stores:
-            # assume that store doesn't have the key
-            store.set(e)
+            store.start_eval(key, **kwargs)
+
+    def resolve_eval(self, key: EvalKey, **kwargs):
+        for store in self._stores:
+            store.resolve_eval(key, **kwargs)

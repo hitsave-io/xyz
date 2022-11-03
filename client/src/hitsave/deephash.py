@@ -1,12 +1,9 @@
-from typing import Iterable, Set, Type, Union
+from types import FunctionType
+from typing import Callable, Iterable, Set, Type, Union
 from blake3 import blake3
 from functools import singledispatch, lru_cache
-from dataclasses import is_dataclass, fields
 import struct
-from hitsave.codegraph import CodeGraph, CodeVertex, ExternPackage, Vertex
 from hitsave.deep import reduce
-from hitsave.util import cache
-import inspect
 import warnings
 
 
@@ -91,33 +88,39 @@ def deephash(item) -> str:
     return hasher.hexdigest()
 
 
-def local_hash_Vertex(v: Vertex):
-    if isinstance(v, CodeVertex):
-        if v.is_import():
-            # imported values need not have their content hashed
-            # it will be hashed at the parent vertex.
-            return deephash(repr(v))
-        o = v.to_object()
-        if inspect.isfunction(o):
-            return fn_local_hash(o)
-        elif hasattr(o, "__wrapped__") and inspect.isfunction(o.__wrapped__):
-            return fn_local_hash(o.__wrapped__)
-        elif inspect.isclass(o):
-            return fn_local_hash(o)
-        else:
-            return deephash(o)
-    else:
-        return deephash(v)
+# def local_hash_Vertex(v: Vertex):
+#     # [todo] obsolete
+#     if isinstance(v, CodeVertex):
+#         if v.is_import():
+#             # imported values need not have their content hashed
+#             # it will be hashed at the parent vertex.
+#             return deephash(repr(v))
+#         o = v.to_object()
+#         if inspect.isfunction(o):
+#             return fn_local_hash(o)
+#         elif hasattr(o, "__wrapped__") and inspect.isfunction(o.__wrapped__):
+#             return fn_local_hash(o.__wrapped__)
+#         elif inspect.isclass(o):
+#             return fn_local_hash(o)
+#         else:
+#             return deephash(o)
+#     else:
+#         return deephash(v)
 
 
-@cache
-def fn_local_hash(fn):
-    lines = inspect.getsource(fn)
-    return deephash(lines)
+# @cache
+# def get_fn(fn: Callable):
+#     lines = inspect.getsource(fn)
+#     digest = deephash(lines)
+#     return Fn(CodeVertex.of_object(fn), code=lines, digest=digest)
 
 
-def hash_function(g: CodeGraph, fn):
-    local_hash = fn_local_hash(fn)
-    g.eat_obj(fn)
-    deps = {repr(v): local_hash_Vertex(v) for v in (g.get_dependencies_obj(fn))}
-    return deephash((local_hash, deps))
+# def fn_local_hash(fn: Callable):
+#     return get_fn(fn).digest
+
+
+# def hash_function(g: CodeGraph, fn: Callable):
+#     local_hash = fn_local_hash(fn)
+#     g.eat_obj(fn)
+#     deps = {repr(v): local_hash_Vertex(v) for v in (g.get_dependencies_obj(fn))}
+#     return deephash((local_hash, deps))

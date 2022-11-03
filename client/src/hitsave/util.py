@@ -3,14 +3,16 @@ from contextvars import ContextVar
 from enum import Enum
 import functools
 from functools import singledispatch
-from dataclasses import is_dataclass, Field, fields
+from dataclasses import dataclass, is_dataclass, Field, fields
 import json
 from subprocess import check_output, CalledProcessError
 from typing import (
     IO,
     Any,
     BinaryIO,
+    Dict,
     Iterator,
+    Set,
     Tuple,
     TypeVar,
     get_origin,
@@ -344,6 +346,9 @@ def chunked_read(x: IO[bytes], block_size=2**20) -> Iterator[bytes]:
     return iter(partial(x.read, block_size), b"")
 
 
+T = TypeVar("T", bound="Current")
+
+
 class Current:
     """A mixin for classes where you want there to be a 'current' instance.
     You can get the current instance by calling ``cls.current``
@@ -375,9 +380,29 @@ class Current:
         self.__class__.CURRENT.reset(t)
 
     @classmethod
-    def current(cls):
+    def current(cls: Type[T]) -> T:
         c = cls.CURRENT.get(None)
         if c is None:
             c = cls.default()
             cls.CURRENT.set(c)
         return c
+
+
+@dataclass
+class DictDiff:
+    add: Set[str]
+    rm: Set[str]
+    mod: Dict[str, Tuple[Any, Any]]
+
+    def is_empty(self):
+        return len(self.add) == 0 and len(self.rm) == 0 and len(self.mod) == 0
+
+
+def dict_diff(d1, d2) -> DictDiff:
+    k1 = set(d1.keys())
+    k2 = set(d2.keys())
+    return DictDiff(
+        add=k2.difference(k1),
+        rm=k1.difference(k2),
+        mod={k: (v1, d2[k]) for k, v1 in d1.items() if (k in d2) and (d2[k] != v1)},
+    )

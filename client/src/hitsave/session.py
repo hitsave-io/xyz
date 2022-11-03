@@ -2,13 +2,15 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 import logging
-from typing import Callable
-from hitsave.codegraph import CodeGraph
+from typing import Callable, Dict
+from hitsave.codegraph import CodeGraph, Symbol, get_binding
 from hitsave.config import Config
+from hitsave.deephash import deephash
 from hitsave.storecompose import ComposeStore
-from hitsave.types import EvalStore
+from hitsave.types import StoreAPI
 import uuid
-from hitsave.cloudstore import CloudStore
+
+# from hitsave.cloudstore import CloudStore
 from hitsave.localstore import LocalStore
 from hitsave.util import Current
 
@@ -18,7 +20,7 @@ logger = logging.getLogger("hitsave")
 class Session(Current):
     """This object contains all of the global state about hitsave."""
 
-    store: EvalStore
+    store: StoreAPI
     codegraph: CodeGraph
     id: uuid.UUID
     # [todo] also background uploader
@@ -27,8 +29,9 @@ class Session(Current):
     def __init__(self):
         cfg = Config.current()
         stores = []
-        if not cfg.no_cloud:
-            stores.append(CloudStore())
+        # [todo] reintroduce cloudstore.
+        # if not cfg.no_cloud:
+        #     stores.append(CloudStore())
         if not cfg.no_local:
             stores.append(LocalStore())
         if len(stores) == 0:
@@ -40,3 +43,18 @@ class Session(Current):
     @classmethod
     def default(cls):
         return cls()
+
+    def fn_hash(self, s: Symbol):
+        return deephash(
+            {
+                str(dep): get_binding(dep).digest
+                for dep in self.codegraph.get_dependencies(s)
+            }
+        )
+
+    def fn_deps(self, s: Symbol) -> Dict[str, str]:
+        """Returns a json-safe representation of the diffs in dependencies"""
+        return {
+            str(dep): get_binding(dep).diffstr
+            for dep in self.codegraph.get_dependencies(s)
+        }
