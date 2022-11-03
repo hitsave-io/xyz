@@ -10,12 +10,12 @@ from hitsave.types import EvalStore
 import uuid
 from hitsave.cloudstore import CloudStore
 from hitsave.localstore import LocalStore
+from hitsave.util import Current
 
-current_session_var: ContextVar["Session"] = ContextVar("current_session")
 logger = logging.getLogger("hitsave")
 
 
-class Session:
+class Session(Current):
     """This object contains all of the global state about hitsave."""
 
     store: EvalStore
@@ -38,15 +38,5 @@ class Session:
         self.id = uuid.uuid4()
 
     @classmethod
-    def current(cls) -> "Session":
-        return current_session_var.get()
-
-
-current_session_var.set(Session())
-
-
-@contextmanager
-def use_session(sess: Session):
-    t = current_session_var.set(sess)
-    yield sess
-    current_session_var.reset(t)
+    def default(cls):
+        return cls()
