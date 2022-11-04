@@ -2,10 +2,12 @@ from datetime import datetime
 import json
 import pickle
 from typing import Any, Dict, List, Optional, Union
+from hitsave.codegraph import Binding, Symbol
 from hitsave.types import (
     CodeChanged,
     EvalKey,
     EvalStatus,
+    PollEvalResult,
     StoreMiss,
     StoreAPI,
 )
@@ -44,11 +46,12 @@ class LocalStore(StoreAPI):
             )
             self.conn.execute(
                 """
-                CREATE TABLE IF NOT EXISTS fns (
-                    fn_key TEXT NOT NULL,
-                    fn_hash TEXT NOT NULL,
-                    code TEXT,
-                    PRIMARY KEY (fn_key, fn_hash)
+                CREATE TABLE IF NOT EXISTS bindings (
+                    symbol TEXT NOT NULL,
+                    digest TEXT NOT NULL,
+                    diffstr TEXT,
+                    kind INTEGER,
+                    PRIMARY KEY (symbol, digest)
                 );
             """
             )
@@ -61,7 +64,7 @@ class LocalStore(StoreAPI):
                 );
             """
             )
-        logger.info(f"Created local database at {self.store_path}")
+        logger.debug(f"Initialised local database at {self.store_path}")
 
     def close(self):
         self.conn.close()
@@ -70,7 +73,8 @@ class LocalStore(StoreAPI):
         with self.conn:
             cur = self.conn.execute(
                 """
-                SELECT result FROM evals WHERE fn_key = ? AND fn_hash = ? AND args_hash = ? AND status = ?;
+                SELECT result FROM evals
+                WHERE fn_key = ? AND fn_hash = ? AND args_hash = ? AND status = ?;
             """,
                 (
                     str(key.fn_key),
@@ -79,10 +83,16 @@ class LocalStore(StoreAPI):
                     EvalStatus.resolved.value,
                 ),
             )
-            evs = cur.fetchall()
-            if len(evs) != 0:
+            result = cur.fetchall()
+            if len(result) != 0:
                 # [todo] orderby start time.
-                return evs[0]
+                try:
+                    value = pickle.loads(result[0][0])
+                    return PollEvalResult(value=value, origin="local")
+                except:
+                    msg = f"Corrupted result for {str(key)}"
+                    logger.error(msg)
+                    return StoreMiss(msg)
 
             cur = self.conn.execute(
                 """
@@ -99,10 +109,35 @@ class LocalStore(StoreAPI):
             x = cur.fetchone()
             if x is not None:
                 if deps is not None:
-                    deps1 = json.loads(x[0])
-                    deps2 = deps
+                    symbol_to_digest = json.loads(x[0])
+                    deps1 = {}
+                    for s, digest in symbol_to_digest.items():
+                        # [todo] this should really be done by having a third table joining evals to deps but cba
+                        x = self.conn.execute(
+                            """SELECT diffstr FROM bindings
+                            WHERE symbol = ? AND digest = ?;""",
+                            (s, digest),
+                        ).fetchone()
+                        if x is not None:
+                            deps1[s] = x[0]
+                    # [todo] code changed should just store deps1.
+                    deps2 = {str(k): v.diffstr for k, v in deps.items()}
                     return CodeChanged(old_deps=deps1, new_deps=deps2)
-
+            cur = self.conn.execute(
+                """
+                SELECT deps FROM evals
+                WHERE fn_key = ? AND fn_hash = ? AND status = ?
+                ORDER BY start_time DESC;
+            """,
+                (
+                    str(key.fn_key),
+                    key.fn_hash,
+                    EvalStatus.resolved.value,
+                ),
+            )
+            x = cur.fetchone()
+            if x is not None:
+                return StoreMiss("New arguments.")
             return StoreMiss("No evaluation found")
 
     def start_eval(
@@ -111,12 +146,21 @@ class LocalStore(StoreAPI):
         *,
         is_experiment: bool = False,
         args: Dict[str, Any],
-        deps: Dict[str, str],
+        deps: Dict[Symbol, Binding],
         start_time: datetime,
     ) -> int:
+        # [todo] enforce this: deps is Dict[symbol, digest]
         # note: we don't bother storing args locally.
         with self.conn:
             # [todo] what to do if there is already a started eval?
+            digests = {str(k): v.digest for k, v in deps.items()}
+            self.conn.executemany(
+                """
+            INSERT OR IGNORE INTO bindings(symbol, digest, diffstr, kind)
+            VALUES (?, ?, ?, ?);
+            """,
+                [(str(k), v.digest, v.diffstr, v.kind.value) for k, v in deps.items()],
+            )
             c = self.conn.execute(
                 """
                 INSERT INTO evals
@@ -129,7 +173,7 @@ class LocalStore(StoreAPI):
                     key.fn_hash,
                     key.args_hash,
                     EvalStatus.started.value,
-                    json.dumps(deps),
+                    json.dumps(digests),
                     start_time.isoformat(),
                 ),
             )

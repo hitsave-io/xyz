@@ -23,7 +23,7 @@ app = typer.Typer()
 """ Entrypoint for CLI tool. """
 
 logger = logging.getLogger("hitsave")
-logger.setLevel(logging.DEBUG)
+# logger.setLevel(logging.DEBUG)
 
 
 @app.command()
