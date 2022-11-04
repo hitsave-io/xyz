@@ -8,8 +8,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from hitsave.codegraph import (
     CodeGraph,
-    CodeVertex,
-    ExternPackage,
+    Symbol,
+    ExternalBinding,
+    get_binding,
     get_module_imports,
     pp_symbol,
     symtable_of_module_name,
@@ -18,6 +19,7 @@ from hitsave.codegraph import (
     module_as_external_package,
 )
 from test.strat import numbers
+from hitsave.util import partition
 
 
 def h(z):
@@ -68,8 +70,15 @@ THIS_MODULE = f.__module__
 
 def test_module_imports(snapshot):
     mis = get_module_imports(THIS_MODULE)
-    cvs = {k: v for k, v in mis.items() if isinstance(v, CodeVertex)}
-    eps = {k: v.name for k, v in mis.items() if isinstance(v, ExternPackage)}
+    bindings = {k: (v, get_binding(v)) for k, v in mis.items()}
+    cvs = {
+        k: str(v)
+        for k, (v, b) in bindings.items()
+        if not isinstance(b, ExternalBinding)
+    }
+    eps = {
+        k: b.name for k, (v, b) in bindings.items() if isinstance(b, ExternalBinding)
+    }
     snapshot.assert_match(pprint.pformat(cvs), "code_imports.txt")
     snapshot.assert_match(pprint.pformat(eps), "externs.txt")
 
@@ -77,10 +86,10 @@ def test_module_imports(snapshot):
 def test_graph_snap(snapshot):
     gg = CodeGraph()
     ds = list(gg.get_dependencies_obj(f))
-    interns = [d for d in ds if isinstance(d, CodeVertex)]
-    # don't print version numbers for stability
-    externs = [d.name for d in ds if isinstance(d, ExternPackage)]
-    ss = pprint.pformat((interns, externs))
+    interns, externs = partition(
+        lambda d: isinstance(get_binding(d), ExternalBinding), ds
+    )
+    ss = pprint.pformat((sorted(map(str, interns)), sorted(map(str, externs))))
     snapshot.assert_match(ss, "test_graph_snap.txt")
 
 
@@ -97,7 +106,7 @@ def test_origin_builtin():
 
 def test_module_as_external_package():
     e1 = module_as_external_package("hitsave")
-    assert isinstance(e1, ExternPackage)
+    assert isinstance(e1, ExternalBinding)
     assert e1.name == "hitsave"
 
 
@@ -116,7 +125,7 @@ def test_module_as_external_package():
 
 def test_module_as_external_package3():
     e1 = module_as_external_package("itertools")
-    assert isinstance(e1, ExternPackage)
+    assert isinstance(e1, ExternalBinding)
     assert e1.name == "__builtin__"
 
 
@@ -125,9 +134,9 @@ def test_torch_versions():
     e1 = module_as_external_package("torch")
     e2 = module_as_external_package("torch.nn")
     e3 = module_as_external_package("torch.nn.functional")
-    assert isinstance(e1, ExternPackage)
-    assert isinstance(e2, ExternPackage)
-    assert isinstance(e3, ExternPackage)
+    assert isinstance(e1, ExternalBinding)
+    assert isinstance(e2, ExternalBinding)
+    assert isinstance(e3, ExternalBinding)
     assert e1.name == "torch"
     assert e2.name == "torch"
     assert e3.name == "torch"

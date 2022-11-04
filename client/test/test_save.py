@@ -12,16 +12,12 @@ def f(x):
 
 @memo
 def g(y):
-    return f(y) + y + y + y
-
-
-Z = 4
+    return f(y) + y + y
 
 
 @memo
 def gg(y):
-    x = g(y) + Z
-    return np.zeros(2**y) + 3
+    return np.ones(2**y)
 
 
 @memo()

@@ -1,1 +1,1 @@
-{'numbers': test.strat:numbers}
+{'numbers': 'test.strat:numbers'}

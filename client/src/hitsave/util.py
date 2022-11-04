@@ -4,6 +4,7 @@ from enum import Enum
 import functools
 from functools import singledispatch
 from dataclasses import dataclass, is_dataclass, Field, fields
+from itertools import filterfalse, tee
 import json
 from subprocess import check_output, CalledProcessError
 from typing import (
@@ -406,3 +407,12 @@ def dict_diff(d1, d2) -> DictDiff:
         rm=k1.difference(k2),
         mod={k: (v1, d2[k]) for k, v1 in d1.items() if (k in d2) and (d2[k] != v1)},
     )
+
+def partition(pred, iterable):
+    """Use a predicate to partition entries into false entries and true entries.
+
+    ref: https://docs.python.org/3/library/itertools.html
+    """
+    # partition(is_odd, range(10)) --> 0 2 4 6 8   and  1 3 5 7 9
+    t1, t2 = tee(iterable)
+    return filterfalse(pred, t1), filter(pred, t2)

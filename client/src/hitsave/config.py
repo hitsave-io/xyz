@@ -144,6 +144,10 @@ class Config(Current):
     [todo] choose the sensitivity for different packages: do it by looking at the versioning sensitivity in requirements.txt or the lockfile.
     """
 
+    @property
+    def local_db_path(self) -> Path:
+        return self.local_cache_dir / "localstore.db"
+
     def merge_env(self):
         d = {}
         for fd in fields(self):

@@ -1,5 +1,6 @@
+import inspect
 from types import FunctionType
-from typing import Callable, Iterable, Set, Type, Union
+from typing import IO, Callable, Iterable, Set, Type, Union
 from blake3 import blake3
 from functools import singledispatch, lru_cache
 import struct
@@ -63,6 +64,12 @@ def run_deephash(item, hasher):
     bs = to_bytes(item)
     if bs is not NotImplemented:
         hasher.update(bs)
+    elif inspect.isfunction(item):
+        # [todo], eventually this will be supported using codegraphs.
+        warnings.warn(
+            f"Attempting to hash a function {getattr(item, '__name__', repr(item))}, skipping."
+        )
+        hasher.update(repr(item).encode())
     else:
         rv = reduce(item)
         if rv is not None:
@@ -86,41 +93,3 @@ def deephash(item) -> str:
     hasher = blake3()
     run_deephash(item, hasher)
     return hasher.hexdigest()
-
-
-# def local_hash_Vertex(v: Vertex):
-#     # [todo] obsolete
-#     if isinstance(v, CodeVertex):
-#         if v.is_import():
-#             # imported values need not have their content hashed
-#             # it will be hashed at the parent vertex.
-#             return deephash(repr(v))
-#         o = v.to_object()
-#         if inspect.isfunction(o):
-#             return fn_local_hash(o)
-#         elif hasattr(o, "__wrapped__") and inspect.isfunction(o.__wrapped__):
-#             return fn_local_hash(o.__wrapped__)
-#         elif inspect.isclass(o):
-#             return fn_local_hash(o)
-#         else:
-#             return deephash(o)
-#     else:
-#         return deephash(v)
-
-
-# @cache
-# def get_fn(fn: Callable):
-#     lines = inspect.getsource(fn)
-#     digest = deephash(lines)
-#     return Fn(CodeVertex.of_object(fn), code=lines, digest=digest)
-
-
-# def fn_local_hash(fn: Callable):
-#     return get_fn(fn).digest
-
-
-# def hash_function(g: CodeGraph, fn: Callable):
-#     local_hash = fn_local_hash(fn)
-#     g.eat_obj(fn)
-#     deps = {repr(v): local_hash_Vertex(v) for v in (g.get_dependencies_obj(fn))}
-#     return deephash((local_hash, deps))

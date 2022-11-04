@@ -13,6 +13,7 @@ from hitsave.types import CodeChanged, Eval, EvalKey, StoreMiss
 import logging
 from datetime import datetime, timezone
 import time
+from hitsave.evalstore import EvalStore
 from typing_extensions import ParamSpec  # needed for ≤3.9
 
 logger = logging.getLogger("hitsave")
@@ -31,7 +32,7 @@ class SavedFunction(Generic[P, R]):
 
     local_only: bool = field(default=False)  # [todo] not used yet
     invocation_count: int = field(default=0)
-    _fn_hashes_reported : Set[str] = field(default_factory=set)
+    _fn_hashes_reported: Set[str] = field(default_factory=set)
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
         self.invocation_count += 1
@@ -43,17 +44,20 @@ class SavedFunction(Generic[P, R]):
         fn_hash = session.fn_hash(fn_key)
         args_hash = deephash(ba.arguments)
         key = EvalKey(fn_key=fn_key, fn_hash=fn_hash, args_hash=args_hash)
-        result = session.store.poll_eval(key, deps=deps)
+        evalstore = EvalStore.current()
+        result = evalstore.poll_eval(key, deps=deps)
         if isinstance(result, StoreMiss):
             if isinstance(result, CodeChanged):
                 if fn_hash not in self._fn_hashes_reported:
-                    logger.info(f"Dependencies changed for {fn_key.pp()}:\n{result.reason}")
+                    logger.info(
+                        f"Dependencies changed for {fn_key.pp()}:\n{result.reason}"
+                    )
                     self._fn_hashes_reported.add(fn_hash)
             else:
                 logger.debug(f"No stored value for {fn_key.pp()}: {result.reason}")
             start_time = datetime.now(timezone.utc)
             start_process_time = time.process_time_ns()
-            eval_id = session.store.start_eval(
+            eval_id = evalstore.start_eval(
                 key,
                 is_experiment=self.is_experiment,
                 args=dict(ba.arguments),
@@ -63,7 +67,7 @@ class SavedFunction(Generic[P, R]):
             result = self.func(*args, **kwargs)
             end_process_time = time.process_time_ns()
             elapsed_process_time = end_process_time - start_process_time
-            session.store.resolve_eval(
+            evalstore.resolve_eval(
                 key, elapsed_process_time=elapsed_process_time, result=result
             )
             logger.debug(f"Computed value for {fn_key.pp()}.")

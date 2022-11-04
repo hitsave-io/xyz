@@ -1,8 +1,9 @@
-([test.test_codegraph:f,
-  test.test_codegraph:g,
-  test.test_codegraph:h,
-  test.test_codegraph:cc,
-  test.test_codegraph:FOP,
-  test.test_codegraph:symtable,
-  test.test_codegraph:given],
- ['__builtin__', 'hypothesis'])
+(['test.test_codegraph:FOP',
+  'test.test_codegraph:cc',
+  'test.test_codegraph:f',
+  'test.test_codegraph:f',
+  'test.test_codegraph:g',
+  'test.test_codegraph:given',
+  'test.test_codegraph:h',
+  'test.test_codegraph:symtable'],
+ ['hypothesis:given', 'symtable'])
