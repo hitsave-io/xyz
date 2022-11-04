@@ -3,7 +3,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 import logging
 from typing import Callable, Dict
-from hitsave.codegraph import CodeGraph, Symbol, get_binding
+from hitsave.codegraph import Binding, CodeGraph, Symbol, get_binding
 from hitsave.config import Config
 from hitsave.deephash import deephash
 from hitsave.storecompose import ComposeStore
@@ -52,9 +52,8 @@ class Session(Current):
             }
         )
 
-    def fn_deps(self, s: Symbol) -> Dict[str, str]:
-        """Returns a json-safe representation of the diffs in dependencies"""
+    def fn_deps(self, s: Symbol) -> Dict[Symbol, Binding]:
         return {
-            str(dep): get_binding(dep).diffstr
+            dep: get_binding(dep)
             for dep in self.codegraph.get_dependencies(s)
         }

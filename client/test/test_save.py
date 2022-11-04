@@ -12,13 +12,16 @@ def f(x):
 
 @memo
 def g(y):
-    return f(y) + y
+    return f(y) + y + y + y
+
+
+Z = 4
 
 
 @memo
 def gg(y):
-    x = g(y)
-    return np.ones(2**y)
+    x = g(y) + Z
+    return np.zeros(2**y) + 3
 
 
 @memo()
@@ -50,5 +53,5 @@ def test_biggies():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     test_biggies()

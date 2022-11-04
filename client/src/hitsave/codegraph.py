@@ -28,6 +28,7 @@ from enum import Enum
 import importlib
 from importlib.machinery import ModuleSpec
 import importlib.util
+import importlib.metadata
 import builtins
 import inspect
 from pathlib import Path
@@ -51,10 +52,9 @@ from typing import (
     Tuple,
     Union,
 )
-from hitsave.config import Config
+from hitsave.config import Config, __version__
 from hitsave.deephash import deephash
 from hitsave.graph import DirectedGraph
-from hitsave._version import __version__
 from hitsave.util import cache, decorate_ansi
 
 logger = logging.getLogger("hitsave/codegraph")
@@ -340,6 +340,10 @@ sourcefile → module_name
 
 @cache
 def module_version(module_name: str) -> Optional[str]:
+    try:
+        return importlib.metadata.version(module_name)
+    except:
+        pass
     m = sys.modules.get(module_name)
     assert m is not None, module_name
     if hasattr(m, "__version__"):
@@ -479,7 +483,10 @@ def symtable_of_module_name(module_name: str) -> st.SymbolTable:
 
 
 @cache
-def _get_namespace_binding(s: Symbol):
+def _get_namespace_binding(s: Symbol) -> Binding:
+    """Return a binding for the case of s being a namespace.
+    This is it's own method because we can safely cache namespace bindings.
+    """
     assert s.is_namespace()
 
     ns = s.get_st_symbol().get_namespace()
@@ -511,6 +518,16 @@ def _get_namespace_binding(s: Symbol):
 
 
 def get_binding(s: Symbol) -> Binding:
+    """Returns the binding for a particular symbol.
+
+    We make an assumption to allow us to cache bindings:
+    If the symbol is in the symbol-table for the module's source file, we assume that the
+    symbol is still bound to that source declaration at runtime. However this is not necessarily true,
+    since some code later in the module could re-bind the name.
+
+    This is the difference between symbols and names in python; a symbol is a compile-time binding and a
+    name is a runtime binding.
+    """
     p = module_as_external_package(s.module_name)
     if p is not None:
         return p
@@ -525,7 +542,6 @@ def get_binding(s: Symbol) -> Binding:
         # a namespace means that s is a function, class or module and contains references to symbols.
         return _get_namespace_binding(s)
     else:  # not a namespace
-        # [todo] we can't really cache this because values can change.
         o = s.get_bound_object()
         digest = deephash(o)
         repr = pprint.pformat(o)

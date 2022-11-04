@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 from typing import Literal, Optional, Type, TypeVar
 from hitsave.util import Current, as_optional, is_optional, get_git_root
+import importlib.metadata
 
 """ This module is responsible for loading all of the environment based config options.
 
@@ -20,6 +21,8 @@ from hitsave.util import Current, as_optional, is_optional, get_git_root
 """
 
 logger = logging.getLogger("hitsave")
+
+__version__ = importlib.metadata.version("hitsave")
 
 
 def find_workspace_folder() -> Path:

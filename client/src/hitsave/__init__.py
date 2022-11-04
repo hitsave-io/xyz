@@ -7,8 +7,7 @@ from .deep import reduce, reconstruct, traverse
 from .decorator import memo, experiment
 from .util import decorate_ansi, eprint, is_interactive_terminal
 from .cli import app as main_cli
-from .config import Config
-from ._version import __version__
+from .config import Config, __version__
 from .filesnap import FileSnapshot, DirectorySnapshot
 
 __all__ = [

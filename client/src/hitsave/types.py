@@ -5,13 +5,17 @@ from io import BufferedReader
 from typing import (
     IO,
     Any,
+    ClassVar,
     Generic,
     Iterator,
     List,
+    Literal,
     Optional,
     Dict,
     NamedTuple,
     Protocol,
+    Set,
+    Tuple,
     TypeVar,
     TypedDict,
     Union,
@@ -118,18 +122,19 @@ class StoreMiss:
         self.reason = reason
 
 
+# [todo] move this out of types.
 @dataclass
 class CodeChanged(StoreMiss):
+    _ALREADY_SEEN: ClassVar[Set[Tuple[str, str]]] = set()
     old_deps: Optional[Dict[str, str]]
     new_deps: Optional[Dict[str, str]]
 
     @property
     def reason(self):
         if self.old_deps is not None and self.new_deps is not None:
-            lines = [""]
+            lines = []
             diff = dict_diff(self.old_deps, self.new_deps)
             if len(diff.add) > 0:
-                lines.append("New dependencies:")
                 for x in diff.add:
                     lines.append(decorate_ansi("+++ " + x, fg="green"))
             if len(diff.rm) > 0:
@@ -138,6 +143,9 @@ class CodeChanged(StoreMiss):
             if len(diff.mod) > 0:
                 for x, (v1, v2) in diff.mod.items():
                     lines.append(decorate_ansi("~~~ " + x, fg="yellow"))
+                    if (v1, v2) in CodeChanged._ALREADY_SEEN:
+                        continue
+                    CodeChanged._ALREADY_SEEN.add((v1, v2))
                     xs = list(
                         difflib.ndiff(
                             v1.splitlines(keepends=True), v2.splitlines(keepends=True)
@@ -161,11 +169,15 @@ class CodeChanged(StoreMiss):
 # [todo] use same protocol as aiocache https://github.com/aio-libs/aiocache
 # [todo] rename to StoreAPI, make this the general interface for storing evaluations, blobs and functions.
 
+@dataclass
+class PollEvalResult:
+    value : Any
+    origin : Literal['local', 'cloud']
 
 class StoreAPI(Protocol):
     """Common calls for local and cloud cache. We assume that the API has access to the current session."""
 
-    def poll_eval(self, key: EvalKey, deps=None) -> Union[Any, StoreMiss]:
+    def poll_eval(self, key: EvalKey, deps=None) -> Union[PollEvalResult, StoreMiss]:
         ...
 
     def start_eval(
