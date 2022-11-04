@@ -2,15 +2,23 @@
   "private": true,
   "sideEffects": false,
   "scripts": {
-    "build": "remix build",
-    "dev": "remix dev",
-    "start": "cross-env NODE_ENV=production netlify dev"
+    "start": "cross-env NODE_ENV=production netlify dev",
+    "build": "run-s \"build:*\"",
+    "build:css": "yarn generate:css -- --minify",
+    "build:remix": "remix build",
+    "dev": "run-p \"dev:*\"",
+    "dev:css": "yarn generate:css -- --watch",
+    "dev:remix": "remix dev",
+    "generate:css": "yarn tailwindcss -o ./app/tailwind.css"
   },
   "dependencies": {
+    "@headlessui/react": "^1.7.4",
+    "@heroicons/react": "^2.0.13",
     "@netlify/functions": "^1.0.0",
     "@remix-run/netlify": "^1.7.3",
     "@remix-run/node": "^1.7.3",
     "@remix-run/react": "^1.7.3",
+    "@tailwindcss/forms": "^0.5.3",
     "cross-env": "^7.0.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
@@ -22,7 +30,9 @@
     "@types/react": "^18.0.15",
     "@types/react-dom": "^18.0.6",
     "eslint": "^8.23.1",
-    "typescript": "^4.7.4"
+    "tailwindcss": "^3.2.1",
+    "typescript": "^4.7.4",
+    "yarn-run-all": "^3.1.1"
   },
   "engines": {
     "node": ">=14"
