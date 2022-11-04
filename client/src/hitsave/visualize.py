@@ -167,3 +167,14 @@ try:
 
 except ModuleNotFoundError:
     pass
+
+try:
+    import numpy as np
+
+    @visualize.register(np.ndarray)
+    def _viz_nparray(x: np.ndarray):
+        # [todo] make fancy
+        return repr(x)
+
+except ModuleNotFoundError:
+    pass

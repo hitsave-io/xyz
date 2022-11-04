@@ -169,10 +169,12 @@ class CodeChanged(StoreMiss):
 # [todo] use same protocol as aiocache https://github.com/aio-libs/aiocache
 # [todo] rename to StoreAPI, make this the general interface for storing evaluations, blobs and functions.
 
+
 @dataclass
 class PollEvalResult:
-    value : Any
-    origin : Literal['local', 'cloud']
+    value: Any
+    origin: Literal["local", "cloud"]
+
 
 class StoreAPI(Protocol):
     """Common calls for local and cloud cache. We assume that the API has access to the current session."""
@@ -206,19 +208,4 @@ class StoreAPI(Protocol):
     #     ...
 
     # def invalidate(self, fn_key: CodeVertex, fn_hash=None, args_hash=None):
-    #     ...
-
-    # def insert_fn(self, fn_key, fn_hash, code) -> None:
-    #     ...
-
-    # def get_fn_deps(self, fn_key: CodeVertex, fn_hash: str) -> Iterator[Fn]:
-    #     ...
-
-    # def push_blob(self, file: IO[bytes]) -> str:
-    #     ...
-
-    # def has_blob(self, digest: str) -> bool:
-    #     ...
-
-    # def open_blob(self, digest: str) -> IO[bytes]:
     #     ...
