@@ -2,51 +2,54 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 import logging
-from typing import Callable
-from hitsave.codegraph import CodeGraph
+from typing import Callable, Dict
+from hitsave.codegraph import Binding, CodeGraph, Symbol, get_binding
 from hitsave.config import Config
-from hitsave.storecompose import ComposeStore
-from hitsave.types import EvalStore
+from hitsave.deephash import deephash
+from hitsave.types import StoreAPI
 import uuid
-from hitsave.cloudstore import CloudStore
-from hitsave.localstore import LocalStore
+from hitsave.util import Current
+import sqlite3
 
-current_session_var: ContextVar["Session"] = ContextVar("current_session")
 logger = logging.getLogger("hitsave")
 
 
-class Session:
-    """This object contains all of the global state about hitsave."""
+class Session(Current):
+    """This object contains all of the global state and connections about hitsave."""
 
-    store: EvalStore
+    local_db: sqlite3.Connection
     codegraph: CodeGraph
     id: uuid.UUID
-    # [todo] also background uploader
+    # [todo] also background uploader event loop etc.
     # [todo] also connection state (eg socket, rpc etc) with cloud.
 
     def __init__(self):
         cfg = Config.current()
-        stores = []
-        if not cfg.no_cloud:
-            stores.append(CloudStore())
-        if not cfg.no_local:
-            stores.append(LocalStore())
-        if len(stores) == 0:
-            logger.warn("No stores for evaluations.")
-        self.store = ComposeStore(stores)
+        # stores = []
+        # [todo] reintroduce cloudstore.
+        # if not cfg.no_cloud:
+        #     stores.append(CloudStore())
+        # if not cfg.no_local:
+        #     stores.append(LocalStore())
+        # if len(stores) == 0:
+        #     logger.warn("No stores for evaluations.")
+        # self.store = ComposeStore(stores)
+
+        self.local_db = sqlite3.connect(cfg.local_db_path)
         self.codegraph = CodeGraph()
         self.id = uuid.uuid4()
 
     @classmethod
-    def current(cls) -> "Session":
-        return current_session_var.get()
+    def default(cls):
+        return cls()
 
+    def fn_hash(self, s: Symbol):
+        return deephash(
+            {
+                str(dep): get_binding(dep).digest
+                for dep in self.codegraph.get_dependencies(s)
+            }
+        )
 
-current_session_var.set(Session())
-
-
-@contextmanager
-def use_session(sess: Session):
-    t = current_session_var.set(sess)
-    yield sess
-    current_session_var.reset(t)
+    def fn_deps(self, s: Symbol) -> Dict[Symbol, Binding]:
+        return {dep: get_binding(dep) for dep in self.codegraph.get_dependencies(s)}

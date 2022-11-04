@@ -3,16 +3,17 @@ import shelve
 import os
 import tempfile
 import inspect
-from typing import Any, Callable, Generic, TypeVar, overload
-from hitsave.deephash import deephash, hash_function
-from hitsave.codegraph import CodeVertex
+from typing import Any, Callable, Generic, Set, TypeVar, overload
+from hitsave.deephash import deephash
+from hitsave.codegraph import Symbol, get_binding
 import atexit
 from functools import update_wrapper
 from hitsave.session import Session
-from hitsave.types import Eval, EvalKey, StoreMiss
+from hitsave.types import CodeChanged, Eval, EvalKey, StoreMiss
 import logging
 from datetime import datetime, timezone
 import time
+from hitsave.evalstore import EvalStore
 from typing_extensions import ParamSpec  # needed for ≤3.9
 
 logger = logging.getLogger("hitsave")
@@ -24,43 +25,59 @@ R = TypeVar("R")
 
 @dataclass
 class SavedFunction(Generic[P, R]):
-
     func: Callable[P, R]
 
     is_experiment: bool = field(default=False)
     """ An experiment is a variant of a SavedFunction which will not be deleted by the cache cleaning code. """
 
     local_only: bool = field(default=False)  # [todo] not used yet
+    invocation_count: int = field(default=0)
+    _fn_hashes_reported: Set[str] = field(default_factory=set)
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
+        self.invocation_count += 1
         session = Session.current()
         sig = inspect.signature(self.func)
         ba = sig.bind(*args, **kwargs)
-        fn_key = CodeVertex.of_object(self.func)
-        fn_hash = hash_function(session.codegraph, self.func)
+        fn_key = Symbol.of_object(self.func)
+        deps = session.fn_deps(fn_key)
+        fn_hash = session.fn_hash(fn_key)
         args_hash = deephash(ba.arguments)
         key = EvalKey(fn_key=fn_key, fn_hash=fn_hash, args_hash=args_hash)
-        r = session.store.get(key)
-        if isinstance(r, StoreMiss):
-            logger.info(f"No stored value for {fn_key.pp()}: {r.reason}")
+        evalstore = EvalStore.current()
+        result = evalstore.poll_eval(key, deps=deps)
+        if isinstance(result, StoreMiss):
+            if isinstance(result, CodeChanged):
+                if fn_hash not in self._fn_hashes_reported:
+                    logger.info(
+                        f"Dependencies changed for {fn_key.pp()}:\n{result.reason}"
+                    )
+                    self._fn_hashes_reported.add(fn_hash)
+            else:
+                logger.debug(f"No stored value for {fn_key.pp()}: {result.reason}")
             start_time = datetime.now(timezone.utc)
             start_process_time = time.process_time_ns()
+            eval_id = evalstore.start_eval(
+                key,
+                is_experiment=self.is_experiment,
+                args=dict(ba.arguments),
+                deps=deps,
+                start_time=start_time,
+            )
             result = self.func(*args, **kwargs)
             end_process_time = time.process_time_ns()
-            e = Eval(
-                key=key,
-                result=result,
-                args=dict(ba.arguments),
-                start_time=start_time,
-                elapsed_process_time=end_process_time - start_process_time,
-                is_experiment=self.is_experiment,
+            elapsed_process_time = end_process_time - start_process_time
+            evalstore.resolve_eval(
+                key, elapsed_process_time=elapsed_process_time, result=result
             )
-            session.store.set(e)
-            logger.info(f"Saved value for {fn_key.pp()}.")
+            logger.debug(f"Computed value for {fn_key.pp()}.")
             return result
         else:
-            logger.info(f"Found cached value for {fn_key.pp()}")
-            return r.result
+            if self.invocation_count == 1:
+                logger.info(f"Reusing {result.origin} cache for {fn_key.pp()}.")
+            else:
+                logger.debug(f"Found cached value for {fn_key.pp()}")
+            return result.value
 
 
 @overload

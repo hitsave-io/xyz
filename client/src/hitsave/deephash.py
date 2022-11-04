@@ -1,12 +1,10 @@
-from typing import Iterable, Set, Type, Union
+import inspect
+from types import FunctionType
+from typing import IO, Callable, Iterable, Set, Type, Union
 from blake3 import blake3
 from functools import singledispatch, lru_cache
-from dataclasses import is_dataclass, fields
 import struct
-from hitsave.codegraph import CodeGraph, CodeVertex, ExternPackage, Vertex
 from hitsave.deep import reduce
-from hitsave.util import cache
-import inspect
 import warnings
 
 
@@ -66,6 +64,12 @@ def run_deephash(item, hasher):
     bs = to_bytes(item)
     if bs is not NotImplemented:
         hasher.update(bs)
+    elif inspect.isfunction(item):
+        # [todo], eventually this will be supported using codegraphs.
+        warnings.warn(
+            f"Attempting to hash a function {getattr(item, '__name__', repr(item))}, skipping."
+        )
+        hasher.update(repr(item).encode())
     else:
         rv = reduce(item)
         if rv is not None:
@@ -89,35 +93,3 @@ def deephash(item) -> str:
     hasher = blake3()
     run_deephash(item, hasher)
     return hasher.hexdigest()
-
-
-def local_hash_Vertex(v: Vertex):
-    if isinstance(v, CodeVertex):
-        if v.is_import():
-            # imported values need not have their content hashed
-            # it will be hashed at the parent vertex.
-            return deephash(repr(v))
-        o = v.to_object()
-        if inspect.isfunction(o):
-            return fn_local_hash(o)
-        elif hasattr(o, "__wrapped__") and inspect.isfunction(o.__wrapped__):
-            return fn_local_hash(o.__wrapped__)
-        elif inspect.isclass(o):
-            return fn_local_hash(o)
-        else:
-            return deephash(o)
-    else:
-        return deephash(v)
-
-
-@cache
-def fn_local_hash(fn):
-    lines = inspect.getsource(fn)
-    return deephash(lines)
-
-
-def hash_function(g: CodeGraph, fn):
-    local_hash = fn_local_hash(fn)
-    g.eat_obj(fn)
-    deps = {repr(v): local_hash_Vertex(v) for v in (g.get_dependencies_obj(fn))}
-    return deephash((local_hash, deps))

@@ -3,7 +3,8 @@ from datetime import datetime
 from functools import cached_property
 from genericpath import isfile
 from io import BufferedReader
-from typing import Any, List, Optional, Union
+from typing import IO, Any, List, Literal, Optional, Union
+from hitsave.blobstore import BlobStore
 from hitsave.config import Config
 import os.path
 from blake3 import blake3
@@ -12,7 +13,6 @@ import shutil
 from pathlib import Path, PurePath
 import pathlib
 from stat import S_IREAD, S_IRGRP, S_IROTH
-from hitsave.cloudstore import encode_hitsavemsg, request, create_header
 import logging
 from hitsave.session import Session
 
@@ -47,45 +47,27 @@ class FileSnapshot:
     """ Number of bytes of the file. """
 
     @property
-    def local_cache_path(self) -> Path:
-        """Returns the absolute path of the local cache file."""
-        p = Config.current().local_cache_dir
-        return p / "blobs" / self.digest
-
-    @property
     def has_local_cache(self):
         """Returns true if the file has already been cached."""
-        return self.local_cache_path.exists()
+        return BlobStore.current().has_blob(self.digest)
+
+    @property
+    def local_cache_path(self):
+        return BlobStore.current().local_file_cache_path(self.digest)
 
     @property
     def suffix(self):
         """The suffix extension of the file. Eg `hello.txt` has the suffix `.txt`."""
         return Path(self.name).suffix
 
-    def download(self, force=False):
+    def download(self):
         """Download the file from the cloud to the local file cache."""
-        if not force and self.has_local_cache:
-            # no need to download
-            return
-        logger.info(f"Downloading {self.name} ({human_size(self.content_length)})")
-        r = request("GET", f"/blob/{self.digest}")
-        r.raise_for_status()
-        # [todo] duplicated code.
-        # [todo] exclusive file lock.
-        with open(self.local_cache_path, "wb") as c:
-            for chunk in r.iter_content(chunk_size=BLOCK_SIZE):
-                c.write(chunk)
-        # snapshot files are read only.
-        # ref: https://stackoverflow.com/a/28492823/352201
-        os.chmod(self.local_cache_path, S_IREAD | S_IRGRP)  # [todo] what about S_IROTH?
-        return
+        if BlobStore.current().pull_blob(self.digest):
+            logger.info(f"Downloaded {self.name}.")
 
-    def open(self, mode="t", **kwargs) -> BufferedReader:
+    def open(self) -> IO[bytes]:
         """Open the snapshot in read mode. (writing to a snapshot is not allowed.)"""
-        if not self.has_local_cache:
-            self.download()
-        fd: Any = open(self.local_cache_path, mode="r" + mode, **kwargs)
-        return fd
+        return BlobStore.current().open_blob(digest=self.digest)
 
     def restore_at(self, path: Path, overwrite=True) -> Path:
         """Restore the file at the given path. Returns the path of the restored file.
@@ -120,6 +102,7 @@ class FileSnapshot:
                 logger.info(
                     f"file {path} already exists, replacing with a symlink to {self.local_cache_path}"
                 )
+        self.download()
         path.symlink_to(self.local_cache_path)
         return path
 
@@ -133,10 +116,9 @@ class FileSnapshot:
         project_path = Path(project_path or Config.current().workspace_dir)
         abspath = project_path / self.relpath
         assert abspath.is_relative_to(project_path)
-
         return self.restore_at(abspath, overwrite=overwrite)
 
-    def restore_safe(self):
+    def restore_safe(self) -> Path:
         if not self.has_local_cache:
             self.download()
         return self.local_cache_path
@@ -147,6 +129,7 @@ class FileSnapshot:
 
         The path is stored relative to your workspace directory (either the location of your `pyproject.toml` or git root).
         """
+        # [todo] accept file-like objects as well as paths.
         path = Path(path).resolve()
         # [todo] assert path is within project.
         # We should be very very careful about saving files from some arbitrary part of the disk.
@@ -160,55 +143,23 @@ class FileSnapshot:
             relpath = None
         time = datetime.now()
         with open(path, "rb") as fd:
-            h = blake3()
-            content_length = 0
-            for data in chunked_read(fd):
-                content_length += len(data)
-                h.update(data)
-            digest = h.hexdigest()
-            fd.seek(0)
-            snap = FileSnapshot(
-                digest=digest,
-                time=time,
-                relpath=relpath,
-                content_length=content_length,
-                name=path.name,
-            )
-            if not snap.has_local_cache:
-                # [todo] exclusive file lock.
-                with open(snap.local_cache_path, "wb") as c:
-                    while True:
-                        # [todo] python must let you just pipe files?
-                        data = fd.read(BLOCK_SIZE)
-                        if not data:
-                            break
-                        c.write(data)
-                # snapshot files are read only.
-                # ref: https://stackoverflow.com/a/28492823/352201
-                os.chmod(
-                    snap.local_cache_path, S_IREAD | S_IRGRP
-                )  # [todo] what about S_IROTH?
-            # [todo] if not uploaded, initiate an upload here using /blobs
+            r = BlobStore.current().add_blob(fd)
+        snap = FileSnapshot(
+            digest=r.digest,
+            time=time,
+            relpath=relpath,
+            content_length=r.content_length,
+            name=path.name,
+        )
         return snap
 
-    def upload(self):
-        r = request("HEAD", f"/blob/{self.digest}")
-        if r.status_code == 200:
-            logger.info(f"File {self.name} is already uploaded.")
-            return
-        with self.open(mode="b") as f:
-            msg = encode_hitsavemsg(
-                {
-                    "content_hash": self.digest,
-                    "content_length": self.content_length,
-                    "label": self.name,
-                },
-                f,
-            )
+    @property
+    def is_uploaded(self):
+        return BlobStore.current().cloud.has_blob(self.digest)
 
-            r = request("PUT", "/blob", data=msg)
-            r.raise_for_status()
-            logger.info(f"Uploaded {self.name} ({human_size(self.content_length)}).")
+    def upload(self):
+        if BlobStore.current().push_blob(self.digest):
+            logger.info(f"Uploaded {self.name}.")
 
 
 @dataclass
@@ -230,9 +181,9 @@ class DirectorySnapshot:
     digest: str
     """ All files (including files in subdirectories),  """
 
-    def download(self, force=False):
+    def download(self):
         for f in self.files:
-            f.download(force=force)
+            f.download()
 
     def restore_at(self, path: Path, overwrite=True) -> Path:
         """Restores the directory at the given path. Returns the path to the root of the snapshotted directory. (which is the same as the path argument)."""

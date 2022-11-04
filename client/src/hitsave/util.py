@@ -1,14 +1,20 @@
+from contextlib import contextmanager
+from contextvars import ContextVar
 from enum import Enum
 import functools
 from functools import singledispatch
-from dataclasses import is_dataclass, Field, fields
+from dataclasses import dataclass, is_dataclass, Field, fields
+from itertools import filterfalse, tee
 import json
 from subprocess import check_output, CalledProcessError
 from typing import (
     IO,
     Any,
     BinaryIO,
+    Dict,
     Iterator,
+    Set,
+    Tuple,
     TypeVar,
     get_origin,
     get_args,
@@ -28,7 +34,7 @@ else:
 
 
 def classdispatch(func):
-    """Similar to `singledispatch`, except treats the first argument as a class to be dispatched on."""
+    """Similar to ``functools.singledispatch``, except treats the first argument as a class to be dispatched on."""
     funcname = getattr(func, "__name__", "class dispatch function")
     sdfunc = singledispatch(func)
 
@@ -61,21 +67,27 @@ def classdispatch(func):
 
 
 def is_optional(T: Type) -> bool:
-    """Returns true if `T == Union[NoneType, _] == Optional[_]`."""
+    """Returns true if ``T == Union[NoneType, _] == Optional[_]``."""
     return as_optional(T) is not None
 
 
 def as_optional(T: Type) -> Optional[Type]:
-    """If we have `T == Optional[X]`, returns `X`, otherwise returns `None`.
+    """If we have ``T == Optional[X]``, returns ``X``, otherwise returns ``None``.
 
+    Note that because ``Optional[X] == Union[X, type(None)]``, so
+    we have ``as_optional(Optional[Optional[X]]) ↝ X``
     ref: https://stackoverflow.com/questions/56832881/check-if-a-field-is-typing-optional
     """
     if get_origin(T) is Union:
         args = get_args(T)
         if type(None) in args:
-            args = [a for a in args if a is not type(None)]
-            if len(args) == 1:
-                return args[0]
+            ts = tuple(a for a in args if a is not type(None))
+            if len(ts) == 0:
+                return None
+            if len(ts) == 1:
+                return ts[0]
+            else:
+                return Union[ts]  # type: ignore
     return None
 
 
@@ -102,8 +114,7 @@ class MyJsonEncoder(json.JSONEncoder):
                     continue
                 r[k] = v
             return r
-
-        raise NotImplementedError(f"Don't know how to encode {type(o)}.")
+        return json.JSONEncoder.default(self, o)
 
 
 T = TypeVar("T")
@@ -111,13 +122,13 @@ T = TypeVar("T")
 
 @classdispatch
 def ofdict(A: Type[T], a: Any) -> T:
-    """Converts an `a` to an instance of `A`, calling recursively if necessary.
-    We assume that `a` is a nested type made of dicts, lists and scalars.
+    """Converts an ``a`` to an instance of ``A``, calling recursively if necessary.
+    We assume that ``a`` is a nested type made of dicts, lists and scalars.
 
     The main usecase is to be able to treat dataclasses as a schema for json.
-    Ideally, `ofdict` should be defined such that `ofdict(type(x), json.loads(MyJsonEncoder().dumps(x)))` is deep-equal to `x` for all `x`.
+    Ideally, ``ofdict`` should be defined such that ``ofdict(type(x), json.loads(MyJsonEncoder().dumps(x)))`` is deep-equal to ``x`` for all ``x``.
 
-    Similar to [cattrs.structure](https://cattrs.readthedocs.io/en/latest/structuring.html#what-you-can-structure-and-how).
+    Similar to ` cattrs.structure <https://cattrs.readthedocs.io/en/latest/structuring.html#what-you-can-structure-and-how/>`_.
     """
     if A is Any:
         return a
@@ -334,3 +345,74 @@ def chunked_read(x: IO[bytes], block_size=2**20) -> Iterator[bytes]:
     # https://docs.python.org/3/library/functions.html#iter
 
     return iter(partial(x.read, block_size), b"")
+
+
+T = TypeVar("T", bound="Current")
+
+
+class Current:
+    """A mixin for classes where you want there to be a 'current' instance.
+    You can get the current instance by calling ``cls.current``
+    """
+
+    CURRENT: ContextVar
+    _tokens: List
+
+    @classmethod
+    def default(cls):
+        """Override this to create a default value for current."""
+        # [todo] whatever abc magic is needed here for static analysis.
+        raise NotImplementedError(f"{cls.__qualname__}.default() is not implemented.")
+
+    def __init_subclass__(cls):
+        cls.CURRENT = ContextVar(cls.__qualname__ + ".CURRENT")
+        # ref: https://docs.python.org/3/reference/datamodel.html#object.__init_subclass__
+
+    def __enter__(self):
+        if not hasattr(self, "_tokens"):
+            self._tokens = []
+        self._tokens.append(self.__class__.CURRENT.set(self))
+        return self
+
+    def __exit__(self, ex_type, ex_value, ex_trace):
+        assert hasattr(self, "_tokens")
+        assert len(self._tokens) > 0
+        t = self._tokens.pop()
+        self.__class__.CURRENT.reset(t)
+
+    @classmethod
+    def current(cls: Type[T]) -> T:
+        c = cls.CURRENT.get(None)
+        if c is None:
+            c = cls.default()
+            cls.CURRENT.set(c)
+        return c
+
+
+@dataclass
+class DictDiff:
+    add: Set[str]
+    rm: Set[str]
+    mod: Dict[str, Tuple[Any, Any]]
+
+    def is_empty(self):
+        return len(self.add) == 0 and len(self.rm) == 0 and len(self.mod) == 0
+
+
+def dict_diff(d1, d2) -> DictDiff:
+    k1 = set(d1.keys())
+    k2 = set(d2.keys())
+    return DictDiff(
+        add=k2.difference(k1),
+        rm=k1.difference(k2),
+        mod={k: (v1, d2[k]) for k, v1 in d1.items() if (k in d2) and (d2[k] != v1)},
+    )
+
+def partition(pred, iterable):
+    """Use a predicate to partition entries into false entries and true entries.
+
+    ref: https://docs.python.org/3/library/itertools.html
+    """
+    # partition(is_odd, range(10)) --> 0 2 4 6 8   and  1 3 5 7 9
+    t1, t2 = tee(iterable)
+    return filterfalse(pred, t1), filter(pred, t2)

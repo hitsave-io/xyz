@@ -7,8 +7,9 @@ import os.path
 import sys
 import logging
 from pathlib import Path
-from typing import Optional, Type, TypeVar
-from hitsave.util import as_optional, is_optional, get_git_root
+from typing import Literal, Optional, Type, TypeVar
+from hitsave.util import Current, as_optional, is_optional, get_git_root
+import importlib.metadata
 
 """ This module is responsible for loading all of the environment based config options.
 
@@ -20,6 +21,8 @@ from hitsave.util import as_optional, is_optional, get_git_root
 """
 
 logger = logging.getLogger("hitsave")
+
+__version__ = importlib.metadata.version("hitsave")
 
 
 def find_workspace_folder() -> Path:
@@ -100,7 +103,7 @@ def interpret_var_str(t: Type[T], value: str) -> T:
 
 
 @dataclass
-class Config:
+class Config(Current):
     """This dataclass contains all of the configuration needed to use hitsave.
 
     [todo] some config that will be added later.
@@ -131,6 +134,20 @@ class Config:
     no_cloud: bool = field(default=False)
     """ If this is true then don't use the cloud cache. """
 
+    version_sensitivity: Literal["none", "major", "minor", "patch"] = field(
+        default="minor"
+    )
+    """ This is the sensitivity the digest algorithm should have to the versions of external packages.
+    So if ``version_sensitivity = 'minor'``, then upgrading a package from ``3.2.0`` to ``3.2.1`` won't invalidate the cache,
+    but upgrading to ``3.3.0`` will. Non-standard versioning schemes will always invalidate unless in 'none' mode.
+
+    [todo] choose the sensitivity for different packages: do it by looking at the versioning sensitivity in requirements.txt or the lockfile.
+    """
+
+    @property
+    def local_db_path(self) -> Path:
+        return self.local_cache_dir / "localstore.db"
+
     def merge_env(self):
         d = {}
         for fd in fields(self):
@@ -154,19 +171,3 @@ class Config:
     def default(cls):
         """Creates the config, including environment variables and [todo] hitsave config files."""
         return cls.init().merge_env()
-
-    @classmethod
-    def current(cls):
-        return current_config.get()
-
-
-current_config: ContextVar[Config] = ContextVar(
-    "current_config", default=Config.default()
-)
-
-
-@contextmanager
-def use_config(conf: Config):
-    t = current_config.set(conf)
-    yield conf
-    current_config.reset(t)

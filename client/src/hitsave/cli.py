@@ -16,14 +16,15 @@ from hitsave.authenticate import (
     loopback_login,
 )
 from hitsave.config import Config
-from hitsave.localstore import LocalStore
+from hitsave.evalstore import EvalStore
+from hitsave.session import Session
 from hitsave.util import decorate_ansi, decorate_url, eprint, is_interactive_terminal
 
 app = typer.Typer()
 """ Entrypoint for CLI tool. """
 
 logger = logging.getLogger("hitsave")
-logger.setLevel(logging.DEBUG)
+# logger.setLevel(logging.DEBUG)
 
 
 @app.command()
@@ -128,9 +129,10 @@ def keygen(label: Optional[str] = None):
 @app.command()
 def clear_local():
     """Deletes the local eval store (not cached blobs)."""
-    local_store = LocalStore()
-    eprint(f"Deleting {len(local_store)} entries at {local_store.cache_path}")
-    local_store.clear()
+    store = EvalStore().local
+    p = Config.current().local_db_path
+    eprint(f"Deleting {len(store)} entries in {p}")
+    store.clear()
 
 
 """

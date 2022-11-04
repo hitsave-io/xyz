@@ -12,7 +12,7 @@ def f(x):
 
 @memo
 def g(y):
-    return f(y) + y
+    return f(y) + y + y
 
 
 @memo
@@ -44,10 +44,10 @@ def test_savesave():
 
 
 def test_biggies():
-    for x in range(25):
+    for x in range(20):
         print(len(gg(x)))
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     test_biggies()
