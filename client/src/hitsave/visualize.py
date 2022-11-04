@@ -2,6 +2,10 @@ from dataclasses import fields, is_dataclass
 from enum import Enum
 from functools import partial, singledispatch
 from json import JSONEncoder
+import logging
+import warnings
+
+logger = logging.getLogger("hitsave")
 
 """ This file contains the 'visualisation encoding' of python values.
 These are used to make visualisations that our experiment explorer can show.
@@ -78,10 +82,11 @@ def visualize(item):
         o = {"__class__": item.__class__.__qualname__}
         for field in fields(item):
             # another possibility is asdict, but that is recursive
-            o[field.name] = item[field.name]
+            o[field.name] = getattr(item, field.name)
         return o
     # [todo] named tuples
-    raise NotImplementedError(f"Don't know how to visualise {type(item)}")
+    logger.debug(f"Don't know how to visualise {type(item)}")
+    return opaque(item)
 
 
 def visualize_rec(item, max_depth=None):
