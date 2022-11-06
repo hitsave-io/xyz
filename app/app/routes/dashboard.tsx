@@ -83,16 +83,6 @@ export default function Dashboard() {
 
   return (
     <>
-      {/* 
-      <h2>
-        Welcome {user.gh_login} ({user.gh_email})
-      </h2>
-      <img
-        src={user.gh_avatar_url}
-        width={150}
-        style={{ borderRadius: 9999 }}
-      />
-      <Outlet /> */}
       <div>
         <Transition.Root show={sidebarOpen} as={Fragment}>
           <Dialog

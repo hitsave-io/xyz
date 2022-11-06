@@ -13,7 +13,7 @@ export const loader = async ({ request }: LoaderArgs) => {
     const jwt = await res.text();
     console.log(jwt);
 
-    return redirect("http://127.0.0.1:3000/dashboard", {
+    return redirect("http://127.0.0.1:3000/dashboard/experiments", {
       headers: {
         "Set-Cookie": `jwt=${jwt}; HttpOnly; Max-Age=${60 * 60 * 24 * 30};`,
       },
@@ -25,5 +25,5 @@ export const loader = async ({ request }: LoaderArgs) => {
 };
 
 export default function LoginPage() {
-  const data = useLoaderData<typeof loader>();
+  useLoaderData<typeof loader>();
 }

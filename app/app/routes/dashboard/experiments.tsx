@@ -18,7 +18,7 @@ export const loader: LoaderFunction = async ({ request }) => {
 };
 
 export default function Experiments() {
-  const experiments = useLoaderData();
+  const experiments = useLoaderData<typeof loader>();
   return (
     <div className="">
       <div className="mt-8 flex flex-col">
