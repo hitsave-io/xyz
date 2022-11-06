@@ -16,7 +16,11 @@ import { CodeAnim } from "../CodeAnim";
 
 const { useState } = React;
 
-export function Hero() {
+interface HeroProps {
+  waitlistSuccess: boolean | null;
+}
+
+export const Hero: React.FC<HeroProps> = ({ waitlistSuccess }) => {
   const [waitlistIsOpen, setWaitlistIsOpen] = useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const onClick = () => {
@@ -30,6 +34,8 @@ export function Hero() {
     }
   });
 
+  const showWaitlistMessage = waitlistSuccess !== null;
+
   return (
     <Container className="pt-20 pb-16 text-center lg:pt-32">
       <img className="mx-auto mb-4" src={hitsaveLogo} />
@@ -41,43 +47,59 @@ export function Hero() {
         intensive or time consuming functions with a single import and a
         decorator.
       </p>
-      <div
-        className={clsx(
-          waitlistIsOpen && "hidden",
-          "my-10 h-10 flex justify-center gap-x-6"
-        )}
-      >
-        <Button color="blue" onClick={onClick}>
-          Join Waitlist
-        </Button>
-      </div>
-      <Form
-        method="post"
-        action="/waitlist"
-        className={clsx(
-          !waitlistIsOpen && "hidden",
-          "mx-auto my-10 h-10 flex max-w-2xl text-sm font-medium text-gray-700"
-        )}
-      >
-        <div className="mr-4 w-full border-b border-gray-300 focus-within:border-brand">
-          <input
-            ref={inputRef}
-            name="email"
-            type="text"
-            className="block w-full h-full border-0 border-b border-transparent focus:border-brand focus:ring-0 font-normal text-center text-sm text-brand md:text-lg"
-            placeholder="alan.turing@bletchley.com"
-          />
-        </div>
-        <Button className="h-full bg-brand hover:bg-red-400" type="submit">
-          Submit
-        </Button>
-      </Form>
+      {showWaitlistMessage ? (
+        waitlistSuccess === true ? (
+          <p className="my-10 h-10 flex justify-center items-center font-semibold text-brand">
+            You have been added to our waitlist. Thank you for your interest -
+            we'll be in touch soon!
+          </p>
+        ) : (
+          <p className="my-10 h-10 flex justify-center items-center font-semibold text-red-600">
+            Sorry - there was an error adding you to the waitlist. 😰
+          </p>
+        )
+      ) : (
+        <>
+          <div
+            className={clsx(
+              waitlistIsOpen && "hidden",
+              "my-10 h-10 flex justify-center gap-x-6"
+            )}
+          >
+            <Button color="blue" onClick={onClick}>
+              Join Waitlist
+            </Button>
+          </div>
+          <Form
+            method="post"
+            action="/waitlist"
+            className={clsx(
+              !waitlistIsOpen && "hidden",
+              "mx-auto my-10 h-10 flex max-w-2xl text-sm font-medium text-gray-700"
+            )}
+          >
+            <div className="mr-4 w-full border-b border-gray-300 focus-within:border-brand">
+              <input
+                ref={inputRef}
+                name="email"
+                type="text"
+                className="block w-full h-full border-0 border-b border-transparent focus:border-brand focus:ring-0 font-normal text-center text-sm text-brand md:text-lg"
+                placeholder="alan.turing@bletchley.com"
+              />
+            </div>
+            <Button className="h-full bg-brand hover:bg-red-400" type="submit">
+              Submit
+            </Button>
+          </Form>
+        </>
+      )}
+
       <div className="mx-auto mt-4 max-w-2xl text-lg md:text-xl">
         <CodeAnim />
       </div>
       <div className="mt-36 lg:mt-44">
         <p className="font-display text-base text-slate-900">
-          Trusted by these six companies so far
+          Trusted by these companies so far
         </p>
         <ul
           role="list"
@@ -112,4 +134,4 @@ export function Hero() {
       </div>
     </Container>
   );
-}
+};

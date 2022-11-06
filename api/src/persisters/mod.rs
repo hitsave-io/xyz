@@ -3,6 +3,7 @@ pub mod blob;
 pub mod eval;
 pub mod s3store;
 pub mod user;
+pub mod waitlist;
 
 use crate::middlewares::auth::Auth;
 use crate::state::State;
