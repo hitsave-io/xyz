@@ -3,6 +3,7 @@ import { redirect, json, ActionArgs } from "@remix-run/node";
 import validator from "validator";
 
 import { Hero } from "~/components/landing/Hero";
+import { PrimaryFeatures } from "~/components/landing/PrimaryFeatures";
 import { Header } from "~/components/Header";
 import hitsaveLogo from "~/images/hitsave_square.png";
 
@@ -79,8 +80,8 @@ export default function Home() {
       <Header />
       <main>
         <Hero formData={formData} />
-        {/*<PrimaryFeatures />
-        <SecondaryFeatures />
+        <PrimaryFeatures />
+        {/*<SecondaryFeatures />
         <CallToAction />
         <Testimonials />
         <Pricing />
