@@ -1,4 +1,6 @@
-import { useLoaderData } from "@remix-run/react";
+import { useActionData, useTransition } from "@remix-run/react";
+import { redirect, json, ActionArgs } from "@remix-run/node";
+import validator from "validator";
 
 import { Hero } from "~/components/landing/Hero";
 import { Header } from "~/components/Header";
@@ -9,18 +11,6 @@ import styles from "~/components/CodeAnim/styles.css";
 export function links() {
   return [{ rel: "stylesheet", href: styles }];
 }
-
-export const loader = async ({ request }: { request: Request }) => {
-  const url = new URL(request.url);
-  const waitlistSuccess = url.searchParams.get("waitlistSuccess");
-  if (waitlistSuccess === "true") {
-    return true;
-  } else if (waitlistSuccess === "false") {
-    return false;
-  } else {
-    return null;
-  }
-};
 
 export function meta() {
   return {
@@ -35,14 +25,60 @@ export function meta() {
   };
 }
 
+export const action = async ({ request }: ActionArgs) => {
+  const body = await request.formData();
+  const email = body.get("email");
+
+  if (!email) {
+    return json({
+      errors: ["Email address required"],
+    });
+  }
+
+  if (!validator.isEmail(email)) {
+    return json({
+      errors: ["Invalid email address"],
+    });
+  }
+
+  let res = await fetch("http://127.0.0.1:8080/waitlist", {
+    method: "put",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email,
+    }),
+  });
+
+  console.log(res.status);
+
+  if (res.status == 200) {
+    return json({
+      message:
+        "You have been added to our waitlist. Thank you for your interest - we'll be in touch soon!",
+    });
+  } else if (res.status == 409) {
+    return json({
+      message: "You're already on the waitlist! 🎉",
+    });
+  } else {
+    return json({
+      message: "Sorry - there was an error adding you to the waitlist. 😰",
+    });
+  }
+};
+
 export default function Home() {
-  const waitlistSuccess = useLoaderData<typeof loader>();
-  console.log(waitlistSuccess);
+  const formData = useActionData<typeof action>();
+  const transition = useTransition();
+  const submitting = transition.state === "submitting";
+
   return (
     <>
       <Header />
       <main>
-        <Hero waitlistSuccess={waitlistSuccess} />
+        <Hero formData={formData} />
         {/*<PrimaryFeatures />
         <SecondaryFeatures />
         <CallToAction />

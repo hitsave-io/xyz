@@ -10,7 +10,8 @@ pub struct WaitlistInsert {
 #[put("")]
 async fn put_user(form: web::Json<WaitlistInsert>, state: AppState) -> Result<impl Responder> {
     let waitlist_insert = form.into_inner();
-    let _id = waitlist_insert.persist(None, &state).await?;
+    waitlist_insert.persist(None, &state).await?;
+
     Ok(HttpResponse::Ok())
 }
 
