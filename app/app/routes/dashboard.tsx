@@ -1,4 +1,4 @@
-import { LoaderFunction, redirect } from "@remix-run/node";
+import { LoaderFunction } from "@remix-run/node";
 import { useLoaderData, Outlet } from "@remix-run/react";
 import { Fragment, useState } from "react";
 import { Dialog, Menu, Transition } from "@headlessui/react";
@@ -6,15 +6,12 @@ import {
   Bars3BottomLeftIcon,
   BeakerIcon,
   BellIcon,
-  CalendarIcon,
-  ChartBarIcon,
   FolderIcon,
-  HomeIcon,
-  InboxIcon,
   UsersIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
+import clsx from "clsx";
 
 import hitsaveLogo from "~/images/hitsave_logo.svg";
 
@@ -44,7 +41,7 @@ const parseCookie = (cookie: string): { [key: string]: string } => {
 };
 
 export const loader: LoaderFunction = async ({ request }) => {
-  const token = await jwt(request);
+  const token = jwt(request);
   const user = await fetch("http://127.0.0.1:8080/user", {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -58,10 +55,6 @@ export const loader: LoaderFunction = async ({ request }) => {
   }
 };
 
-function classNames(...classes) {
-  return classes.filter(Boolean).join(" ");
-}
-
 export default function Dashboard() {
   const user = useLoaderData();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -70,9 +63,6 @@ export default function Dashboard() {
     { name: "Projects", href: "#", icon: FolderIcon, current: false },
     { name: "Experiments", href: "#", icon: BeakerIcon, current: true },
     { name: "Team", href: "#", icon: UsersIcon, current: false },
-    // { name: "Calendar", href: "#", icon: CalendarIcon, current: false },
-    // { name: "Documents", href: "#", icon: InboxIcon, current: false },
-    // { name: "Reports", href: "#", icon: ChartBarIcon, current: false },
   ];
 
   const userNavigation = [
@@ -149,18 +139,18 @@ export default function Dashboard() {
                         <a
                           key={item.name}
                           href={item.href}
-                          className={classNames(
-                            item.current
-                              ? "bg-gray-100 text-gray-900"
-                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+                          className={clsx(
+                            item.current && "bg-gray-100 text-gray-900",
+                            !item.current &&
+                              "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
                             "group flex items-center px-2 py-2 text-base font-medium rounded-md"
                           )}
                         >
                           <item.icon
-                            className={classNames(
-                              item.current
-                                ? "text-gray-500"
-                                : "text-gray-400 group-hover:text-gray-500",
+                            className={clsx(
+                              item.current && "text-gray-500",
+                              !item.current &&
+                                "text-gray-400 group-hover:text-gray-500",
                               "mr-4 flex-shrink-0 h-6 w-6"
                             )}
                             aria-hidden="true"
@@ -192,18 +182,18 @@ export default function Dashboard() {
                   <a
                     key={item.name}
                     href={item.href}
-                    className={classNames(
-                      item.current
-                        ? "bg-gray-100 text-gray-900"
-                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+                    className={clsx(
+                      item.current && "bg-gray-100 text-gray-900",
+                      !item.current &&
+                        "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
                       "group flex items-center px-2 py-2 text-sm font-medium rounded-md"
                     )}
                   >
                     <item.icon
-                      className={classNames(
-                        item.current
-                          ? "text-gray-500"
-                          : "text-gray-400 group-hover:text-gray-500",
+                      className={clsx(
+                        item.current && "text-gray-500",
+                        !item.current &&
+                          "text-gray-400 group-hover:text-gray-500",
                         "mr-3 flex-shrink-0 h-6 w-6"
                       )}
                       aria-hidden="true"
@@ -284,8 +274,8 @@ export default function Dashboard() {
                           {({ active }) => (
                             <a
                               href={item.href}
-                              className={classNames(
-                                active ? "bg-gray-100" : "",
+                              className={clsx(
+                                active && "bg-gray-100",
                                 "block px-4 py-2 text-sm text-gray-700"
                               )}
                             >
