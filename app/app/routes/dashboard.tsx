@@ -1,5 +1,5 @@
-import { redirect, LoaderArgs } from "@remix-run/node";
-import { useLoaderData, Outlet } from "@remix-run/react";
+import { LoaderArgs } from "@remix-run/node";
+import { useLoaderData, Outlet, Link } from "@remix-run/react";
 import { Fragment, useState } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import {
@@ -27,9 +27,19 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const navigation = [
-    { name: "Projects", href: "#", icon: FolderIcon, current: false },
-    { name: "Experiments", href: "#", icon: BeakerIcon, current: true },
-    { name: "Team", href: "#", icon: UsersIcon, current: false },
+    {
+      name: "Projects",
+      href: "/dashboard/projects",
+      icon: FolderIcon,
+      current: false,
+    },
+    {
+      name: "Experiments",
+      href: "/dashboard/experiments",
+      icon: BeakerIcon,
+      current: true,
+    },
+    { name: "Team", href: "/dashboard/team", icon: UsersIcon, current: false },
   ];
 
   return (
@@ -135,7 +145,9 @@ export default function Dashboard() {
           {/* Sidebar component, swap this element with another sidebar if you like */}
           <div className="flex flex-grow flex-col overflow-y-auto border-r border-gray-200 bg-white pt-5">
             <div className="flex flex-shrink-0 items-center px-4">
-              <img className="h-6 w-auto" src={hitsaveLogo} alt="HitSave" />
+              <Link to="/">
+                <img className="h-6 w-auto" src={hitsaveLogo} alt="HitSave" />
+              </Link>
             </div>
             <div className="mt-5 flex flex-grow flex-col">
               <nav className="flex-1 space-y-1 px-2 pb-4">
@@ -234,4 +246,12 @@ export default function Dashboard() {
 export function ErrorBoundary({ error }: { error: Error }) {
   console.error(error);
   return <p>{error.message}</p>;
+}
+
+export function CatchBoundary() {
+  return (
+    <div>
+      <h2>We couldn't find that page. Sorry!</h2>
+    </div>
+  );
 }
