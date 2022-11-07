@@ -7,6 +7,8 @@ import { Button } from "~/components/Button";
 import { Container } from "~/components/Container";
 import { Logo } from "~/components/Logo";
 import { NavLink } from "~/components/NavLink";
+import { User } from "~/session.server";
+import { ProfileDropdown } from "./ProfileDropdown";
 
 const { Fragment } = React;
 
@@ -57,7 +59,15 @@ function MobileNavIcon({ open }: { open: boolean }) {
   );
 }
 
-function MobileNavigation({ signInUrl }: { signInUrl: string }) {
+interface MobileNavigationProps {
+  signInUrl: string;
+  user?: User;
+}
+
+const MobileNavigation: React.FC<MobileNavigationProps> = ({
+  signInUrl,
+  user,
+}) => {
   return (
     <Popover>
       <Popover.Button
@@ -91,23 +101,39 @@ function MobileNavigation({ signInUrl }: { signInUrl: string }) {
             as="div"
             className="absolute inset-x-0 top-full mt-4 flex origin-top flex-col rounded-2xl bg-white p-4 text-lg tracking-tight text-slate-900 shadow-xl ring-1 ring-slate-900/5"
           >
+            {user && (
+              <MobileNavLink href="/dashboard/experiments">
+                Dashboard
+              </MobileNavLink>
+            )}
             <MobileNavLink href="#features">Why HitSave?</MobileNavLink>
             <MobileNavLink href="#testimonials">Getting Started</MobileNavLink>
             <MobileNavLink href="#pricing">Examples</MobileNavLink>
             <MobileNavLink href="#pricing">Docs</MobileNavLink>
             <MobileNavLink href="#pricing">Pricing</MobileNavLink>
             <hr className="m-2 border-slate-300/40" />
-            <MobileNavLink href={signInUrl} external>
-              Sign in
-            </MobileNavLink>
+            {!user && (
+              <MobileNavLink href={signInUrl} external>
+                Sign in
+              </MobileNavLink>
+            )}
+            {user && (
+              <MobileNavLink href="/dashboard/experiments">
+                Dashboard
+              </MobileNavLink>
+            )}
           </Popover.Panel>
         </Transition.Child>
       </Transition.Root>
     </Popover>
   );
+};
+
+interface HeaderProps {
+  user: User | null;
 }
 
-export function Header() {
+export const Header: React.FC<HeaderProps> = ({ user }) => {
   const params = {
     client_id: "b7d5bad7787df04921e7",
     redirect_uri: "http://127.0.0.1:3000/login",
@@ -134,21 +160,36 @@ export function Header() {
               <NavLink href="#pricing">Pricing</NavLink>
             </div>
           </div>
-          <div className="flex items-center gap-x-5 md:gap-x-8">
+          <div className="flex items-center gap-x-2 md:gap-x-3">
             <div className="hidden md:block">
-              <NavLink href={signInUrl} external>
-                Sign in
-              </NavLink>
+              {!user && (
+                <NavLink href={signInUrl} external>
+                  Sign in
+                </NavLink>
+              )}
             </div>
-            <Button href="/register" color="blue">
-              Get started
-            </Button>
+            {!user ? (
+              <Button href="/register" color="blue">
+                Get started
+              </Button>
+            ) : (
+              <>
+                <Button
+                  className="hidden md:flex"
+                  href="/dashboard/experiments"
+                  color="blue"
+                >
+                  Dashboard
+                </Button>
+                <ProfileDropdown user={user} />
+              </>
+            )}
             <div className="-mr-1 md:hidden">
-              <MobileNavigation signInUrl={signInUrl} />
+              <MobileNavigation signInUrl={signInUrl} user={user} />
             </div>
           </div>
         </nav>
       </Container>
     </header>
   );
-}
+};

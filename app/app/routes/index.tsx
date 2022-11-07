@@ -1,14 +1,16 @@
-import { useActionData, useTransition } from "@remix-run/react";
-import { redirect, json, ActionArgs } from "@remix-run/node";
+import { useActionData, useLoaderData } from "@remix-run/react";
+import { json, ActionArgs, LoaderArgs } from "@remix-run/node";
 import validator from "validator";
 
 import { Hero } from "~/components/landing/Hero";
 import { PrimaryFeatures } from "~/components/landing/PrimaryFeatures";
+import { Pricing } from "~/components/landing/Pricing";
 import { Header } from "~/components/Header";
 import hitsaveLogo from "~/images/hitsave_square.png";
 import { API } from "~/api";
 
 import styles from "~/components/CodeAnim/styles.css";
+import { getUser, hasUnexpiredJwt } from "~/session.server";
 
 export function links() {
   return [{ rel: "stylesheet", href: styles }];
@@ -37,7 +39,7 @@ export const action = async ({ request }: ActionArgs) => {
     });
   }
 
-  if (!validator.isEmail(email)) {
+  if (!validator.isEmail(email.toString())) {
     return json({
       errors: ["Invalid email address"],
     });
@@ -71,21 +73,32 @@ export const action = async ({ request }: ActionArgs) => {
   }
 };
 
+export const loader = async ({ request }: LoaderArgs) => {
+  // Although they may have an unexpired JWT, this JWT might for some reason
+  // still be invalid. We will leave this to the API itself to validate. This is
+  // just a hint.
+  const isPossiblyLoggedIn = hasUnexpiredJwt(request);
+  if (isPossiblyLoggedIn) {
+    return await getUser(request);
+  } else {
+    return null;
+  }
+};
+
 export default function Home() {
+  const user = useLoaderData<typeof loader>();
   const formData = useActionData<typeof action>();
-  const transition = useTransition();
-  const submitting = transition.state === "submitting";
 
   return (
     <>
-      <Header />
+      <Header user={user} />
       <main>
         <Hero formData={formData} />
         <PrimaryFeatures />
+        <Pricing />
         {/*<SecondaryFeatures />
         <CallToAction />
         <Testimonials />
-        <Pricing />
         <Faqs />*/}
       </main>
       {/* <Footer /> */}

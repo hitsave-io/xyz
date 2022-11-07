@@ -17,6 +17,28 @@ class APIClass {
   async fetch(route: string, requestInit?: RequestInit) {
     return fetch(`${this.baseUrl}${route}`, requestInit);
   }
+
+  // Applies the passed JWT to the headers. If the passed JWT is falsey, then we
+  // early return with an error, without sending the request to the API at all.
+  async fetch_protected(
+    route: string,
+    jwt: string | null,
+    requestInit?: RequestInit
+  ) {
+    if (!jwt) {
+      throw new Error("unauthorized");
+    }
+
+    const req = {
+      ...requestInit,
+      headers: {
+        ...requestInit?.headers,
+        Authorization: `Bearer ${jwt}`,
+      },
+    };
+
+    return this.fetch(route, req);
+  }
 }
 
 export const API = new APIClass();

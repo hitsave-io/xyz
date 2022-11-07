@@ -1,4 +1,8 @@
-import type { LinksFunction, MetaFunction } from "@remix-run/node";
+import type {
+  ErrorBoundaryComponent,
+  LinksFunction,
+  MetaFunction,
+} from "@remix-run/node";
 import {
   Links,
   LiveReload,
@@ -40,3 +44,20 @@ export default function App() {
     </html>
   );
 }
+
+export const ErrorBoundary: ErrorBoundaryComponent = ({ error }) => {
+  console.error(error);
+  return (
+    <html>
+      <head>
+        <title>Oh no!</title>
+        <Meta />
+        <Links />
+      </head>
+      <body>
+        Oops. Something went wrong.
+        <Scripts />
+      </body>
+    </html>
+  );
+};

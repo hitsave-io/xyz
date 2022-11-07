@@ -1,13 +1,11 @@
 import { LoaderFunction } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
-import { jwt } from "~/jwt.server";
 import { API } from "~/api";
+import { getSession } from "~/session.server";
 
 export const loader: LoaderFunction = async ({ request }) => {
-  const token = jwt(request);
-  const res = await API.fetch("/eval?is_experiment=true", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const jwt = getSession(request);
+  const res = await API.fetch_protected("/eval?is_experiment=true", jwt);
 
   if (res.status !== 200) {
     throw new Error("Unable to retrieve experiments");
@@ -79,7 +77,9 @@ export default function Experiments() {
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {experiments.map((experiment) => (
-                    <tr key={experiment.fn_hash}>
+                    <tr
+                      key={`${experiment.fn_hash}${experiment.args_hash}${experiment.fn_key}`}
+                    >
                       <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 lg:pl-8">
                         {experiment.fn_key}
                       </td>
