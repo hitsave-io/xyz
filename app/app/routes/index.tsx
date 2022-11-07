@@ -6,6 +6,7 @@ import { Hero } from "~/components/landing/Hero";
 import { PrimaryFeatures } from "~/components/landing/PrimaryFeatures";
 import { Header } from "~/components/Header";
 import hitsaveLogo from "~/images/hitsave_square.png";
+import { API } from "~/api";
 
 import styles from "~/components/CodeAnim/styles.css";
 
@@ -42,7 +43,7 @@ export const action = async ({ request }: ActionArgs) => {
     });
   }
 
-  let res = await fetch("http://127.0.0.1:8080/waitlist", {
+  let res = await API.fetch("/waitlist", {
     method: "put",
     headers: {
       "Content-Type": "application/json",

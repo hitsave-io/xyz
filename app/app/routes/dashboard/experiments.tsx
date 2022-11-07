@@ -1,13 +1,12 @@
 import { LoaderFunction } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { jwt } from "~/jwt.server";
+import { API } from "~/api";
 
 export const loader: LoaderFunction = async ({ request }) => {
   const token = jwt(request);
-  const res = await fetch("http://127.0.0.1:8080/eval?is_experiment=true", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+  const res = await API.fetch("/eval?is_experiment=true", {
+    headers: { Authorization: `Bearer ${token}` },
   });
 
   if (res.status !== 200) {
@@ -30,7 +29,7 @@ export default function Experiments() {
                   <tr>
                     <th
                       scope="col"
-                      className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6 lg:pl-8"
+                      className="px-3.5 py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6 lg:pl-8"
                     >
                       fn_key
                     </th>

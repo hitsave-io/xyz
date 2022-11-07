@@ -13,6 +13,7 @@ import {
 import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
 import clsx from "clsx";
 
+import { API } from "~/api";
 import hitsaveLogo from "~/images/hitsave_logo.svg";
 
 const jwt = (request: Request): string => {
@@ -42,7 +43,7 @@ const parseCookie = (cookie: string): { [key: string]: string } => {
 
 export const loader: LoaderFunction = async ({ request }) => {
   const token = jwt(request);
-  const user = await fetch("http://127.0.0.1:8080/user", {
+  const user = await API.fetch("/user", {
     headers: {
       Authorization: `Bearer ${token}`,
     },
