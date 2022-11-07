@@ -18,6 +18,7 @@ interface Tier {
   description: string;
   href: string;
   buttonText: string;
+  featureText: JSX.Element | string;
   includedFeatures: string[];
 }
 
@@ -27,9 +28,10 @@ const tiers: Tier[] = [
     name: "Community",
     priceMonthly: { text: "Free" },
     priceYearly: { text: "Free" },
-    description: "The free version of HitSave. Great for individuals.",
+    description: "The free version of HitSave. Perfect for trying it out.",
     href: "#",
     buttonText: "Get Started",
+    featureText: "What's included:",
     includedFeatures: [
       "One user",
       "100MB cloud cache",
@@ -43,9 +45,14 @@ const tiers: Tier[] = [
     name: "Pro",
     priceMonthly: { dollars: 50, unit: "/user /mo" },
     priceYearly: { dollars: 550, unit: "/user /yr" },
-    description: "Perfect for small / medium sized businesses.",
+    description: "Great for individuals and academics.",
     href: "#",
     buttonText: "Get Started",
+    featureText: (
+      <span>
+        Everything in <strong>Community</strong>, plus:
+      </span>
+    ),
     includedFeatures: [
       "Up to 5 users",
       "5GB cloud cache per user",
@@ -59,9 +66,14 @@ const tiers: Tier[] = [
     name: "Team",
     priceMonthly: { dollars: 150, unit: "/user /mo" },
     priceYearly: { dollars: 150 * 11, unit: "/user /yr" },
-    description: "For even the biggest enterprise companies.",
+    description: "The full-featured version of HitSave, for data teams.",
     href: "#",
     buttonText: "Try 14 days free",
+    featureText: (
+      <span>
+        Everything in <strong>Pro</strong>, plus:
+      </span>
+    ),
     includedFeatures: ["Up to 20 users", "10GB cloud cache per user"],
   },
   {
@@ -72,6 +84,11 @@ const tiers: Tier[] = [
     description: "For large organisations with bespoke requirements.",
     href: "#",
     buttonText: "Contact us",
+    featureText: (
+      <span>
+        Everything in <strong>Team</strong>, plus:
+      </span>
+    ),
     includedFeatures: ["Private cloud deployment", "Priority support SLAs"],
   },
 ];
@@ -198,7 +215,7 @@ export function Pricing() {
                 </div>
                 <div className="px-6 pt-6 pb-8">
                   <h3 className="text-sm font-medium text-gray-900">
-                    What's included
+                    {tier.featureText}
                   </h3>
                   <ul role="list" className="mt-6 space-y-4">
                     {tier.includedFeatures.map((feature) => (
