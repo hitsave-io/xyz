@@ -11,6 +11,7 @@ import { API } from "~/api";
 
 import styles from "~/components/CodeAnim/styles.css";
 import { getUser, hasUnexpiredJwt } from "~/session.server";
+import { Footer } from "~/components/Footer";
 
 export function links() {
   return [{ rel: "stylesheet", href: styles }];
@@ -101,7 +102,7 @@ export default function Home() {
         <Testimonials />
         <Faqs />*/}
       </main>
-      {/* <Footer /> */}
+      <Footer />
     </>
   );
 }
