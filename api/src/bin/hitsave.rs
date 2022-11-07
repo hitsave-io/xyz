@@ -26,7 +26,9 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::QueryConfig::default())
             .app_data(web::FormConfig::default())
             .wrap(middleware::Compress::default())
-            .wrap(middleware::Logger::default())
+            .wrap(middleware::Logger::new(
+                "%a %r %s %b %{Referer}i %{User-Agent}i %Dms",
+            ))
             .default_service(web::route().to(not_found))
             .service(web::scope("/blob").configure(handlers::blob::init))
             .service(web::scope("/eval").configure(handlers::eval::init))
