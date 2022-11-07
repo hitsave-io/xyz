@@ -6,6 +6,7 @@ from functools import singledispatch
 from dataclasses import dataclass, is_dataclass, Field, fields
 from itertools import filterfalse, tee
 import json
+from datetime import datetime, timezone
 from subprocess import check_output, CalledProcessError
 from typing import (
     IO,
@@ -408,6 +409,7 @@ def dict_diff(d1, d2) -> DictDiff:
         mod={k: (v1, d2[k]) for k, v1 in d1.items() if (k in d2) and (d2[k] != v1)},
     )
 
+
 def partition(pred, iterable):
     """Use a predicate to partition entries into false entries and true entries.
 
@@ -416,3 +418,16 @@ def partition(pred, iterable):
     # partition(is_odd, range(10)) --> 0 2 4 6 8   and  1 3 5 7 9
     t1, t2 = tee(iterable)
     return filterfalse(pred, t1), filter(pred, t2)
+
+
+def datetime_now() -> datetime:
+    """Get the current datetime.
+
+    There are lots of caveats with making datetimes and converting to/from iso strings.
+    So I'm making an interface for the operations that hitsave uses."""
+    return datetime.now(timezone.utc)
+
+
+def datetime_to_string(dt: datetime) -> str:
+    """Converting to/from a datetime to an iso string is broken in python because of the trailing Zs."""
+    return dt.isoformat()

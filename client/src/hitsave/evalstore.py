@@ -23,7 +23,7 @@ from blake3 import blake3
 import sqlite3
 from hitsave.cloudutils import request, read_header, create_header, encode_hitsavemsg
 from hitsave.session import Session
-from hitsave.util import Current
+from hitsave.util import Current, datetime_to_string
 from hitsave.visualize import visualize_rec
 from hitsave.visualize import visualize_rec
 
@@ -169,7 +169,7 @@ class LocalEvalStore:
                     key.args_hash,
                     EvalStatus.started.value,
                     json.dumps(digests),
-                    start_time.isoformat(),
+                    datetime_to_string(start_time),
                 ),
             )
             (id,) = c.fetchone()
@@ -294,7 +294,7 @@ class CloudEvalStore:
                     content_hash=blob_info.digest,
                     content_length=blob_info.content_length,
                     is_experiment=e["is_experiment"],
-                    start_time=e["start_time"].isoformat(),
+                    start_time=datetime_to_string(e["start_time"]),
                     elapsed_process_time=elapsed_process_time,
                     result_json=visualize_rec(result),
                 ),
