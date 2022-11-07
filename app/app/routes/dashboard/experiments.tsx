@@ -1,14 +1,18 @@
 import { LoaderFunction } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { API } from "~/api";
-import { getSession } from "~/session.server";
+import { getSession, redirectLogin } from "~/session.server";
 
 export const loader: LoaderFunction = async ({ request }) => {
   const jwt = getSession(request);
+  if (!jwt) {
+    return redirectLogin(request.url);
+  }
+
   const res = await API.fetch_protected("/eval?is_experiment=true", jwt);
 
-  if (res.status !== 200) {
-    throw new Error("Unable to retrieve experiments");
+  if (!res || res.status !== 200) {
+    return redirectLogin(request.url);
   } else {
     return await res.json();
   }

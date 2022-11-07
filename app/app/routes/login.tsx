@@ -6,6 +6,7 @@ import { API } from "~/api";
 export const loader = async ({ request }: LoaderArgs) => {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
+  const redirectUrl = url.searchParams.get("redirect");
 
   const res = await API.fetch(`/user/login?code=${code}`, {
     method: "post",
@@ -13,16 +14,14 @@ export const loader = async ({ request }: LoaderArgs) => {
 
   if (res.status == 200) {
     const jwt = await res.text();
-    console.log(jwt);
 
-    return redirect("/dashboard/experiments", {
+    return redirect(redirectUrl ?? "/dashboard", {
       headers: {
         "Set-Cookie": `jwt=${jwt}; HttpOnly; Max-Age=${60 * 60 * 24 * 30};`,
       },
     });
   } else {
-    // TODO
-    return "1234";
+    throw new Error("Unable to log you in.");
   }
 };
 

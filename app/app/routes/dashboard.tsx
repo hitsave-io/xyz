@@ -1,4 +1,4 @@
-import { LoaderFunction } from "@remix-run/node";
+import { redirect, LoaderArgs } from "@remix-run/node";
 import { useLoaderData, Outlet } from "@remix-run/react";
 import { Fragment, useState } from "react";
 import { Dialog, Transition } from "@headlessui/react";
@@ -13,16 +13,17 @@ import {
 import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
 import clsx from "clsx";
 
-import { getUser } from "~/session.server";
+import { getUser, redirectLogin } from "~/session.server";
 import hitsaveLogo from "~/images/hitsave_logo.svg";
 import { ProfileDropdown } from "~/components/ProfileDropdown";
 
-export const loader: LoaderFunction = async ({ request }) => {
-  return getUser(request);
+export const loader = async ({ request }: LoaderArgs) => {
+  const user = await getUser(request);
+  return user ?? redirectLogin(request.url);
 };
 
 export default function Dashboard() {
-  const user = useLoaderData();
+  const user = useLoaderData<typeof loader>();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const navigation = [

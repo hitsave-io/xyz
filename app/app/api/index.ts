@@ -26,7 +26,7 @@ class APIClass {
     requestInit?: RequestInit
   ) {
     if (!jwt) {
-      throw new Error("unauthorized");
+      return null;
     }
 
     const req = {

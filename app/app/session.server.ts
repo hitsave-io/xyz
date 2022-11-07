@@ -1,5 +1,4 @@
 import jwt_decode from "jwt-decode";
-
 import { API } from "~/api";
 
 const parseCookie = (cookie: string): { [key: string]: string } => {
@@ -12,6 +11,28 @@ const parseCookie = (cookie: string): { [key: string]: string } => {
     }, {});
 };
 
+export function redirectLogin(redirectUrl?: string) {
+  const redirectParam = redirectUrl ? `?redirect=${redirectUrl}` : "";
+  const params = {
+    client_id: process.env.GH_CLIENT_ID || "",
+    redirect_uri: `${process.env.HITSAVE_WEB_URL}/login${redirectParam}`,
+    scope: "user:email",
+  };
+
+  const signInUrl = `https://github.com/login/oauth/authorize?${new URLSearchParams(
+    params
+  ).toString()}`;
+
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: signInUrl,
+    },
+  });
+}
+
+// Extracts a cookie from the request, if present, and returns the parsed JWT.
+// If not present, or the cookie does not contain a JWT, retruns null.
 export function getSession(request: Request): string | null {
   const cookie = request.headers.get("Cookie");
 
@@ -37,9 +58,17 @@ export interface User {
   email_verified: boolean;
 }
 
-export async function getUser(request: Request): Promise<User> {
+export async function getUser(request: Request): Promise<User | null> {
   const jwt = getSession(request);
+  if (!jwt) {
+    return null;
+  }
+
   const user = await API.fetch_protected("/user", jwt);
+
+  if (!user) {
+    return null;
+  }
 
   if (user.status !== 200) {
     throw new Error("Unable to load user data.");
