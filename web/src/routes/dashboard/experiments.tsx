@@ -1,4 +1,4 @@
-import { LoaderFunction } from "@remix-run/node";
+import { LoaderArgs, LoaderFunction } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { API } from "~/api";
 import { Show, ShowArgs, VisualObject } from "../../components/visual";
@@ -16,7 +16,35 @@ interface Experiment {
   accesses: number;
 }
 
-export const loader: LoaderFunction = async ({ request }) => {
+/* Note on which time pretty-printing library to use:
+
+[On the moment website][1] they say you should not use it for new projects.
+So I (EWA) tried using [luxon][2], but they don't have good [duration pretty printing][3],
+so I switched back to using moment. There is also time-ago but whatever.
+
+[1]: https://momentjs.com/docs/#/-project-status/
+[2]: https://moment.github.io/luxon/#/?id=luxon
+[3]: https://github.com/moment/luxon/issues/1134
+
+*/
+
+import moment from "moment";
+import { ChevronDownIcon } from "@heroicons/react/24/outline";
+
+function ppTimeAgo(isostring: string) {
+  // luxon: return DateTime.fromISO(experiment.start_time).toRelative()
+  return moment(isostring).fromNow();
+}
+
+function ppDuration(durationNanoseconds: number) {
+  const durationSeconds = durationNanoseconds * 1e-9;
+  // luxon: return Duration.fromMillis( experiment.elapsed_process_time * 1e-6 ).toHuman()
+  // alternative: humanize-duration https://github.com/EvanHahn/HumanizeDuration.js
+  // moment: return moment.duration(durationMiliseconds).humanize()
+  return `${durationSeconds.toPrecision(2)} seconds`;
+}
+
+export const loader = async ({ request }: LoaderArgs) => {
   const jwt = getSession(request);
   if (!jwt) {
     return redirectLogin(request.url);
@@ -47,11 +75,26 @@ const argsFreqs = (exps: Experiment[]): { [key: string]: number } => {
   return freqs;
 };
 
+const parseFnKey = (fnKey: string): [string, string] => {
+  const split = fnKey.split(":");
+  if (split.length !== 2) {
+    return [fnKey, ""];
+  } else {
+    return split as [string, string];
+  }
+};
+
 export default function Experiments() {
-  const experiments = useLoaderData<typeof loader>();
+  // TODO: need to figure out this TypeScript stuf..
+  const experiments = useLoaderData<typeof loader>() as Experiment[];
+
   const af = argsFreqs(experiments);
   const argList = Object.keys(af).sort((a, b) => {
     return af[b] - af[a];
+  });
+
+  experiments.sort((a, b) => {
+    return Date.parse(b.start_time) - Date.parse(a.start_time);
   });
 
   return (
@@ -71,26 +114,8 @@ export default function Experiments() {
                         scope="col"
                         className="px-3.5 py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6 lg:pl-8"
                       >
-                        fn_key
+                        Function
                       </th>
-                      <th
-                        scope="col"
-                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
-                      >
-                        fn_hash
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
-                      >
-                        args_hash
-                      </th>
-                      {/*<th
-                        scope="col"
-                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
-                      >
-                        args
-                      </th>*/}
                       {argList.map((arg) => (
                         <th
                           scope="col"
@@ -110,72 +135,80 @@ export default function Experiments() {
                         scope="col"
                         className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
                       >
-                        start_time
+                        <div className="group inline-flex">
+                          Execution Start Time
+                          <span className="ml-2 flex-none rounded bg-gray-200 text-gray-900 group-hover:bg-gray-300">
+                            <ChevronDownIcon
+                              className="h-5 w-5"
+                              aria-hidden="true"
+                            />
+                          </span>
+                        </div>
                       </th>
                       <th
                         scope="col"
                         className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
                       >
-                        elapsed_process_time
+                        Execution Period
                       </th>
                       <th
                         scope="col"
-                        className="relative py-3.5 pl-3 pr-4 sm:pr-6 lg:pr-8"
+                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
                       >
-                        <span className="sr-only">Edit</span>
+                        Function Hash
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
+                      >
+                        Arguments Hash
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 bg-white">
-                    {experiments.map((experiment) => (
-                      <tr
-                        key={`${experiment.fn_hash}${experiment.args_hash}${experiment.fn_key}`}
-                      >
-                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 lg:pl-8">
-                          {experiment.fn_key}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {experiment.fn_hash.slice(0, 10)}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {experiment.args_hash.slice(0, 10)}
-                        </td>
-                        {/*<td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          <ShowArgs args={experiment.args} />
-                        </td>*/}
-                        {argList.map((arg) => {
-                          return (
-                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                              {experiment.args[arg] ? (
-                                <Show o={experiment.args[arg]} />
-                              ) : (
-                                <td></td>
-                              )}
-                            </td>
-                          );
-                        })}
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {experiment.content_hash.slice(0, 10)}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {experiment.start_time}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {experiment.elapsed_process_time}
-                        </td>
-                        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 lg:pr-8">
-                          <a
-                            href="#"
-                            className="text-indigo-600 hover:text-indigo-900"
-                          >
-                            Edit
-                            <span className="sr-only">
-                              , {experiment.fn_key}
-                            </span>
-                          </a>
-                        </td>
-                      </tr>
-                    ))}
+                    {experiments.map((experiment) => {
+                      const [module, functionName] = parseFnKey(
+                        experiment.fn_key
+                      );
+                      return (
+                        <tr
+                          key={`${experiment.fn_hash}${experiment.args_hash}${experiment.fn_key}`}
+                        >
+                          <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 lg:pl-8">
+                            <FnKey
+                              module={module}
+                              functionName={functionName}
+                            />
+                          </td>
+                          {argList.map((arg) => {
+                            return (
+                              <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                {experiment.args[arg] ? (
+                                  <Show o={experiment.args[arg]} />
+                                ) : (
+                                  <td></td>
+                                )}
+                              </td>
+                            );
+                          })}
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                            {experiment.content_hash.slice(0, 10)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                            {ppTimeAgo(experiment.start_time)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                            {ppDuration(experiment.elapsed_process_time)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                            {experiment.fn_hash.slice(0, 10)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                            {experiment.args_hash.slice(0, 10)}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -186,3 +219,21 @@ export default function Experiments() {
     </div>
   );
 }
+
+interface FnKeyProps {
+  module: string;
+  functionName: string;
+}
+
+const FnKey: React.FC<FnKeyProps> = ({ module, functionName }) => {
+  return (
+    <>
+      <span className="mr-1 whitespace-nowrap rounded-xl bg-gray-400 px-2 py-1 leading-6 text-white shadow-md">
+        {module}
+      </span>
+      <span className="whitespace-nowrap rounded-xl bg-sky-700 px-2 py-1 leading-6 text-white shadow-md">
+        {functionName}
+      </span>
+    </>
+  );
+};
