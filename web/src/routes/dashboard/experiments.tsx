@@ -1,8 +1,20 @@
 import { LoaderFunction } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { API } from "~/api";
-import {Show, ShowArgs} from '../../components/visual'
+import { Show, ShowArgs, VisualObject } from "../../components/visual";
 import { getSession, redirectLogin } from "~/session.server";
+
+interface Experiment {
+  fn_key: string;
+  fn_hash: string;
+  args: { [key: string]: VisualObject };
+  args_hash: string;
+  content_hash: string;
+  is_experiment: boolean;
+  start_time: string;
+  elapsed_process_time: number;
+  accesses: number;
+}
 
 export const loader: LoaderFunction = async ({ request }) => {
   const jwt = getSession(request);
@@ -15,12 +27,33 @@ export const loader: LoaderFunction = async ({ request }) => {
   if (!res || res.status !== 200) {
     return redirectLogin(request.url);
   } else {
-    return await res.json();
+    return (await res.json()) as Experiment[];
   }
+};
+
+const argsFreqs = (exps: Experiment[]): { [key: string]: number } => {
+  const freqs: { [key: string]: number } = {};
+  exps.forEach((exp) => {
+    const args = exp.args;
+    for (const key in args) {
+      if (Object.hasOwnProperty.call(freqs, key)) {
+        freqs[key] += 1;
+      } else {
+        freqs[key] = 1;
+      }
+    }
+  });
+
+  return freqs;
 };
 
 export default function Experiments() {
   const experiments = useLoaderData<typeof loader>();
+  const af = argsFreqs(experiments);
+  const argList = Object.keys(af).sort((a, b) => {
+    return af[b] - af[a];
+  });
+
   return (
     <div className="py-6">
       <div className="mx-auto px-4 sm:px-6 md:px-8">
@@ -52,12 +85,21 @@ export default function Experiments() {
                       >
                         args_hash
                       </th>
-                      <th
+                      {/*<th
                         scope="col"
                         className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
                       >
                         args
-                      </th>
+                      </th>*/}
+                      {argList.map((arg) => (
+                        <th
+                          scope="col"
+                          className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
+                          key={arg}
+                        >
+                          {arg}
+                        </th>
+                      ))}
                       <th
                         scope="col"
                         className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
@@ -98,9 +140,20 @@ export default function Experiments() {
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                           {experiment.args_hash.slice(0, 10)}
                         </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          <ShowArgs args={experiment.args}/>
-                        </td>
+                        {/*<td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          <ShowArgs args={experiment.args} />
+                        </td>*/}
+                        {argList.map((arg) => {
+                          return (
+                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                              {experiment.args[arg] ? (
+                                <Show o={experiment.args[arg]} />
+                              ) : (
+                                <td></td>
+                              )}
+                            </td>
+                          );
+                        })}
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                           {experiment.content_hash.slice(0, 10)}
                         </td>
