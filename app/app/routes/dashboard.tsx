@@ -32,14 +32,21 @@ export default function Dashboard() {
       href: "/dashboard/projects",
       icon: FolderIcon,
       current: false,
+      comingSoon: true,
     },
     {
       name: "Experiments",
       href: "/dashboard/experiments",
       icon: BeakerIcon,
-      current: true,
+      current: false,
     },
-    { name: "Team", href: "/dashboard/team", icon: UsersIcon, current: false },
+    {
+      name: "Team",
+      href: "/dashboard/team",
+      icon: UsersIcon,
+      current: false,
+      comingSoon: true,
+    },
   ];
 
   return (
@@ -127,6 +134,11 @@ export default function Dashboard() {
                             aria-hidden="true"
                           />
                           {item.name}
+                          {item.comingSoon && (
+                            <p className="ml-3 block whitespace-nowrap rounded-lg bg-slate-50 py-0.5 px-2 text-xs leading-6 text-slate-400">
+                              Coming Soon
+                            </p>
+                          )}
                         </a>
                       ))}
                     </nav>
@@ -172,6 +184,11 @@ export default function Dashboard() {
                       aria-hidden="true"
                     />
                     {item.name}
+                    {item.comingSoon && (
+                      <p className="ml-3 block whitespace-nowrap rounded-lg bg-slate-50 py-0.5 px-2 text-xs leading-6 text-slate-400">
+                        Coming Soon
+                      </p>
+                    )}
                   </a>
                 ))}
               </nav>
