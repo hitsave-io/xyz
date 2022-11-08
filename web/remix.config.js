@@ -1,5 +1,6 @@
 /** @type {import('@remix-run/dev').AppConfig} */
 module.exports = {
+  appDirectory: "./src",
   ignoredRouteFiles: ["**/.*"],
   serverDependenciesToBundle: [
     "hast-to-hyperscript",

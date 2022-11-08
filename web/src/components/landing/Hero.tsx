@@ -88,7 +88,7 @@ export const Hero: React.FC<HeroProps> = ({ formData }) => {
                 ))}
               </div>
             </div>
-            <Button className=" h-full bg-brand hover:bg-red-400" type="submit">
+            <Button className=" h-full" type="submit" color="brand">
               Submit
             </Button>
           </Form>
