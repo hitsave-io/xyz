@@ -11,7 +11,7 @@ interface ProfileDropdownProps {
 
 export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user }) => {
   const userNavigation = [
-    { name: user.gh_login, href: "#" },
+    { name: user.gh_login, href: "/profile" },
     { name: "Settings", href: "#" },
     { name: "Sign out", href: "#" },
   ];
