@@ -1619,6 +1619,11 @@ select {
   padding-bottom: 1.25rem;
 }
 
+.px-1 {
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+}
+
 .pt-5 {
   padding-top: 1.25rem;
 }

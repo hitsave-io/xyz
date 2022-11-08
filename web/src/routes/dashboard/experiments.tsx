@@ -129,7 +129,7 @@ export default function Experiments() {
                       {argList.map((arg, argIdx) => (
                         <th
                           scope="col"
-                          className="px-3 py-3.5 text-center text-sm font-semibold font-mono whitespace-nowrap"
+                          className="px-3 py-3.5 text-center text-xs font-normal font-mono whitespace-nowrap"
                           key={arg}
                         >
                           {argIdx === 0 && (
