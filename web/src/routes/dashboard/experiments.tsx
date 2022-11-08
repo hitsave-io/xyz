@@ -118,7 +118,7 @@ export default function Experiments() {
             <div className="inline-block min-w-full py-2 align-middle">
               <div className="overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5">
                 <table className="min-w-full divide-y divide-gray-300">
-                  <thead className="bg-gray-50">
+                  <thead>
                     <tr>
                       <th
                         scope="col"
@@ -126,13 +126,26 @@ export default function Experiments() {
                       >
                         Function
                       </th>
-                      {argList.map((arg) => (
+                      {argList.map((arg, argIdx) => (
                         <th
                           scope="col"
-                          className="px-3 py-3.5 text-center text-sm font-semibold font-mono text-blue-600"
+                          className="px-3 py-3.5 text-center text-sm font-semibold font-mono whitespace-nowrap"
                           key={arg}
                         >
-                          {arg}
+                          {argIdx === 0 && (
+                            <span className="font-mono text-sm text-gray-500">
+                              {"(  "}
+                            </span>
+                          )}
+                          <span className="whitespace-nowrap rounded-lg bg-gray-100 px-2 py-1 leading-6 text-gray-500 shadow-md hover:shadow-lg hover:bg-gray-200 cursor-pointer select-none">
+                            {arg}
+                          </span>
+                          {argIdx + 1 < argList.length && <>{" ,"}</>}
+                          {argIdx + 1 === argList.length && (
+                            <span className="font-mono text-sm text-gray-500">
+                              {"  )"}
+                            </span>
+                          )}
                         </th>
                       ))}
                       <th
@@ -195,7 +208,7 @@ export default function Experiments() {
                             return (
                               <td
                                 key={arg}
-                                className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-center"
+                                className="whitespace-nowrap px-3 py-4 font-mono text-sm text-gray-500 text-center"
                               >
                                 {Object.hasOwnProperty.call(
                                   experiment.args,

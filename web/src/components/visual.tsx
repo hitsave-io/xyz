@@ -92,7 +92,7 @@ export function Show(props: { o: VisualObject; depth?: number }) {
       );
     }
   } else if (typeof o === "number") {
-    return <span className="font-semibold">{o}</span>;
+    return <span className="font-semibold text-orange-700">{o}</span>;
   } else if (typeof o === "string") {
     // [todo] if too long?
     return <span>{o}</span>;
@@ -125,9 +125,11 @@ export function Show(props: { o: VisualObject; depth?: number }) {
     );
   } else if (o.__kind__ === "opaque") {
     if (!o.repr) {
-      return <span>⟨{o.__class__}⟩</span>;
+      return (
+        <span className="font-semibold text-blue-700">⟨{o.__class__}⟩</span>
+      );
     } else {
-      return <span>{o.repr}</span>;
+      return <span className="font-semibold text-sky-700">{o.repr}</span>;
     }
   } else if (o.__kind__ === "plotly") {
     // [todo] how to lazy-load plotly? ideally from cdn
