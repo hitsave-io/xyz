@@ -1,8 +1,36 @@
 import { LoaderFunction } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { API } from "~/api";
-import {Show, ShowArgs} from '../../components/visual'
+import { Show, ShowArgs } from "../../components/visual";
 import { getSession, redirectLogin } from "~/session.server";
+
+/* Note on which time pretty-printing library to use:
+
+[On the moment website][1] they say you should not use it for new projects.
+So I (EWA) tried using [luxon][2], but they don't have good [duration pretty printing][3],
+so I switched back to using moment. There is also time-ago but whatever.
+
+[1]: https://momentjs.com/docs/#/-project-status/
+[2]: https://moment.github.io/luxon/#/?id=luxon
+[3]: https://github.com/moment/luxon/issues/1134
+
+*/
+
+import moment from 'moment'
+
+function ppTimeAgo(isostring : string) {
+  // luxon: return DateTime.fromISO(experiment.start_time).toRelative()
+  return moment(isostring).fromNow()
+}
+
+function ppDuration(durationNanoseconds : number) {
+  const durationSeconds = durationNanoseconds * 1e-9
+  // luxon: return Duration.fromMillis( experiment.elapsed_process_time * 1e-6 ).toHuman()
+  // alternative: humanize-duration https://github.com/EvanHahn/HumanizeDuration.js
+  // moment: return moment.duration(durationMiliseconds).humanize()
+  return `${durationSeconds.toPrecision(2)} seconds`
+}
+
 
 export const loader: LoaderFunction = async ({ request }) => {
   const jwt = getSession(request);
@@ -105,10 +133,10 @@ export default function Experiments() {
                           {experiment.content_hash.slice(0, 10)}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {experiment.start_time}
+                          {ppTimeAgo(experiment.start_time)}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {experiment.elapsed_process_time}
+                          {ppDuration(experiment.elapsed_process_time)}
                         </td>
                         <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 lg:pr-8">
                           <a
