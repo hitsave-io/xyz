@@ -1,6 +1,7 @@
 import { LoaderFunction } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { API } from "~/api";
+import {Show, ShowArgs} from '../../components/visual'
 import { getSession, redirectLogin } from "~/session.server";
 
 export const loader: LoaderFunction = async ({ request }) => {
@@ -92,16 +93,16 @@ export default function Experiments() {
                           {experiment.fn_key}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {experiment.fn_hash}
+                          {experiment.fn_hash.slice(0, 10)}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {experiment.args_hash}
+                          {experiment.args_hash.slice(0, 10)}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {JSON.stringify(experiment.args)}
+                          <ShowArgs args={experiment.args}/>
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {experiment.content_hash}
+                          {experiment.content_hash.slice(0, 10)}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                           {experiment.start_time}
