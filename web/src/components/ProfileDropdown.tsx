@@ -11,7 +11,14 @@ interface ProfileDropdownProps {
 
 export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user }) => {
   const userNavigation = [
-    { name: user.gh_login, href: "/profile" },
+    {
+      name: (
+        <span>
+          Signed in as <strong>{user.gh_login}</strong>
+        </span>
+      ),
+      href: "/dashboard/profile",
+    },
     { name: "Settings", href: "#" },
     { name: "Sign out", href: "#" },
   ];
@@ -39,7 +46,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user }) => {
       >
         <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
           {userNavigation.map((item) => (
-            <Menu.Item key={item.name}>
+            <Menu.Item key={item.name.toString()}>
               {({ active }) => (
                 <a
                   href={item.href}
