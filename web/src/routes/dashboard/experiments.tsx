@@ -97,10 +97,20 @@ export default function Experiments() {
     return Date.parse(b.start_time) - Date.parse(a.start_time);
   });
 
+  console.log(experiments);
+
   return (
     <div className="py-6">
       <div className="mx-auto px-4 sm:px-6 md:px-8">
-        <h1 className="text-2xl font-semibold text-gray-900">Experiments</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">
+          Experiments
+          {experiments.length && (
+            <span className="text-gray-400 text-sm font-normal">
+              {" "}
+              ({experiments.length})
+            </span>
+          )}
+        </h1>
       </div>
       <div className="mx-auto px-4 sm:px-6 md:px-8">
         <div className="mt-8 flex flex-col">
@@ -119,7 +129,7 @@ export default function Experiments() {
                       {argList.map((arg) => (
                         <th
                           scope="col"
-                          className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
+                          className="px-3 py-3.5 text-center text-sm font-semibold font-mono text-blue-600"
                           key={arg}
                         >
                           {arg}
@@ -129,7 +139,7 @@ export default function Experiments() {
                         scope="col"
                         className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
                       >
-                        content_hash
+                        Returned (Digest)
                       </th>
                       <th
                         scope="col"
@@ -155,13 +165,13 @@ export default function Experiments() {
                         scope="col"
                         className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
                       >
-                        Function Hash
+                        Function Digest
                       </th>
                       <th
                         scope="col"
                         className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
                       >
-                        Arguments Hash
+                        Arguments Digest
                       </th>
                     </tr>
                   </thead>
@@ -173,6 +183,7 @@ export default function Experiments() {
                       return (
                         <tr
                           key={`${experiment.fn_hash}${experiment.args_hash}${experiment.fn_key}`}
+                          className="hover:bg-gray-50 cursor-pointer"
                         >
                           <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 lg:pl-8">
                             <FnKey
@@ -182,12 +193,16 @@ export default function Experiments() {
                           </td>
                           {argList.map((arg) => {
                             return (
-                              <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                {experiment.args[arg] ? (
+                              <td
+                                key={arg}
+                                className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-center"
+                              >
+                                {Object.hasOwnProperty.call(
+                                  experiment.args,
+                                  arg
+                                ) ? (
                                   <Show o={experiment.args[arg]} />
-                                ) : (
-                                  <td></td>
-                                )}
+                                ) : null}
                               </td>
                             );
                           })}
@@ -228,10 +243,10 @@ interface FnKeyProps {
 const FnKey: React.FC<FnKeyProps> = ({ module, functionName }) => {
   return (
     <>
-      <span className="mr-1 whitespace-nowrap rounded-xl bg-gray-400 px-2 py-1 leading-6 text-white shadow-md">
+      <span className="whitespace-nowrap rounded-l-lg bg-gray-100 px-2 py-1 leading-6 text-gray-400 shadow-md hover:shadow-lg hover:bg-gray-200 cursor-pointer select-none">
         {module}
       </span>
-      <span className="whitespace-nowrap rounded-xl bg-sky-700 px-2 py-1 leading-6 text-white shadow-md">
+      <span className="whitespace-nowrap rounded-r-lg border-l-2 border-white bg-sky-700 px-2 py-1 leading-6 font-semibold text-white shadow-md hover:shadow-lg hover:bg-sky-800 cursor-pointer select-none">
         {functionName}
       </span>
     </>
