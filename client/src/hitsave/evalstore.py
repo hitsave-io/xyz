@@ -292,10 +292,7 @@ class CloudEvalStore:
             tape.seek(0)
             digest, content_length = get_digest_and_length(tape)
             tape.seek(0)
-            args = e.get("args", None)
-            if args is not None:
-                args = {k: visualize_rec(v) for k, v in args.items()}
-                # [todo] if an arg is too big, we blobify it and replace with {__kind__: blob, ...}
+            args = visualize_rec(e.get("args", None))
             payload = encode_hitsavemsg(
                 dict(
                     fn_key=str(key.fn_key),

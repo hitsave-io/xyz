@@ -1,6 +1,17 @@
 import * as React from "react";
 import { ClientOnly } from "./clientonly";
 
+export interface Arg {
+  name: string;
+  value: VisualObject;
+  is_default?: boolean;
+  annotation?: VisualObject;
+  kind?: number;
+  docs?: string;
+}
+
+export type Args = Arg[];
+
 type Kind = "object" | "html" | "image" | "plotly" | "blob" | "opaque";
 
 interface Html {
@@ -176,17 +187,4 @@ function interlace<T>(xs: T[], sep: T): T[] {
     out.push(sep, xs[i]);
   }
   return out;
-}
-
-export function ShowArgs({ args }: { args: { [k: string]: VisualObject } }) {
-  const keys = Object.getOwnPropertyNames(args);
-  if (keys.length === 0) {
-    return <span>-</span>;
-  }
-  const cs = keys.map((k) => (
-    <span key={k}>
-      {k} : <Show o={args[k]} depth={0} />
-    </span>
-  ));
-  return <span>{cs}</span>;
 }

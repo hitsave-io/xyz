@@ -1,6 +1,6 @@
 from dataclasses import asdict, dataclass, field
 import inspect
-from typing import Any, Callable, Generic, Set, TypeVar, overload
+from typing import Any, Callable, Generic, List, Optional, Set, TypeVar, overload
 from hitsave.deephash import deephash
 from hitsave.codegraph import Symbol, get_binding
 from functools import update_wrapper
@@ -21,6 +21,40 @@ R = TypeVar("R")
 
 
 @dataclass
+class Arg:
+    name: Any
+    value: Any
+    is_default: bool
+    annotation: Optional[Any]
+    kind: inspect._ParameterKind
+    docs: Optional[str]
+
+    @classmethod
+    def create(cls, sig: inspect.Signature, bas: inspect.BoundArguments) -> List["Arg"]:
+        assert bas.signature == sig
+        o: List[Arg] = []
+        for param in sig.parameters.values():
+            is_default = param.name not in bas.arguments
+            value = param.default if is_default else bas.arguments[param.name]
+            annotation = (
+                param.annotation
+                if param.annotation is not inspect.Parameter.empty
+                else None
+            )
+            o.append(
+                Arg(
+                    name=param.name,
+                    value=value,
+                    is_default=is_default,
+                    annotation=annotation,
+                    kind=param.kind,
+                    docs=None,  # [todo]
+                )
+            )
+        return o
+
+
+@dataclass
 class SavedFunction(Generic[P, R]):
     func: Callable[P, R]
 
@@ -36,10 +70,11 @@ class SavedFunction(Generic[P, R]):
         session = Session.current()
         sig = inspect.signature(self.func)
         ba = sig.bind(*args, **kwargs)
+        args_hash = deephash(ba.arguments)
+        pretty_args = Arg.create(sig, ba)
         fn_key = Symbol.of_object(self.func)
         deps = session.fn_deps(fn_key)
         fn_hash = session.fn_hash(fn_key)
-        args_hash = deephash(ba.arguments)
         key = EvalKey(fn_key=fn_key, fn_hash=fn_hash, args_hash=args_hash)
         evalstore = EvalStore.current()
         result = evalstore.poll_eval(key, deps=deps)
@@ -57,7 +92,7 @@ class SavedFunction(Generic[P, R]):
             evalstore.start_eval(
                 key,
                 is_experiment=self.is_experiment,
-                args=dict(ba.arguments),
+                args=pretty_args,
                 deps=deps,
                 start_time=start_time,
             )

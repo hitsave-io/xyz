@@ -1,13 +1,13 @@
 import { LoaderArgs, LoaderFunction } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { API } from "~/api";
-import { Show, ShowArgs, VisualObject } from "../../components/visual";
+import { Show, VisualObject, Args } from "../../components/visual";
 import { getSession, redirectLogin } from "~/session.server";
 
 interface Experiment {
   fn_key: string;
   fn_hash: string;
-  args: { [key: string]: VisualObject };
+  args: Args;
   args_hash: string;
   result_json: VisualObject;
   content_hash: string;
@@ -60,19 +60,25 @@ export const loader = async ({ request }: LoaderArgs) => {
   }
 };
 
+function getArgs(exp: Experiment) : Args {
+  // this is our first API versioning nightmare!
+  if (exp.args instanceof Array) {
+    return exp.args
+  } else {
+    // [todo] this is for the old version where args are a dictionary
+    // @ts-ignore
+    return Object.keys(exp.args).map((k : string) => ({name : k, value : exp.args[k] }))
+  }
+}
+
 const argsFreqs = (exps: Experiment[]): { [key: string]: number } => {
   const freqs: { [key: string]: number } = {};
-  exps.forEach((exp) => {
-    const args = exp.args;
-    for (const key in args) {
-      if (Object.hasOwnProperty.call(freqs, key)) {
-        freqs[key] += 1;
-      } else {
-        freqs[key] = 1;
-      }
+  for (const exp of exps) {
+    for (const arg of getArgs(exp)) {
+      const key = arg.name;
+      freqs[key] = (freqs[key] ?? 0) + 1;
     }
-  });
-
+  }
   return freqs;
 };
 
@@ -203,18 +209,17 @@ export default function Experiments() {
                               functionName={functionName}
                             />
                           </td>
-                          {argList.map((arg) => {
+                          {argList.map((argName) => {
+                            const arg = getArgs(experiment).find(
+                              (a) => a.name === argName
+                            );
+
                             return (
                               <td
-                                key={arg}
+                                key={argName}
                                 className="whitespace-nowrap px-3 py-4 font-mono text-sm text-gray-500 text-center"
                               >
-                                {Object.hasOwnProperty.call(
-                                  experiment.args,
-                                  arg
-                                ) ? (
-                                  <Show o={experiment.args[arg]} />
-                                ) : null}
+                                {arg && <Show o={arg.value} />}
                               </td>
                             );
                           })}
