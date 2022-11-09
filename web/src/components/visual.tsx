@@ -1,4 +1,5 @@
 import * as React from 'react'
+import {ClientOnly} from './clientonly'
 
 type Kind = "object" | "html" | "image" | "plotly" | "blob" | "opaque"
 
@@ -61,8 +62,12 @@ The tricky bit is figuring out how much information to show to the user.
 - [ ] something like responsive design should be used, where each object has various representations depending on the size available.
 - [ ] should be a mode : 'inline' | 'block' dictating whether there are multiple lines.
 
+https://github.com/remix-run/remix/discussions/2936
+
 */
 
+// @ts-ignore
+const Plot = React.lazy(() => import('./react-plotly'))
 
 export function Show(props: { o: VisualObject, depth?: number }) {
     const depth = props.depth ?? 0
@@ -100,17 +105,13 @@ export function Show(props: { o: VisualObject, depth?: number }) {
             return <span>{o.repr}</span>
         }
     } else if (o.__kind__ === "plotly") {
-        // [todo] how to lazy-load plotly? ideally from cdn
-        // [todo] how to tell remix to only load plotly stuff on the client?
-        // [todo] if multiple experiment rows have the same plotly figure
-        // // const Plot = require('react-plotly.js').default;
-        // // import Plot from 'react-plotly.js';
-        // import Plotly from 'plotly.js-dist-min'
-        // import createPlotlyComponent from './react-plotly';
-        // const Plot = createPlotlyComponent(Plotly);
-        const { data, layout } = JSON.parse(o.value);
-        return <span>PLOT GOES HERE</span>
-        // return <Plot data={data} layout={layout} />
+        const {data, layout} = JSON.parse(o.value)
+        // ref: https://github.com/remix-run/remix/discussions/2936
+        return <ClientOnly>
+            <React.Suspense fallback="loading">
+                <Plot data={data} layout={layout} />
+            </React.Suspense>
+        </ClientOnly>
     } else if (o.__kind__ === "html") {
         const children = o.children.map((c, i) => <Show o={c} depth={depth + 1} key={i} />)
         return React.createElement(o.tag, o.attrs, ...children)
