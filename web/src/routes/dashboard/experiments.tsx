@@ -97,8 +97,6 @@ export default function Experiments() {
     return Date.parse(b.start_time) - Date.parse(a.start_time);
   });
 
-  console.log(experiments);
-
   return (
     <div className="py-6">
       <div className="mx-auto px-4 sm:px-6 md:px-8">
@@ -198,7 +196,7 @@ export default function Experiments() {
                           key={`${experiment.fn_hash}${experiment.args_hash}${experiment.fn_key}`}
                           className="hover:bg-gray-50 cursor-pointer"
                         >
-                          <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 lg:pl-8">
+                          <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-mono font-medium text-gray-900 sm:pl-6 lg:pl-8">
                             <FnKey
                               module={module}
                               functionName={functionName}
