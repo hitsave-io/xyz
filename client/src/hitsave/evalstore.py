@@ -21,7 +21,13 @@ import os.path
 import logging
 from blake3 import blake3
 import sqlite3
-from hitsave.cloudutils import request, read_header, create_header, encode_hitsavemsg
+from hitsave.cloudutils import (
+    request,
+    read_header,
+    create_header,
+    encode_hitsavemsg,
+    ConnectionError,
+)
 from hitsave.session import Session
 from hitsave.util import Current, datetime_to_string
 from hitsave.visualize import visualize_rec
@@ -267,6 +273,11 @@ class CloudEvalStore:
                 # [todo] unauthorized
                 pass
             r.raise_for_status()
+        except ConnectionError as err:
+            # request will already tell the user they are offline. We just fail here.
+            return StoreMiss(
+                f"Failed to establish a connection to {Config.current().cloud_url}."
+            )
         except Exception as err:
             msg = f"Request failed: {err}"
             logger.error(msg)
@@ -326,6 +337,9 @@ class CloudEvalStore:
             try:
                 r = request("PUT", f"/eval/", data=payload)
                 r.raise_for_status()
+            except ConnectionError:
+                # we are offline. we have already told the user this.
+                return False
             except Exception as err:
                 # [todo] manage errors
                 # they should all result in the user being given some friendly advice about

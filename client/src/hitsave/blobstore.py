@@ -314,7 +314,7 @@ class BlobStore(Current):
 
         Returns true if a download occurred."""
         if no_cloud() or no_local():
-            warnings.warn(
+            logger.warning(
                 "Refusing to pull blob because NO_CLOUD or NO_LOCAL flag is set."
             )
             return False
@@ -335,7 +335,7 @@ class BlobStore(Current):
         """If needed, pushes the blob to the cloud server.
         Return True if an upload took place."""
         if no_cloud() or no_local():
-            warnings.warn(
+            logger.warning(
                 "Refusing to push blob because NO_CLOUD or NO_LOCAL flag is set."
             )
             return False

@@ -172,18 +172,18 @@ class Config(Current):
 
     def __post_init__(self):
         if self.no_cloud and self.no_local:
-            warnings.warn(
+            logger.warning(
                 "Both of HITSAVE_NO_CLOUD and HITSAVE_NO_LOCAL were set. Defaulting to local-only."
             )
             self.no_local = True
             self.no_cloud = False
         if self.no_cloud:
-            warnings.warn(
+            logger.warning(
                 "NO_CLOUD is enabled. This means that you won't get all of the great features that hitsave has to offer!"
             )
         if self.no_local:
             # [todo] no_local is really only for development purposes I think we should remove it from the api.
-            warnings.warn(
+            logger.warning(
                 "NO_LOCAL is enabled. This means that results and blobs will not be cached locally which can use uneccessary bandwidth."
             )
 
