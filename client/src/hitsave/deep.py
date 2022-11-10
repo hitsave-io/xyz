@@ -141,6 +141,7 @@ class ReductionValue:
         return l
 
     def __iter__(self) -> Iterator[Tuple[Tuple[str, Any], Any]]:
+        """ Iterates on all of the child objects of the reduced value. """
         for i, arg in enumerate(self.args):
             yield (("args", i), arg)
         if self.state:
@@ -148,6 +149,9 @@ class ReductionValue:
                 for k in sorted(self.state.keys(), key=_sortkey):
                     yield (("state", k), self.state[k])
             else:
+                # [todo] if something is performance-sensitive enough to use slots
+                # it should probably have a custom hashing and pickling algorithm.
+                # and we shouldn't reach here. So always give a warning.
                 raise NotImplementedError(f"cannot iter slots yet.")
         if self.listiter:
             for i, item in enumerate(self.listiter):

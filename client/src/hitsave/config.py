@@ -8,6 +8,7 @@ import sys
 import logging
 from pathlib import Path
 from typing import Literal, Optional, Type, TypeVar
+import warnings
 from hitsave.util import Current, as_optional, is_optional, get_git_root
 import importlib.metadata
 
@@ -17,6 +18,8 @@ import importlib.metadata
 - environment variables
 - cli arguments
 - `.config/hitsave.toml` or similar
+
+[todo] ensure that once the current config is set it can't be changed at runtime.
 
 """
 
@@ -167,7 +170,25 @@ class Config(Current):
             workspace_dir=find_workspace_folder(),
         )
 
+    def __post_init__(self):
+        if self.no_cloud and self.no_local:
+            warnings.warn(
+                "Both of HITSAVE_NO_CLOUD and HITSAVE_NO_LOCAL were set. Defaulting to local-only."
+            )
+            self.no_local = True
+            self.no_cloud = False
+
     @classmethod
     def default(cls):
         """Creates the config, including environment variables and [todo] hitsave config files."""
         return cls.init().merge_env()
+
+
+def no_local() -> bool:
+    """Returns true when the no_local flag is set on the config."""
+    return Config.current().no_local
+
+
+def no_cloud() -> bool:
+    """Returns true when the no_cloud flag is set on the config."""
+    return Config.current().no_cloud

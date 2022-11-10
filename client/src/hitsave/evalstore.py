@@ -5,7 +5,7 @@ import pickle
 import tempfile
 import requests
 from typing import IO, Any, Dict, List, Literal, Optional, Union
-from hitsave.blobstore import BlobStore, get_blob_info
+from hitsave.blobstore import BlobStore, get_digest_and_length
 from hitsave.codegraph import Binding, Symbol
 from hitsave.types import (
     CodeChanged,
@@ -32,6 +32,29 @@ logger = logging.getLogger("hitsave")
 
 def localdb():
     return Session.current().local_db
+
+
+class UselessEvalStore:
+    def __init__(self):
+        pass
+
+    def poll_eval(self, *args, **kwargs):
+        return StoreMiss("Disabled.")
+
+    def start_eval(self, *args, **kwargs):
+        return 0
+
+    def resolve_eval(self, *args, **kwargs):
+        pass
+
+    def reject_eval(self, *args, **kwargs):
+        pass
+
+    def clear(self):
+        pass
+
+    def __len__(self):
+        return 0
 
 
 class LocalEvalStore:
@@ -279,7 +302,7 @@ class CloudEvalStore:
         with tempfile.SpooledTemporaryFile() as tape:
             pickle.dump(result, tape)
             tape.seek(0)
-            blob_info = get_blob_info(tape)
+            digest, content_length = get_digest_and_length(tape)
             tape.seek(0)
             args = e.get("args", None)
             if args is not None:
@@ -291,8 +314,8 @@ class CloudEvalStore:
                     fn_hash=key.fn_hash,
                     args_hash=key.args_hash,
                     args=args,
-                    content_hash=blob_info.digest,
-                    content_length=blob_info.content_length,
+                    content_hash=digest,
+                    content_length=content_length,
                     is_experiment=e["is_experiment"],
                     start_time=datetime_to_string(e["start_time"]),
                     elapsed_process_time=elapsed_process_time,
@@ -315,12 +338,13 @@ class CloudEvalStore:
 
 
 class EvalStore(Current):
-    local: LocalEvalStore
-    cloud: CloudEvalStore
+    local: Union[LocalEvalStore, UselessEvalStore]
+    cloud: Union[CloudEvalStore, UselessEvalStore]
 
     def __init__(self):
-        self.local = LocalEvalStore()
-        self.cloud = CloudEvalStore()
+        cfg = Config.current()
+        self.local = LocalEvalStore() if not cfg.no_local else UselessEvalStore()
+        self.cloud = CloudEvalStore() if not cfg.no_cloud else UselessEvalStore()
 
     @classmethod
     def default(cls):
