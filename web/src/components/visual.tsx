@@ -18,6 +18,8 @@ interface Opaque {
 interface Basic {
   __kind__?: "object";
   __class__?: string;
+  /** If __truncated__ is a number > 0, it means that some elements have been omitted from the visualisation */
+  __truncated__?: number;
   // other things go here.
 }
 
@@ -98,17 +100,24 @@ export function Show(props: { o: VisualObject; depth?: number }) {
     return <span>{o}</span>;
   } else if (isList(o)) {
     // [todo] too long? collapsible?
-    const S = 10;
-    const items = o
-      .slice(0, 10)
-      .map((x, i) => <Show key={i} o={x} depth={depth + 1} />);
+    let items : any[] = o
+    let isTruncated = false
+    if (items.length > 0) {
+      const last = items[items.length - 1]
+      if (isDict(last) && last.__truncated__) {
+        items = items.slice(0, o.length - 1)
+        isTruncated = true
+      }
+    }
+    const cs = items.map((x, i) => <Show key={i} o={x} depth={depth + 1} />);
 
-    if (o.length > S) {
+    if (isTruncated) {
       items.push(<span>...</span>);
     }
     return <span>[{interlace(items, <>, </>)}]</span>;
   } else if (isDict(o) || o.__kind__ === "object") {
     // [todo] should pretty print on multiple lines if there is space.
+    const isTruncated = !!o.__truncated__
     const keys = Object.getOwnPropertyNames(o).filter((k) =>
       k.startsWith("__")
     );
@@ -120,6 +129,7 @@ export function Show(props: { o: VisualObject; depth?: number }) {
             {k} : <Show o={(o as any)[k]} depth={depth + 1} />
           </span>
         ))}
+        {isTruncated && <span>...</span>}
         {"}"}
       </span>
     );

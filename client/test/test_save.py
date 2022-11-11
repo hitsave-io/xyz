@@ -35,6 +35,15 @@ def test_fns_are_right_type():
         assert isinstance(f, SavedFunction)
 
 
+@memo
+def giant_list():
+    return [i for i in range(100000)]
+
+
+def test_giantlist():
+    x = giant_list()
+
+
 def test_savesave():
     # [todo] view logs
     print(g(4))
@@ -50,4 +59,7 @@ def test_biggies():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
+
+    test_giantlist()
+
     test_biggies()

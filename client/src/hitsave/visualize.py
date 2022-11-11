@@ -1,6 +1,7 @@
 from dataclasses import fields, is_dataclass
 from enum import Enum
 from functools import partial, singledispatch
+from itertools import islice
 from json import JSONEncoder
 import logging
 import warnings
@@ -131,7 +132,11 @@ visualize.register(dict)(ident)
 visualize.register(str)(ident)
 visualize.register(bytes)(init)
 visualize.register(type(None))(ident)
-visualize.register(type(Ellipsis))(opaque)
+
+
+@visualize.register(type(...))
+def _vis_ellipsis(x):
+    return "..."
 
 
 @visualize.register(complex)
@@ -145,6 +150,35 @@ def _viz_enum(x: Enum):
     o["name"] = x.name
     o["value"] = x.value
     return o
+
+
+MAX_VISUALIZE_SIZE = 100
+
+
+@visualize.register(list)
+def _viz_list(x: list):
+    if len(x) > MAX_VISUALIZE_SIZE:
+        t = x[:MAX_VISUALIZE_SIZE]
+        """ [todo] need a better way to do this. eg we want to report the number of elements and the type of each element.
+        It's all about asking what the user would expect to see and what they would be reasonably ok with not seeing.
+        The user also needs to be able to override visualisation behaviour. Eg maybe they want to see the list of elements as a cool graph.
+
+        By default the visualisation should be quite compact.
+        """
+        t.append({"__truncated__": len(x) - MAX_VISUALIZE_SIZE})
+        return t
+    else:
+        return x
+
+
+@visualize.register(dict)
+def _viz_dict(x: dict):
+    if len(x) > MAX_VISUALIZE_SIZE:
+        o = {k: x[k] for k in islice(list(x.keys()), 0, MAX_VISUALIZE_SIZE)}
+        o["__truncated__"] = len(x) - MAX_VISUALIZE_SIZE
+        return o
+    else:
+        return x
 
 
 """
