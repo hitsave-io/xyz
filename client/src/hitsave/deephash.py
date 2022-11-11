@@ -12,6 +12,8 @@ import warnings
 def to_bytes(item) -> bytes:
     """Function for transforming atomic values to bytes.
     This is for the purpose of hashing, not for serialization.
+
+    [todo] probably rename this to like 'hashing_bytes' or similar.
     """
 
     return NotImplemented
@@ -48,6 +50,14 @@ def _bool_to_bytes(x: bool):
 def _none_to_bytes(x):
     return b""
 
+try:
+    import numpy
+    @to_bytes.register(numpy.ndarray)
+    def _numpy_to_bytes(x : numpy.ndarray):
+        return x.tobytes()
+
+except ModuleNotFoundError:
+    pass
 
 # [todo] register_deephash
 # [todo] consider having it be recursive and cached instead.

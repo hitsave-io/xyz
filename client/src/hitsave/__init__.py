@@ -35,6 +35,7 @@ def exit_message():
       eg suppose in the future numpy uses hitsave, then if a python user
       installs numpy but not explicitly hitsave, we should be silent.
     [todo] maybe also give some diagnostics; eg if max time on a saved function is <10ms then it's not worth caching.
+    [todo] if we ran offline; either because we failed to connect to cloud_url or because the API key was invalid, we should say so here.
     """
     cfg = Config.current()
     if cfg.api_key is not None:

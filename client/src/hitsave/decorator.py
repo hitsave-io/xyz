@@ -1,20 +1,17 @@
 from dataclasses import asdict, dataclass, field
-import shelve
-import os
-import tempfile
 import inspect
 from typing import Any, Callable, Generic, Set, TypeVar, overload
 from hitsave.deephash import deephash
 from hitsave.codegraph import Symbol, get_binding
-import atexit
 from functools import update_wrapper
 from hitsave.session import Session
 from hitsave.types import CodeChanged, Eval, EvalKey, StoreMiss
 import logging
-from datetime import datetime, timezone
 import time
 from hitsave.evalstore import EvalStore
-from typing_extensions import ParamSpec  # needed for ≤3.9
+from typing_extensions import ParamSpec
+
+from hitsave.util import datetime_now  # needed for ≤3.9
 
 logger = logging.getLogger("hitsave")
 
@@ -55,9 +52,9 @@ class SavedFunction(Generic[P, R]):
                     self._fn_hashes_reported.add(fn_hash)
             else:
                 logger.debug(f"No stored value for {fn_key.pp()}: {result.reason}")
-            start_time = datetime.now(timezone.utc)
+            start_time = datetime_now()
             start_process_time = time.process_time_ns()
-            eval_id = evalstore.start_eval(
+            evalstore.start_eval(
                 key,
                 is_experiment=self.is_experiment,
                 args=dict(ba.arguments),
