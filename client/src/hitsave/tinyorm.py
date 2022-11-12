@@ -16,14 +16,15 @@ Also injection attacks are only defended with user data being inserted.
 You are free to give a field in your schema dataclass a name like "; DROP TABLE" if you really want to.
 
 """
+from enum import Enum
+from functools import singledispatch
 import logging
 from typing import Callable, List, Sequence, Union
 from dataclasses import dataclass, is_dataclass, fields, field, Field
 from contextlib import contextmanager
 from datetime import datetime
 import sqlite3
-from hitsave.session import Session
-from hitsave.util import Current, as_optional
+from hitsave.util import Current, as_optional, ofdict
 from typing import Any, Generic, Iterable, Iterator, Optional, Type, TypeVar, overload
 
 logger = logging.getLogger("tinyorm")
@@ -31,6 +32,22 @@ logger = logging.getLogger("tinyorm")
 T = TypeVar("T", bound="Schema")
 S = TypeVar("S")
 R = TypeVar("R")
+
+
+@singledispatch
+def adapt(o):
+    if isinstance(o, (str, int, bytes, float)):
+        return o
+    if isinstance(o, Enum):
+        return o.value
+    if o is None:
+        return None
+    raise NotImplementedError()
+
+
+@adapt.register
+def _enc_datetime(o: datetime):
+    return o.isoformat()
 
 
 class Table(Generic[T]):
@@ -50,10 +67,10 @@ class Table(Generic[T]):
 
     def select(self, *, where=True, select=None):  # type: ignore
         p = Pattern(select) if select is not None else self.schema.pattern()
-        query = Expr(f"SELECT ? FROM {self.name} ", [p.to_expr()])
+        query = Expr(f"SELECT ?\nFROM {self.name} ", [p.to_expr()])
         if where is not True:
             assert isinstance(where, Expr)
-            query = query.append("WHERE ?", where)
+            query = Expr("?\nWHERE ?", [query, where])
         with transaction() as conn:
             xs = query.execute(conn)
             return map(p.outfn, xs)
@@ -88,10 +105,10 @@ class Table(Generic[T]):
         query = Expr(f"UPDATE {self.name} SET ? ", [setters])
         if where is not True:
             assert isinstance(where, Expr)
-            query = query.append("WHERE", where)
+            query = Expr("?\nWHERE ?", [query, where])
         if returning is not None:
             p = Pattern(returning)
-            query = query.append("RETURNING", p.to_expr())
+            query = Expr("?\nRETURNING ?", [query, p.to_expr()])
             with transaction() as conn:
                 xs = query.execute(conn)
                 return map(p.outfn, xs)
@@ -99,13 +116,30 @@ class Table(Generic[T]):
             with transaction() as conn:
                 query.execute(conn)
 
+    @overload
+    def insert_one(self, item: T) -> None:
+        ...
+
+    @overload
+    def insert_one(self, item: T, returning: S) -> S:
+        ...
+
     def insert_one(self, item: T, returning=None):
         if returning is not None:
-            return list(self.insert_many([item], returning))[0]
+            cur: Any = self.insert_many([item], returning)
+            return next(cur, None)
         else:
-            return self.insert_many(items=[item], returning=returning)
+            self.insert_many(items=[item], returning=returning)
 
-    def insert_many(self, items: Iterable[T], returning=None):
+    @overload
+    def insert_many(self, items: Iterable[T]) -> None:
+        ...
+
+    @overload
+    def insert_many(self, items: Iterable[T], returning: S) -> Iterable[S]:
+        ...
+
+    def insert_many(self, items: Iterable[T], returning=None):  # type: ignore
         cs = list(columns(self.schema))
         qfs = ", ".join(c.name for c in cs)
         qqs = ", ".join("?" for _ in cs)
@@ -114,15 +148,21 @@ class Table(Generic[T]):
             p = Pattern(returning)
             rq = Expr("RETURNING ? ;", [p.to_expr()])
             with transaction() as conn:
-                cur = conn.executemany(
-                    q + rq.expr,
-                    [[getattr(item, c.name) for c in cs] + rq.values for item in items],
-                )
+                vs = [
+                    tuple(
+                        map(
+                            adapt,
+                            [getattr(item, c.name) for c in cs] + rq.values,
+                        )
+                    )
+                    for item in items
+                ]
+                cur = conn.executemany(q + rq.expr, vs)
                 return map(p.outfn, cur)
         else:
             q += ";"
             with transaction() as conn:
-                vs = [[getattr(item, c.name) for c in cs] for item in items]
+                vs = [[adapt(getattr(item, c.name)) for c in cs] for item in items]
                 logger.debug(f"Running {len(vs)}:\n{q}")
                 conn.executemany(q, vs)
             return
@@ -149,10 +189,11 @@ class Pattern(Generic[S]):
             self.items = obj
             self.outfn = outfn
             return
-        if isinstance(obj, Pattern):
+        elif isinstance(obj, Pattern):
             self.items = obj.items
             self.outfn = obj.outfn
-        if isinstance(obj, Column):
+            return
+        elif isinstance(obj, Column):
             self.items = [Expr(obj)]
             # [todo] perform conversion here?
             self.outfn = lambda x: x[0]  # type: ignore
@@ -202,7 +243,7 @@ class Pattern(Generic[S]):
         else:
             raise ValueError("bad pattern")
 
-    def map(self, fn: Callable[[S], R]) -> "Pattern":
+    def map(self, fn: Callable[[S], R]) -> "Pattern[R]":
         def comp(x):
             return fn(self.outfn(x))
 
@@ -249,7 +290,7 @@ class Expr:
             raise ValueError(f"Don't know how to make expression.")
 
     def __repr__(self):
-        return f"Expr({repr(self.expr)}, {repr(self.values)}"
+        return f"Expr({repr(self.expr)}, {repr(self.values)})"
 
     def __str__(self):
         [x, *xs] = self.expr.split("?")
@@ -280,10 +321,10 @@ class Expr:
         e = self.expr
         if not e.rstrip().endswith(";"):
             e += ";"
-        return conn.execute(e, tuple(self.values))
+        return conn.execute(e, tuple(map(adapt, self.values)))
 
     def append(self, *values) -> "Expr":
-        return Expr.binary(" ", list(values))
+        return Expr.binary(" ", [self, *values])
 
 
 class Column(Expr):
@@ -318,6 +359,18 @@ class Column(Expr):
         if self.primary:
             s += " PRIMARY KEY"
         return s
+
+    def __repr__(self):
+        return self.name
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def convert(self, item):
+        return ofdict(self.type, item)
+
+    def pattern(self):
+        return Pattern([Expr(self.name, [])], lambda x: self.convert(x[0]))
 
 
 def get_sqlite_storage_type(T: Type) -> str:
@@ -355,11 +408,6 @@ class Connection(Current):
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
 
-    @classmethod
-    def default(cls):
-        # [todo] remove dependency on session
-        return Connection(Session.current().local_db)
-
 
 @contextmanager
 def transaction():
@@ -395,19 +443,8 @@ class Schema(metaclass=SchemaMeta):
     @classmethod
     def pattern(cls: Type[T]) -> Pattern[T]:
         cs = list(columns(cls))
-        qs = ", ".join(c.name for c in cs)
 
-        def blam(xs):
-            d = {c.name: x for c, x in zip(xs, cs)}
-            return cls(**d)  # type: ignore
+        def blam(d) -> T:
+            return cls(**d)
 
-        return Pattern([Expr(c.name, []) for c in cs], blam)  # type: ignore
-
-
-if __name__ == "__main__":
-
-    @dataclass
-    class Blob(Schema):
-        digest: str = col()
-        length: int = col()
-        label: Optional[str] = col()
+        return Pattern({c.name: c.pattern() for c in cs}).map(blam)

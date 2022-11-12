@@ -33,7 +33,7 @@ def test_it():
 
     blobs.insert_one(
         Blob(
-            digest="cabbage2",
+            digest="cabbage",
             length=1000,
             label=None,
             status=BlobStatus.foo,
@@ -42,32 +42,31 @@ def test_it():
         )
     )
 
-    with transaction():
-        blob = blobs.select_one(where=Blob.digest == "cabbage")
-        assert blob is not None
-        assert isinstance(blob, Blob)
-        assert blob.digest == "cabbage"
-        assert blob.label is None
-        assert blob.length == 1000
+    blob = blobs.select_one(where=Blob.digest == "cabbage")
+    assert blob is not None
+    assert isinstance(blob, Blob)
+    assert blob.digest == "cabbage"
+    assert blob.label is None
+    assert blob.length == 1000
 
-        blobs.update(
-            {
-                Blob.accesses: Blob.accesses + 1,
-                Blob.created: datetime.now(),
-                Blob.status: BlobStatus.bar,
-            },
-            where=Blob.digest == blob.digest,
-        )
+    blobs.update(
+        {
+            Blob.accesses: Blob.accesses + 1,
+            Blob.created: datetime.now(),
+            Blob.status: BlobStatus.bar,
+        },
+        where=Blob.digest == blob.digest,
+    )
 
-        blob2 = blobs.select_one(where=Blob.digest == blob.digest)
-        assert blob2 is not None
-        assert blob2.status == BlobStatus.bar
-        assert blob2.accesses == blob.accesses + 1
+    blob2 = blobs.select_one(where=Blob.digest == blob.digest)
+    assert blob2 is not None
+    assert blob2.status == BlobStatus.bar
+    assert blob2.accesses == blob.accesses + 1
 
-        for (status, label) in blobs.select(
-            where=(Blob.label == "hello"), select=(Blob.status, Blob.label)
-        ):
-            print(status, label)
+    for (status, label) in blobs.select(
+        where=(Blob.label == "hello"), select=(Blob.status, Blob.label)
+    ):
+        print(status, label)
 
 
 if __name__ == "__main__":

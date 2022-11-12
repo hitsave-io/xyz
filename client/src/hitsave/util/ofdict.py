@@ -1,4 +1,5 @@
 from dataclasses import fields, is_dataclass
+from datetime import datetime
 from enum import Enum
 import json
 from typing import Any, Dict, List, Optional, Type, TypeVar, Union
@@ -72,7 +73,12 @@ def _list_ofdict(A, a):
 
 @ofdict.register(Enum)
 def _ofdict_enum(A, a):
-    return A[a]
+    return A(a)
+
+
+@ofdict.register(datetime)
+def _ofdict_datetime(_, t):
+    return datetime.fromisoformat(t)
 
 
 class TypedJsonDecoder(json.JSONDecoder):
