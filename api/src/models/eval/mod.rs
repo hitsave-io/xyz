@@ -10,6 +10,7 @@ pub struct Eval {
     pub fn_hash: String,
     pub args: Option<JsonValue>,
     pub args_hash: String,
+    pub result_json: Option<JsonValue>,
     pub content_hash: String,
     pub is_experiment: bool,
     pub start_time: chrono::DateTime<chrono::Utc>,
