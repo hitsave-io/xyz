@@ -1,4 +1,5 @@
 import * as React from "react";
+import { ClientOnly } from "./clientonly";
 
 type Kind = "object" | "html" | "image" | "plotly" | "blob" | "opaque";
 
@@ -72,8 +73,11 @@ The tricky bit is figuring out how much information to show to the user.
 - [ ] something like responsive design should be used, where each object has various representations depending on the size available.
 - [ ] should be a mode : 'inline' | 'block' dictating whether there are multiple lines.
 
-*/
+https://github.com/remix-run/remix/discussions/2936
 
+*/
+// @ts-ignore
+const Plot = React.lazy(() => import("./react-plotly"));
 export function Show(props: { o: VisualObject; depth?: number }) {
   const depth = props.depth ?? 0;
   const o = props.o;
@@ -100,13 +104,13 @@ export function Show(props: { o: VisualObject; depth?: number }) {
     return <span>{o}</span>;
   } else if (isList(o)) {
     // [todo] too long? collapsible?
-    let items : any[] = o
-    let isTruncated = false
+    let items: any[] = o;
+    let isTruncated = false;
     if (items.length > 0) {
-      const last = items[items.length - 1]
+      const last = items[items.length - 1];
       if (isDict(last) && last.__truncated__) {
-        items = items.slice(0, o.length - 1)
-        isTruncated = true
+        items = items.slice(0, o.length - 1);
+        isTruncated = true;
       }
     }
     const cs = items.map((x, i) => <Show key={i} o={x} depth={depth + 1} />);
@@ -117,7 +121,7 @@ export function Show(props: { o: VisualObject; depth?: number }) {
     return <span>[{interlace(items, <>, </>)}]</span>;
   } else if (isDict(o) || o.__kind__ === "object") {
     // [todo] should pretty print on multiple lines if there is space.
-    const isTruncated = !!o.__truncated__
+    const isTruncated = !!o.__truncated__;
     const keys = Object.getOwnPropertyNames(o).filter((k) =>
       k.startsWith("__")
     );
@@ -142,17 +146,15 @@ export function Show(props: { o: VisualObject; depth?: number }) {
       return <span className="font-semibold text-sky-700">{o.repr}</span>;
     }
   } else if (o.__kind__ === "plotly") {
-    // [todo] how to lazy-load plotly? ideally from cdn
-    // [todo] how to tell remix to only load plotly stuff on the client?
-    // [todo] if multiple experiment rows have the same plotly figure
-    // // const Plot = require('react-plotly.js').default;
-    // // import Plot from 'react-plotly.js';
-    // import Plotly from 'plotly.js-dist-min'
-    // import createPlotlyComponent from './react-plotly';
-    // const Plot = createPlotlyComponent(Plotly);
     const { data, layout } = JSON.parse(o.value);
-    return <span>PLOT GOES HERE</span>;
-    // return <Plot data={data} layout={layout} />
+    // ref: https://github.com/remix-run/remix/discussions/2936
+    return (
+      <ClientOnly>
+        <React.Suspense fallback="loading">
+          <Plot data={data} layout={layout} />
+        </React.Suspense>
+      </ClientOnly>
+    );
   } else if (o.__kind__ === "html") {
     const children = o.children.map((c, i) => (
       <Show o={c} depth={depth + 1} key={i} />

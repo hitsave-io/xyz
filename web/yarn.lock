@@ -1615,6 +1615,18 @@
   resolved "https://registry.yarnpkg.com/@types/node/-/node-18.11.8.tgz#16d222a58d4363a2a359656dd20b28414de5d265"
   integrity sha512-uGwPWlE0Hj972KkHtCDVwZ8O39GmyjfMane1Z3GUBGGnkZ2USDq7SxLpVIiIHpweY9DS0QTDH0Nw7RNBsAAZ5A==
 
+"@types/plotly.js-dist-min@^2.3.1":
+  version "2.3.1"
+  resolved "https://registry.yarnpkg.com/@types/plotly.js-dist-min/-/plotly.js-dist-min-2.3.1.tgz#514745f5ddcfd25201b2c8d65fbc4f0497bd1d96"
+  integrity sha512-9+rTvlyKDclIB9twal6ou6unUN6iTATLcRvakoFYaHGPnVRNe06LbUGOcgD8O+sddBFz3y2kS2hTKbUPGeVsHA==
+  dependencies:
+    "@types/plotly.js" "*"
+
+"@types/plotly.js@*":
+  version "2.12.8"
+  resolved "https://registry.yarnpkg.com/@types/plotly.js/-/plotly.js-2.12.8.tgz#0047cc07eb083eac9c8845288799042452bae9b2"
+  integrity sha512-h7gkIDxjC7ZgAZTActvrMJNDFsEPIAOr6kvMIhTOgxOrXTnXH3ywnmjtfoUViuKFNhos3zhhTtcT5QQT/bH/2w==
+
 "@types/prop-types@*":
   version "15.7.5"
   resolved "https://registry.yarnpkg.com/@types/prop-types/-/prop-types-15.7.5.tgz#5f19d2b85a98e9558036f6a3cacc8819420f05cf"
@@ -6094,6 +6106,11 @@ pkg-dir@^3.0.0:
   integrity sha512-/E57AYkoeQ25qkxMj5PBOVgF8Kiu/h7cYS30Z5+R7WaiCCBfLq58ZI/dSeaEKb9WVJV5n/03QwrN3IeWIFllvw==
   dependencies:
     find-up "^3.0.0"
+
+plotly.js-dist-min@^2.16.1:
+  version "2.16.1"
+  resolved "https://registry.yarnpkg.com/plotly.js-dist-min/-/plotly.js-dist-min-2.16.1.tgz#c6e5c2348986b49ed39db46b06850ab3e1dd4b2a"
+  integrity sha512-SB7xRacqoQdrJ8vO461ISLi5v3p42RnLqi0PDn0GxlJRSE1bIfDeQmTs8kL0vJaeaaWnmON8XDF78tzbpgSaDg==
 
 posix-character-classes@^0.1.0:
   version "0.1.1"
