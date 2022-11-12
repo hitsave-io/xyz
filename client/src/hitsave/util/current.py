@@ -42,3 +42,7 @@ class Current:
             c = cls.default()
             cls.CURRENT.set(c)
         return c
+
+    @classmethod
+    def set_current(cls, t):
+        return cls.CURRENT.set(t)
