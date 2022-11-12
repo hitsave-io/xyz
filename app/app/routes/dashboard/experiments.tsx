@@ -1,6 +1,8 @@
 import { LoaderFunction } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
+import {Show, ShowArgs} from '../../components/visual';
 import { jwt } from "~/jwt.server";
+import moment from "moment";
 
 export const loader: LoaderFunction = async ({ request }) => {
   const token = jwt(request);
@@ -18,34 +20,92 @@ export const loader: LoaderFunction = async ({ request }) => {
 };
 
 export default function Experiments() {
-  const experiments = useLoaderData();
+  const experiments = useLoaderData<typeof loader>();
   return (
-    <table style={{ width: "100%", border: "1px solid black" }} border="1">
-      <thead>
-        <tr>
-          <th>fn_key</th>
-          <th>fn_hash</th>
-          <th>args_hash</th>
-          <th>content_hash</th>
-          <th>start_time</th>
-          <th>elapsed_process_time</th>
-        </tr>
-      </thead>
-      <tbody>
-        {experiments.map((exp) => {
-          console.log(exp);
-          return (
-            <tr key={exp.fn_hash}>
-              <td>{exp.fn_key}</td>
-              <td>{exp.fn_hash}</td>
-              <td>{exp.args_hash}</td>
-              <td>{exp.content_hash}</td>
-              <td>{exp.start_time}</td>
-              <td>{exp.elapsed_process_time}</td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <div className="">
+      <div className="mt-8 flex flex-col">
+        <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
+          <div className="inline-block min-w-full py-2 align-middle">
+            <div className="overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5">
+              <table className="min-w-full divide-y divide-gray-300">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th
+                      scope="col"
+                      className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6 lg:pl-8"
+                    >
+                      fn_key
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
+                    >
+                      fn_hash
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
+                    >
+                      args_hash
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
+                    >
+                      args
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
+                    >
+                      content_hash
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
+                    >
+                      start_time
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
+                    >
+                      elapsed_process_time
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {experiments.map((experiment : any) => (
+                    <tr key={experiment.fn_hash}>
+                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 lg:pl-8">
+                        {experiment.fn_key}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        {experiment.fn_hash.slice(0, 10)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        {experiment.args_hash.slice(0, 10)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        <ShowArgs args={experiment.args}/>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        {experiment.content_hash.slice(0, 10)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        {experiment.start_time}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        {experiment.elapsed_process_time}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -59,6 +59,16 @@ try:
 except ModuleNotFoundError:
     pass
 
+try:
+    from plotly.graph_objects import Figure
+    import pickle
+    @to_bytes.register(Figure)
+    def _plotly_to_bytes(x : Figure):
+        # [todo] is this the best thing to do?
+        return pickle.dumps(x)
+except ModuleNotFoundError:
+    pass
+
 # [todo] register_deephash
 # [todo] consider having it be recursive and cached instead.
 # [todo] protection against cyclic datastructures? introduces overhead.

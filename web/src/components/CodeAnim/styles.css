@@ -1,0 +1,119 @@
+/* Styles generated from `CodeAnim.module.scss` */
+
+.screen {
+  overflow: hidden;
+  width: 100%;
+  background: #1d1f21;
+  border-radius: 7px;
+  box-shadow: 0px 7px 10px 4px rgba(0, 0, 0, 0.15);
+}
+.screen pre {
+  margin: 0;
+  overflow-wrap: break-word;
+}
+.buttons {
+  position: relative;
+  top: 0;
+  left: 0;
+  display: flex;
+  padding: 12px;
+}
+.buttons .circ {
+  background: #b4b7b4;
+  border-radius: 100%;
+  margin-right: 6px;
+  width: 12px;
+  height: 12px;
+}
+.title {
+  position: relative;
+  display: flex;
+  top: -36px;
+  height: 36px;
+  color: #969896;
+  font-family: monospace;
+  font-size: 16px;
+  justify-content: center;
+  align-items: center;
+  user-select: none;
+}
+.codeBlock {
+  position: relative;
+  top: -28px;
+  width: 100%;
+  min-height: 100%;
+  color: white;
+  padding-top: 12px;
+  padding-right: 12px;
+  line-height: 28px;
+  box-sizing: border-box;
+  text-align: left;
+  font-family: monospace;
+  font-weight: 500;
+}
+.codeBlock pre code {
+  display: flex;
+  flex-direction: column;
+}
+.codeBlock pre code span {
+  display: inline-block;
+}
+.codeBlock pre code .codeLine {
+  display: flex;
+}
+.codeBlock pre code .punctuation,
+.codeBlock pre code .operator {
+  color: #ffffff;
+}
+.codeBlock pre code .functionDefinition {
+  color: #81a2be;
+}
+.codeBlock pre code .functionCall {
+  color: #f0c674;
+}
+.codeBlock pre code .lineNumber {
+  display: inline-block;
+  min-width: 64px;
+  padding-right: 18px;
+  text-align: right;
+  user-select: none;
+  width: 64px;
+  color: #b4b7b4;
+}
+.codeBlock pre code .keyword {
+  color: #b294bb;
+}
+.codeBlock pre code .comment {
+  color: #969896;
+}
+.codeBlock pre code .decorator {
+  color: #cc6666;
+}
+.codeBlock pre code .number,
+.codeBlock pre code .literal,
+.codeBlock pre code .bool {
+  color: #de935f;
+}
+.codeBlock pre code .className {
+  color: #f0c674;
+}
+.codeBlock pre code .identifier {
+  color: #81a2be;
+}
+.codeBlock pre code .variableName {
+  color: #ffffff;
+}
+.codeBlock pre code .cursor {
+  margin-left: -0.1em;
+  border-right: 0.1em solid #b4b7b4;
+  animation: blink-caret 0.8s step-end infinite;
+}
+@keyframes blink-caret {
+  from,
+  to {
+    border-color: transparent;
+  }
+  50% {
+    border-color: #b4b7b4;
+  }
+}
