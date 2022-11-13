@@ -289,7 +289,7 @@ class CloudEvalStore:
             # [todo]; for now, blobs are always streamed, but in the future we will probably put small blobs inline.
             # we also don't store result blobs locally.
             with BlobStore.current().cloud.open_blob(digest) as tape:
-                value = pickle.loads(tape)  # type: ignore
+                value = pickle.load(tape)
                 return PollEvalResult(value, origin="cloud")
         return StoreMiss("No results.")
 
