@@ -40,29 +40,6 @@ def localdb():
     return Session.current().local_db
 
 
-class UselessEvalStore:
-    def __init__(self):
-        pass
-
-    def poll_eval(self, *args, **kwargs):
-        return StoreMiss("Disabled.")
-
-    def start_eval(self, *args, **kwargs):
-        return 0
-
-    def resolve_eval(self, *args, **kwargs):
-        pass
-
-    def reject_eval(self, *args, **kwargs):
-        pass
-
-    def clear(self):
-        pass
-
-    def __len__(self):
-        return 0
-
-
 class LocalEvalStore:
     def __init__(self):
         with localdb() as conn:
@@ -352,19 +329,26 @@ class CloudEvalStore:
 
 
 class EvalStore(Current):
-    local: Union[LocalEvalStore, UselessEvalStore]
-    cloud: Union[CloudEvalStore, UselessEvalStore]
+    local: LocalEvalStore
+    cloud: CloudEvalStore
 
     def __init__(self):
-        cfg = Config.current()
-        self.local = LocalEvalStore() if not cfg.no_local else UselessEvalStore()
-        self.cloud = CloudEvalStore() if not cfg.no_cloud else UselessEvalStore()
+        self.local = LocalEvalStore()
+        self.cloud = CloudEvalStore()
 
     @classmethod
     def default(cls):
         return EvalStore()
 
-    def poll_eval(self, key, **kwargs):
+    def poll_eval(self, key, **kwargs) -> Union[PollEvalResult, StoreMiss]:
+        cfg = Config.current()
+        if cfg.no_local and cfg.no_cloud:
+            return StoreMiss("Cloud and local stores are disabled.")
+        if cfg.no_local:
+            return self.cloud.poll_eval(key, **kwargs)
+        if cfg.no_cloud:
+            return self.local.poll_eval(key, **kwargs)
+
         r_local = self.local.poll_eval(key, **kwargs)
         if isinstance(r_local, StoreMiss):
             r_cloud = self.cloud.poll_eval(key, **kwargs)
@@ -377,17 +361,22 @@ class EvalStore(Current):
             # [todo] poll cloud anyway but don't download
             return r_local
 
-    def start_eval(self, key, **kwargs):
-        self.local.start_eval(key, **kwargs)
-        self.cloud.start_eval(key, **kwargs)
+    def start_eval(self, key, **kwargs) -> None:
+        if not Config.current().no_local:
+            self.local.start_eval(key, **kwargs)
+        if not Config.current().no_cloud:
+            self.cloud.start_eval(key, **kwargs)
 
-    def resolve_eval(self, key, **kwargs):
-        self.local.resolve_eval(key, **kwargs)
-        self.cloud.resolve_eval(key, **kwargs)
+    def resolve_eval(self, key, **kwargs) -> None:
+        if not Config.current().no_local:
+            self.local.resolve_eval(key, **kwargs)
+        if not Config.current().no_cloud:
+            self.cloud.resolve_eval(key, **kwargs)
 
-    def reject_eval(self, key, **kwargs):
-        self.local.reject_eval(key, **kwargs)
-        self.cloud.reject_eval(key, **kwargs)
+    def reject_eval(self, key, **kwargs) -> None:
+        if not Config.current().no_local:
+            self.local.reject_eval(key, **kwargs)
+        if not Config.current().no_cloud:
+            self.cloud.reject_eval(key, **kwargs)
 
     # [todo] clear
-    # [todo]
