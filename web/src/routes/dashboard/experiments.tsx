@@ -9,6 +9,7 @@ interface Experiment {
   fn_hash: string;
   args: { [key: string]: VisualObject };
   args_hash: string;
+  result_json: VisualObject;
   content_hash: string;
   is_experiment: boolean;
   start_time: string;
@@ -150,7 +151,7 @@ export default function Experiments() {
                         scope="col"
                         className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
                       >
-                        Returned (Digest)
+                        Returned
                       </th>
                       <th
                         scope="col"
@@ -218,7 +219,7 @@ export default function Experiments() {
                             );
                           })}
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {experiment.content_hash.slice(0, 10)}
+                            {<Show o={experiment.result_json} />}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                             {ppTimeAgo(experiment.start_time)}
