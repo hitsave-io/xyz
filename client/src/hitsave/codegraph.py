@@ -56,6 +56,7 @@ from hitsave.config import Config, __version__
 from hitsave.deephash import deephash
 from hitsave.graph import DirectedGraph
 from hitsave.util import cache, decorate_ansi
+from functools import cached_property
 
 logger = logging.getLogger("hitsave/codegraph")
 
@@ -67,19 +68,38 @@ class Symbol:
     module_name: str
     decl_name: Optional[str] = field(default=None)
 
+    @cached_property
+    def display_module_name(self):
+        """This is the same as self.module_name, but with a special case
+        for when the module is __main__. In this case we make a guess as to what the module would be
+        called if invoked from a different file."""
+        if self.module_name == "__main__":
+            m = sys.modules.get("__main__")
+            assert m is not None
+            mf = getattr(m, "__file__")
+            assert isinstance(mf, str)
+            module = module_name_of_file(mf)
+            assert module is not None
+            assert module != "__main__"
+            return module
+        else:
+            return self.module_name
+
     def __hash__(self):
         """Note this only hashes on the string value, not the binding."""
         return hash(self.__str__())
 
     def __str__(self):
+        module_name = self.display_module_name
         if self.decl_name is None:
-            return self.module_name
+            return module_name
         else:
-            return f"{self.module_name}:{self.decl_name}"
+            return f"{module_name}:{self.decl_name}"
 
     def pp(self):
         """Pretty print with nice formatting."""
-        m = ".".join([decorate_ansi(n, fg="cyan") for n in self.module_name.split(".")])
+        module_name = self.display_module_name
+        m = ".".join([decorate_ansi(n, fg="cyan") for n in module_name.split(".")])
         d = (
             ".".join([decorate_ansi(n, fg="yellow") for n in self.decl_name.split(".")])
             if self.decl_name is not None
@@ -106,11 +126,12 @@ class Symbol:
         This does not cause the module to be loaded.
         """
         # [note] this loads the module but _does not execute it_ and doesn't add to sys.modules.
-        if self.module_name in sys.modules:
-            return sys.modules[self.module_name]
+        module_name = self.module_name
+        if module_name in sys.modules:
+            return sys.modules[module_name]
         spec = self.get_module_spec()
         if spec is None:
-            raise ModuleNotFoundError(name=self.module_name)
+            raise ModuleNotFoundError(name=module_name)
         return importlib.util.module_from_spec(spec)
 
     def get_module_spec(self):
@@ -132,7 +153,8 @@ class Symbol:
         assert hasattr(o, "__qualname__")
         assert hasattr(o, "__module__")
         # [todo] more helpful error.
-        return cls(o.__module__, o.__qualname__)
+        module = o.__module__
+        return cls(module, o.__qualname__)
 
     def get_st_symbol(self) -> st.Symbol:
         """Return the SymbolTable Symbol for this vertex."""
@@ -315,27 +337,6 @@ class CodeGraph:
 
     def clear(self):
         self.dg = DirectedGraph()
-
-
-"""
-Each time the sourcefiles change, all of these
-cached functions need to be invalidated:
-
-Also if the sourcefile is in an intermediate state and hence is not valid python,
-we should keep the cached values and code graph unchanged.
-
-module_name
-→ version
-→ ExternPackage
-→ ModuleSpec
-→ sourcefile
-→ sourcetext
-→ symtable
-→ imports
-
-sourcefile → module_name
-
- """
 
 
 @cache
