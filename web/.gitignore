@@ -6,8 +6,8 @@ node_modules
 
 # Build artifacts
 build
-/public/build
-/src/tailwind.css
+public/build
+src/tailwind.css
 
 # Local Remix cache
 /.cache
