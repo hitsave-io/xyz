@@ -119,8 +119,6 @@ class Config(Current):
 
     local_cache_dir: Path
     """ This is the directory where hitsave should store local caches of data. """
-    cloud_url: str
-    """ URL for hitsave cloud API server.   """
     api_key: Optional[str]
     """ API key for hitsave cloud. """
 
@@ -146,6 +144,12 @@ class Config(Current):
 
     [todo] choose the sensitivity for different packages: do it by looking at the versioning sensitivity in requirements.txt or the lockfile.
     """
+
+    cloud_url: str = field(default="https://api.hitsave.io")
+    """ URL for hitsave cloud API server.   """
+
+    web_url: str = field(default="https://hitsave.io")
+    """ URL for the HitSave website. """
 
     @property
     def local_db_path(self) -> Path:

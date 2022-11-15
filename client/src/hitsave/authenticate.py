@@ -76,12 +76,12 @@ async def loopback_login():
 
     # [todo] if there is already a valid jwt, don't bother logging in here.
     # attempt to use the jwt for something, if there is an error (401) then you prompt a login.
-    cloud_url = Config.current().cloud_url
+    web_url = Config.current().web_url
     redirect_port = 9449  # [todo] check not claimed.
     miniserver_url = urllib.parse.quote(f"http://127.0.0.1:{redirect_port}")
     query_params = {
         "client_id": "b7d5bad7787df04921e7",
-        "redirect_uri": f"http://127.0.0.1:3000/login?client_loopback={miniserver_url}",
+        "redirect_uri": f"{web_url}/login?client_loopback={miniserver_url}",
         "scope": "user:email",
     }
     # query_params = urllib.parse.urlencode(query_params)
