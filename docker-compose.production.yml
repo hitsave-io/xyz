@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  db:
+    environment:
+      - POSTGRES_PASSWORD=somethingelse
+  migrate:
+    environment:
+      - DATABASE_URL=postgres://postgres:somethingelse@db:5432/hitsave
+  api:
+    environment:
+      - DATABASE_URL=postgres://postgres:somethingelse@db:5432/hitsave
+  web:
+    environment:
+      - HITSAVE_WEB_URL=http://hitsave.io
+volumes:
+  db_data:
