@@ -13,8 +13,8 @@ postgres = [ "sqlx/postgres"]
 
 [dependencies.sqlx]
 version = "0.6.0"
-default-features = false
-features = [ "postgres", "runtime-actix-rustls", "macros", "chrono", "decimal", "uuid", "json" ]
+default-features = true
+features = [ "postgres", "runtime-actix-rustls", "chrono", "decimal", "uuid", "json" ]
 
 [dependencies.uuid]
 version = "1.1.2"

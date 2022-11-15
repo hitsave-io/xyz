@@ -11,8 +11,6 @@ pub async fn login_handler(code: String, state: &AppState) -> Result<String, Log
         LoginError::AccessTokenNotGranted
     })?;
 
-    println!("{}", access_token);
-
     let (user_info, emails) = get_user_info(&access_token).await.map_err(|e| {
         log::error!("error retrieving Github user info {:?}", e);
         LoginError::UserInfoNotAvailable

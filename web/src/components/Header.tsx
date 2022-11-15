@@ -131,19 +131,10 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
 
 interface HeaderProps {
   user: User | null;
+  signInUrl: string;
 }
 
-export const Header: React.FC<HeaderProps> = ({ user }) => {
-  const params = {
-    client_id: "b7d5bad7787df04921e7",
-    redirect_uri: "http://127.0.0.1:3000/login",
-    scope: "user:email",
-  };
-
-  const signInUrl = `https://github.com/login/oauth/authorize?${new URLSearchParams(
-    params
-  ).toString()}`;
-
+export const Header: React.FC<HeaderProps> = ({ user, signInUrl }) => {
   return (
     <header className="py-10">
       <Container>
