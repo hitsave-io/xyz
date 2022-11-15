@@ -53,7 +53,7 @@ services:
     environment:
       - HITSAVE_API_URL=http://api:8080
       - HITSAVE_WEB_URL=http://hitsave-local.io
-      - GH_CLIENT_ID=b7d5bad77787df04921e7
+      - GH_CLIENT_ID=b7d5bad7787df04921e7
       - NODE_ENV=production
 volumes:
   db_data:
