@@ -1,10 +1,13 @@
-node_modules
-build
-
-/app/tailwind.css
-/.cache
-/public/build
-/.netlify
+# Environment variables for local development 
 .env
 
-/app/tailwind.css
+# Node dependencies
+node_modules
+
+# Build artifacts
+build
+/public/build
+/styles/tailwind.css
+
+# Local Remix cache
+/.cache
