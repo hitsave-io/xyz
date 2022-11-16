@@ -1,0 +1,24 @@
+version: 0.0
+os: linux
+# CodeDeploy works with 'revisions', which are big file bundles. In the case of
+# our GitHub action, the revision will always be the source code repo (but
+# maybe we also will be able to get the build artifacts from GitHub CI eventually).
+files:
+  # This revision is just the code repository. The build archive is in S3 and
+  # must be pulled from there in one of the appspec hooks.
+  - source: /
+    destination: /home/ec2-user/xyz
+permissions:
+  - object: /home/ec2-user/xyz
+    owner: ec2-user
+    type:
+      - directory
+hooks:
+  BeforeInstall:
+    - location: /deploy/aws/scripts/before-install.sh
+      timeout: 300
+      runas: root
+  AfterInstall:
+    - location: /deploy/aws/scripts/after-install.sh
+      timeout: 300
+      runas: ec2-user

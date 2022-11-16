@@ -30,19 +30,39 @@ async fn main() -> std::io::Result<()> {
 
     dotenv::dotenv().ok();
 
-    let db_url = env::var("DATABASE_URL").map_err(|e| {
-        Error::new(
-            ErrorKind::InvalidData,
-            format!("error: environment variable `DATABASE_URL`: {}", e),
-        )
-    })?;
+    let mut env_vars: std::collections::HashMap<String, String> = env::vars().collect();
 
-    let pool = Pool::<Postgres>::connect(&db_url).await.map_err(|e| {
-        Error::new(
-            ErrorKind::NotFound,
-            format!("unable to connect to db: {}", e),
-        )
-    })?;
+    // Build the database URL from the various environment variables and secrets.
+    let database_user = env_vars
+        .remove("POSTGRES_USER")
+        .expect("no database user environment variable present");
+    let database_password_file = env_vars
+        .remove("POSTGRES_PASSWORD_FILE")
+        .expect("no database password file environment variable present");
+    let database_host = env_vars
+        .remove("POSTGRES_HOST")
+        .expect("no database host environment variable present");
+    let database_port = env_vars
+        .remove("POSTGRES_PORT")
+        .expect("no database port environment variable present");
+    let database_name = env_vars
+        .remove("POSTGRES_DB")
+        .expect("no database name environment variable present");
+    let database_password = std::fs::read_to_string(database_password_file)
+        .expect("could not read database password file; does it exist?");
+    let database_url = format!(
+        "postgres://{}:{}@{}:{}/{}",
+        database_user, database_password, database_host, database_port, database_name
+    );
+
+    let pool = Pool::<Postgres>::connect(&database_url)
+        .await
+        .map_err(|e| {
+            Error::new(
+                ErrorKind::NotFound,
+                format!("unable to connect to db: {}", e),
+            )
+        })?;
 
     MIGRATOR.run(&pool).await.map_err(|e| {
         Error::new(

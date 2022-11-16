@@ -71,7 +71,7 @@ export async function getUser(request: Request): Promise<User | null> {
   }
 
   if (user.status !== 200) {
-    throw new Error("Unable to load user data.");
+    return null;
   } else {
     return user.json() as Promise<User>;
   }

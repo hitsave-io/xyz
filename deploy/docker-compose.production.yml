@@ -1,0 +1,27 @@
+version: "3.9"
+
+name: "xyz-prod"
+
+services:
+  db:
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  migrate:
+
+  api:
+    environment:
+      # GH_CLIENT_ID: TODO: needs to be the prod version
+
+  nginx:
+
+  web:
+    environment:
+      # GH_CLIENT_ID: TODO: needs to be the prod version
+      - HITSAVE_WEB_URL=http://hitsave.io
+
+volumes:
+  pgdata:
+    driver_opts:
+      type: "xfs"
+      device: "/dev/xvdb"

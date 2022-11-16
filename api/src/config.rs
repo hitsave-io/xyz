@@ -12,6 +12,7 @@ pub struct Config {
     pub gh_client_id: String,
     pub gh_client_secret: String,
     pub gh_user_agent: String,
+    pub aws_s3_cred_file: String,
 }
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
@@ -33,26 +34,55 @@ impl Config {
 
         // Note: it's okay to panic in places like this, because without these
         // env vars, we can't launch the server at all, and it only happens at startup.
-        let database_url = env_vars
-            .remove("DATABASE_URL")
-            .expect("no database url environment variable present");
+
+        // Build the database URL from the various environment variables and secrets.
+        let database_user = env_vars
+            .remove("POSTGRES_USER")
+            .expect("no database user environment variable present");
+        let database_password_file = env_vars
+            .remove("POSTGRES_PASSWORD_FILE")
+            .expect("no database password file environment variable present");
+        let database_host = env_vars
+            .remove("POSTGRES_HOST")
+            .expect("no database host environment variable present");
+        let database_port = env_vars
+            .remove("POSTGRES_PORT")
+            .expect("no database port environment variable present");
+        let database_name = env_vars
+            .remove("POSTGRES_DB")
+            .expect("no database name environment variable present");
+        let database_password = std::fs::read_to_string(database_password_file)
+            .expect("could not read database password file; does it exist?");
+        let database_url = format!(
+            "postgres://{}:{}@{}:{}/{}",
+            database_user, database_password, database_host, database_port, database_name
+        );
+
         let port = env_vars
             .remove("PORT")
             .expect("no port environment variable present")
             .parse::<u16>()
             .expect("invalid port");
-        let jwt_priv = env_vars
-            .remove("JWT_PRIV")
-            .expect("no JWT_PRIV environment variable present");
+        let jwt_priv_file = env_vars
+            .remove("JWT_PRIV_FILE")
+            .expect("no JWT_PRIV_FILE environment variable present");
         let gh_client_id = env_vars
             .remove("GH_CLIENT_ID")
             .expect("no GH_CLIENT_ID environment variable present");
-        let gh_client_secret = env_vars
-            .remove("GH_CLIENT_SECRET")
-            .expect("no GH_CLIENT_SECRET environment variable present");
+        let gh_client_secret_file = env_vars
+            .remove("GH_CLIENT_SECRET_FILE")
+            .expect("no GH_CLIENT_SECRET_FILE environment variable present");
         let gh_user_agent = env_vars
             .remove("GH_USER_AGENT")
             .expect("no GH_USER_AGENT environment variable present");
+        let aws_s3_cred_file = env_vars
+            .remove("AWS_S3_CRED_FILE")
+            .expect("no AWS_S3_CRED_FILE environment variable present");
+
+        let jwt_priv = std::fs::read_to_string(jwt_priv_file)
+            .expect("could not read jwt priv file; does it exist?");
+        let gh_client_secret = std::fs::read_to_string(gh_client_secret_file)
+            .expect("could not read gh client secret file; does it exist?");
 
         Config {
             database_url,
@@ -61,6 +91,7 @@ impl Config {
             gh_client_id,
             gh_client_secret,
             gh_user_agent,
+            aws_s3_cred_file,
         }
     }
     pub async fn into_state(self) -> AppStateRaw {

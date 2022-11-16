@@ -1,0 +1,178 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["deploy"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-api:
+    name: Test and build hitsave api
+
+    runs-on: ubuntu-latest
+
+    # https://stackoverflow.com/questions/57915791/github-actions-how-to-connect-to-postgres-in-githhub-actions
+    # https://docs.github.com/en/github-ae@latest/actions/using-containerized-services/creating-postgresql-service-containers
+    services:
+      postgres:
+        image: postgres
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: hitsave
+          POSTGRES_PORT: 5432
+          POSTGRES_HOST: postgres
+
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # https://github.com/actions/runner/issues/480
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/hitsave
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Install latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          override: true
+          profile: minimal
+
+      - name: Restore rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "v1-rust"
+          cache-targets: true
+          workspaces: "api -> target"
+
+      - name: Install sqlx
+        uses: baptiste0928/cargo-install@v1
+        with:
+          crate: sqlx-cli
+          version: "0.6.2"
+          features: "native-tls,postgres"
+          locked: true
+
+      - name: Migrate postgres database
+        run: sqlx migrate run
+        working-directory: api
+
+      - name: Run tests
+        run: cargo test --verbose
+        working-directory: api
+
+      - name: Build all targets
+        run: cargo build --release --verbose
+        working-directory: api
+
+      - name: Archive build artifacts
+        run: |
+          tar -cvzf api-build.tar.gz \
+          api/target/release/hitsave \
+          api/target/release/migrate
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: api-build.tar.gz
+          path: api-build.tar.gz
+
+  build-web:
+    name: Test and build hitsave website
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "16"
+          cache: "yarn"
+          cache-dependency-path: web/yarn.lock
+
+      - name: Install dependencies
+        working-directory: web
+        run: yarn --prefer-offline
+
+      # Todo: add a testing step here
+
+      - name: Build web app
+        working-directory: web
+        run: yarn build
+
+      - name: Archive build artifacts
+        run: |
+          tar -cvzf web-build.tar.gz \
+          web/node_modules \
+          web/public \
+          web/build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: web-build.tar.gz
+          path: web-build.tar.gz
+
+  deploy:
+    name: Deploy api and web app
+    needs: [build-api, build-web]
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Download api build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: api-build.tar.gz
+
+      - name: Download web build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: web-build.tar.gz
+
+      - name: Bundle build artifacts
+        run: |
+          gunzip api-build.tar.gz
+          gunzip web-build.tar.gz
+          tar --concatenate --file=api-build.tar web-build.tar
+          gzip -c api-build.tar > build.tar.gz
+          rm web-build.tar
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_DEPLOY_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_DEPLOY_SECRET_KEY}}
+          aws-region: eu-central-1
+
+      - name: Upload build artifacts to s3
+        run: aws s3 cp build.tar.gz s3://hitsave-deploy-archive
+
+      - name: Trigger CodeDeploy deployment
+        run: |
+          echo "Deploying branch ${{ env.GIHTUB_REF }} to ${{ github.events.inputs.environment }}"
+          commit_hash=`git rev-parse HEAD`
+          aws deploy create-deployment --application-name HitSave-test --deployment-group HitSave-test-DepGrp --github-location repository=$GITHUB_REPOSITORY,commitId=$commit_hash
+
+      - name: Write Commit Comment
+        uses: peter-evans/commit-comment@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body: |
+            @${{ github.actor }} this was deployed as [${{ steps.deploy.outputs.deploymentId }}](https://console.aws.amazon.com/codesuite/codedeploy/deployments/${{ steps.deploy.outputs.deploymentId }}?region=eu-central-1) to group `${{ steps.deploy.outputs.deploymentGroupName }}`.

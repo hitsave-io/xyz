@@ -230,6 +230,46 @@ build artifacts from S3 (which got put there by GitHub).
   - nginx is set up to correctly forward traffic from subdomains `api`
     and `web` to the relevant Docker containers and port numbers.
 
+## Installing `docker` & `docker compose` on AWS Linux 2
+
+The steps are:
+
+```bash
+sudo yum update -y
+sudo yum install docker -y
+
+# Add the ec2-user to the docker group
+sudo usermod -aG docker ec2-user
+# To avoid having to log out and in again:
+newgrp docker
+
+# Create the directory for docker plugins
+DOCKER_CONFIG=${DOCKER_CONFIG:-$HOME/.docker}
+mkdir -p $DOCKER_CONFIG/cli-plugins
+
+# The latest `docker compose` can be found at the Releases page: https://github.com/docker/compose/releases
+curl -SL https://github.com/docker/compose/releases/download/v2.12.2/docker-compose-linux-x86_64 -o $DOCKER_CONFIG/cli-plugins/docker-compose
+chmod +x $DOCKER_CONFIG/cli-plugins/docker-compose
+
+# Start docker
+sudo systemctl start docker
+
+# It should now be possible to run both `docker` and `docker compose`
+docker version
+docker compose version
+```
+
+# Deploying the public version of the hitsave Python client
+
+We will soon need to configure things so that we can make releases of
+the Python client to a public repository. The idea is to extract just
+the client directory from our private monorepo, ideally with it's full
+git history, and drop that into a public repository which we then
+trigger a release on.
+
+[This article](https://pspdfkit.com/blog/2021/maintaining-open-source-repo-from-monorepo/)
+shows how it can be achieved relatively easily.
+
 # Todos when deploying the real HitSave
 
 - Set up a production EC2 instance
