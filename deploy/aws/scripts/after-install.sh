@@ -19,7 +19,7 @@ rm -rf api
 rm -rf web
 
 # Move to repo directory
-cd xyz
+cd xyz/deploy
 
 # TODO - we want to be sure that docker and docker compose are correctly
 # installed.
