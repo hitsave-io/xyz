@@ -73,7 +73,7 @@ jobs:
         working-directory: api
 
       - name: Build all targets
-        run: cargo build --release --verbose
+        run: cargo build --release --lib --bins --verbose
         working-directory: api
 
       - name: Archive build artifacts
