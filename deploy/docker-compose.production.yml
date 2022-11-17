@@ -7,13 +7,9 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
-  migrate:
-
   api:
     environment:
       GH_CLIENT_ID: a569cafe591e507b13ca
-
-  nginx:
 
   web:
     environment:
