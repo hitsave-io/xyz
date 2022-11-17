@@ -23,6 +23,17 @@ struct DbOptions {
     server_timezone: String,
 }
 
+/// Trim a single trailing newline from the end of the string. This does not do
+/// anything with other newlines elsewhere in the string.
+fn trim_newline(s: &mut String) {
+    if s.ends_with('\n') {
+        s.pop();
+        if s.ends_with('\r') {
+            s.pop();
+        }
+    }
+}
+
 impl Config {
     pub fn parse_from_env() -> Self {
         // Todo: probably switch to the `config` crate which does all this cleanly.
@@ -51,8 +62,10 @@ impl Config {
         let database_name = env_vars
             .remove("POSTGRES_DB")
             .expect("no database name environment variable present");
-        let database_password = std::fs::read_to_string(database_password_file)
+        let mut database_password = std::fs::read_to_string(database_password_file)
             .expect("could not read database password file; does it exist?");
+        trim_newline(&mut database_password);
+
         let database_url = format!(
             "postgres://{}:{}@{}:{}/{}",
             database_user, database_password, database_host, database_port, database_name
@@ -79,10 +92,13 @@ impl Config {
             .remove("AWS_S3_CRED_FILE")
             .expect("no AWS_S3_CRED_FILE environment variable present");
 
-        let jwt_priv = std::fs::read_to_string(jwt_priv_file)
+        let mut jwt_priv = std::fs::read_to_string(jwt_priv_file)
             .expect("could not read jwt priv file; does it exist?");
-        let gh_client_secret = std::fs::read_to_string(gh_client_secret_file)
+        trim_newline(&mut jwt_priv);
+
+        let mut gh_client_secret = std::fs::read_to_string(gh_client_secret_file)
             .expect("could not read gh client secret file; does it exist?");
+        trim_newline(&mut gh_client_secret);
 
         Config {
             database_url,
