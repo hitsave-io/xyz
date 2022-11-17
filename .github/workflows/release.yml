@@ -85,7 +85,6 @@ jobs:
         run: |
           md5sum target/release/hitsave
           md5sum target/release/migrate
-          md5sum target/release/
 
       - name: Archive build artifacts
         run: |
