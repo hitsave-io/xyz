@@ -188,6 +188,11 @@ Create a Connection to GitHub, from the CodeDeploy console. This
 involves logging in to the hitsave-io GitHub org to give CodeDeploy the
 ability to download tarballs of our commits.
 
+Next, you have to do something weird. The above step is not enough to
+get CodeDeploy access to the GitHub repo for some reason. The weird
+trick is to trigger a manual deploy for the deployment group, and
+connect to GitHub in that process. Then it works.
+
 #### b. Deployment group
 
 Create `hitsave-production-codedeploy-service-role`, an IAM role which
@@ -268,8 +273,9 @@ Set up a policy for reading and writing to the this bucket called
 `hitsave-production-blob-reader-writer`. It only has PutObject and
 GetObject permissions, specifically for the `hitsave-prod-blobs` bucket.
 
-Attach the `hitsave-production-blob-reader-writer` policy to the
-`hitsave_production_server_role`.
+Create a `hitsave-production-blob-reader-writer` user, with the
+`hitsave-production-blob-reader-writer` policy attached, and with
+programmatic access.
 
 ### 10. Organise xyz monorepo deploy directory
 
@@ -392,23 +398,37 @@ TODO: this last part should really happen in the ApplicationStart hook.
 If all this goes according to plan, then the newly pushed commit is live
 on the internet.
 
-### n. Manually place secrets in restricted files on EC2 instance
+### 11. Create a GitHub OAuth app for HitSave
 
-[
+From the GitHub website, in Developer Settings > OAuth Apps, create a
+new OAuth app called `HitSave` (this is the name that is visible to end
+users, so shouldn't have a reference to 'production' in it! We will
+eventually have a version called `HitSave-dev` or something, so that
+the environments are kept separate.) Set the callback URL to
+`https://hitsave.io/login`. Generate a client secret for this app.
 
-- SSH into instance and place a .secrets directory in the home
-  directory
-- Ensure it has very restricted permissions
-- Place one file for each secret
-- Reference each secret in docker-compose.yml
-- List every secret and a description of what it's for here
-- Need to load the secrets into Rust binary from file? Requires code
-  change.
-- ]
+### 12. Manually place secrets in restricted files on EC2 instance
 
-### n. Create hitsave GitHub OAuth app
+Create a `~/.secrets` directory, owned by ec2-user. Add the following
+secrets to the directory, each as a file:
 
-- Rename the existing one to hitsave-dev
-- Store the secret key in EC2 as per secrets above
+- aws_s3_creds: a cred file for the user created at the end of step 9.
+  This gives the API binary the ability to read and write to the blobs
+  bucket.
+- gh_client_secret: the secret generated in the GitHub UI at step 11.
+  This gives the API the ability to authenticate end-users by allowing
+  them to sign in with their GitHub account.
+- jwt_priv: generate random private key with `openssl rand -base64 20`.
+  If this changes, then all JWTs issued with the old signing key become
+  invalid, effectively logging everyone out of HitSave.
+- postgres_password: generate random private key again, with `openssl rand -base64 20`. The first time the Docker container runs the
+  postgres image, postgres will create the HitSave DB with this
+  password, and it will required thereafter. If we ever lose the
+  password, then I think it becomes very hard to get back into the DB (maybe
+  impossible? I actually don't know..). On the basis that this is a very
+  important secret, I've saved it in my 1Password account, which I
+  believe to be very secure.
 
 ### n. TLS Certificates
+
+TODO

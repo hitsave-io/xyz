@@ -21,8 +21,8 @@ rm -rf web
 # Move to repo directory
 cd xyz/deploy
 
-# TODO - we want to be sure that docker and docker compose are correctly
-# installed.
+# Create symlinks to the secrets stored in ~/.secrets
+ln -s ~/.secrets .secrets
 
 # Build latest docker compose images
 docker compose build
