@@ -11,6 +11,10 @@ services:
     environment:
       GH_CLIENT_ID: a569cafe591e507b13ca
 
+  nginx:
+    environment:
+      NGINX_HOST: hitsave.io
+
   web:
     environment:
       GH_CLIENT_ID: a569cafe591e507b13ca

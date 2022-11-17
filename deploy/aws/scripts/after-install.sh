@@ -3,7 +3,7 @@ set -xe
 cd /home/ec2-user
 
 # Download the S3 build archive.
-aws s3 cp s3://hitsave-deploy-archive/build.tar.gz build.tar.gz
+aws s3 cp s3://hitsave-prod-deploy-archive/build.tar.gz build.tar.gz
 
 # Extract the build archive.
 tar -xzf build.tar.gz
