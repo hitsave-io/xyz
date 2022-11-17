@@ -47,15 +47,14 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           override: true
-          profile:
-            minimal
+          profile: minimal
 
-            # - name: Restore rust cache
-            #   uses: Swatinem/rust-cache@v2
-            #   with:
-            #     prefix-key: "v3-rust"
-            #     cache-targets: true
-            #     workspaces: "api -> target"
+      - name: Restore rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "v3-rust"
+          cache-targets: true
+          workspaces: "api -> target"
 
       - name: Print rust target cfg
         run: rustc --print=cfg -C target-cpu=native
