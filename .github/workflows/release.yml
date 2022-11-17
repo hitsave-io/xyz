@@ -162,7 +162,7 @@ jobs:
           aws-region: eu-central-1
 
       - name: Upload build artifacts to s3
-        run: aws s3 cp build.tar.gz s3://hitsave-deploy-archive
+        run: aws s3 cp build.tar.gz s3://hitsave-prod-deploy-archive
 
       - name: Trigger CodeDeploy deployment
         run: |
