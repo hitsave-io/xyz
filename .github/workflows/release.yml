@@ -168,7 +168,7 @@ jobs:
         run: |
           echo "Deploying branch ${{ env.GIHTUB_REF }} to ${{ github.events.inputs.environment }}"
           commit_hash=`git rev-parse HEAD`
-          aws deploy create-deployment --application-name HitSave-test --deployment-group HitSave-test-DepGrp --github-location repository=$GITHUB_REPOSITORY,commitId=$commit_hash
+          aws deploy create-deployment --application-name hitsave-production --deployment-group hitsave-prod-depgrp --github-location repository=$GITHUB_REPOSITORY,commitId=$commit_hash
 
       - name: Write Commit Comment
         uses: peter-evans/commit-comment@v1
