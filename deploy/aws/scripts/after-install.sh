@@ -32,8 +32,8 @@ cd xyz/deploy
 ln -s ~/.secrets .secrets
 
 # Build latest docker compose images
-docker compose build --no-cache
+docker compose -p xyz-prod build
 
 # Launch application containers, using production version of docker-compose.yml
-docker compose -f docker-compose.yml -f docker-compose.production.yml up -d
+docker compose -p xyz-prod -f docker-compose.yml -f docker-compose.production.yml up -d
 
