@@ -184,6 +184,10 @@ be retrieved by the CodeDeploy process on the application server.
 
 Create `hitsave-production` application in CodeDeploy console.
 
+Create a Connection to GitHub, from the CodeDeploy console. This
+involves logging in to the hitsave-io GitHub org to give CodeDeploy the
+ability to download tarballs of our commits.
+
 #### b. Deployment group
 
 Create `hitsave-production-codedeploy-service-role`, an IAM role which

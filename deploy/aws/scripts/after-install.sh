@@ -29,3 +29,4 @@ docker compose build
 
 # Launch application containers
 docker compose up -d
+
