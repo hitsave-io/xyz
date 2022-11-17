@@ -11,14 +11,14 @@ services:
 
   api:
     environment:
-      # GH_CLIENT_ID: TODO: needs to be the prod version
+      GH_CLIENT_ID: a569cafe591e507b13ca
 
   nginx:
 
   web:
     environment:
-      # GH_CLIENT_ID: TODO: needs to be the prod version
-      - HITSAVE_WEB_URL=http://hitsave.io
+      GH_CLIENT_ID: a569cafe591e507b13ca
+      HITSAVE_WEB_URL: http://hitsave.io
 
 volumes:
   pgdata:

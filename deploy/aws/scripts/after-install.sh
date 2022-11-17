@@ -27,6 +27,6 @@ ln -s ~/.secrets .secrets
 # Build latest docker compose images
 docker compose build
 
-# Launch application containers
-docker compose up -d
+# Launch application containers, using production version of docker-compose.yml
+docker compose up -f docker-compose.yml -f docker-compose.production.yml up -d
 
