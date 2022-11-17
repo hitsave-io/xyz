@@ -47,14 +47,15 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           override: true
-          profile: minimal
+          profile:
+            minimal
 
-      - name: Restore rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: "v2-rust"
-          cache-targets: true
-          workspaces: "api -> target"
+            # - name: Restore rust cache
+            #   uses: Swatinem/rust-cache@v2
+            #   with:
+            #     prefix-key: "v3-rust"
+            #     cache-targets: true
+            #     workspaces: "api -> target"
 
       - name: Install sqlx
         uses: baptiste0928/cargo-install@v1
