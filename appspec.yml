@@ -17,12 +17,12 @@ hooks:
   ApplicationStop:
     - location: /deploy/aws/scripts/stop_server.sh
       timeout: 300
-      runas: root
+      runas: ec2-user
   BeforeInstall:
     - location: /deploy/aws/scripts/before-install.sh
       timeout: 300
-      runas: root
+      runas: ec2-user
   AfterInstall:
     - location: /deploy/aws/scripts/after-install.sh
       timeout: 300
-      runas: root
+      runas: ec2-user
