@@ -57,6 +57,9 @@ jobs:
             #     cache-targets: true
             #     workspaces: "api -> target"
 
+      - name: Print rust target cfg
+        run: rustc --print=cfg -C target-cpu=native
+
       - name: Install sqlx
         uses: baptiste0928/cargo-install@v1
         with:
