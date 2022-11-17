@@ -80,6 +80,13 @@ jobs:
         run: cargo build --release --lib --bins --verbose
         working-directory: api
 
+      - name: Print md5sum of built binaries
+        working-directory: api
+        run: |
+          md5sum target/release/hitsave
+          md5sum target/release/migrate
+          md5sum target/release/
+
       - name: Archive build artifacts
         run: |
           tar -cvzf api-build.tar.gz \
