@@ -52,7 +52,7 @@ jobs:
       - name: Restore rust cache
         uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: "v1-rust"
+          prefix-key: "v2-rust"
           cache-targets: true
           workspaces: "api -> target"
 
