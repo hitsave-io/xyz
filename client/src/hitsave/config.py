@@ -117,14 +117,14 @@ class Config(Current):
     - merge with hitsave.toml files. `~/.config/hitsave.toml`, `$PROJECT/hitsave.toml` etc.
     """
 
-    local_cache_dir: Path
+    local_cache_dir: Path = field(default_factory=find_cache_directory)
     """ This is the directory where hitsave should store local caches of data. """
-    cloud_url: str
+    cloud_url: str = field(default="http://api.hitsave.io")  # [todo] https
     """ URL for hitsave cloud API server.   """
-    api_key: Optional[str]
+    api_key: Optional[str] = field(default=None)
     """ API key for hitsave cloud. """
 
-    workspace_dir: Path
+    workspace_dir: Path = field(default_factory=find_workspace_folder)
     """ Directory for the current project, should be the same as workspace_folder in vscode. It defaults to the nearest
     parent folder containing pyproject.toml or git root. """
 
@@ -160,16 +160,6 @@ class Config(Current):
                 d[k] = interpret_var_str(fd.type, v)
         return replace(self, **d)
 
-    @classmethod
-    def init(cls):
-        """Get the default config, without consulting files or environment varibles."""
-        return cls(
-            local_cache_dir=find_cache_directory(),
-            cloud_url="https://api.hitsave.io",
-            api_key=None,
-            workspace_dir=find_workspace_folder(),
-        )
-
     def __post_init__(self):
         if self.no_cloud and self.no_local:
             logger.warning(
@@ -190,7 +180,7 @@ class Config(Current):
     @classmethod
     def default(cls):
         """Creates the config, including environment variables and [todo] hitsave config files."""
-        return cls.init().merge_env()
+        return cls().merge_env()
 
 
 def no_local() -> bool:
