@@ -43,7 +43,7 @@ Allocated two EBS volumes.
    - /dev/sdb
    - Delete on termination: no
 
-# 4. Create filesystem for Postgres volume and mount it
+### 4. Create filesystem for Postgres volume and mount it
 
 SSH into instance and run `sudo lsblk -f` to see volumes and their
 filesystems:
@@ -166,7 +166,7 @@ that only when we run a `docker compose up` later and actually mount the
 drive into the container will the device get mounted to the host system -
 check if this prediction is true.
 
-### 8. Set up S3 bucket for build artifacts
+### 7. Set up S3 bucket for build artifacts
 
 Set up a bucket where the GitHub workflow will upload build artifacts to
 be retrieved by the CodeDeploy process on the application server.

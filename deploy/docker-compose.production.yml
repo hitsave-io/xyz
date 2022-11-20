@@ -21,7 +21,7 @@ services:
     environment:
       NGINX_HOST: hitsave.io
     volumes:
-      - /etc/letsencrypt/live/hitsave.io:/etc/letsencrypt/live/hitsave.io:ro
+      - certs:/etc/letsencrypt/live/hitsave.io:ro
 
   web:
     restart: always
@@ -34,3 +34,5 @@ volumes:
     driver_opts:
       type: "xfs"
       device: "/dev/xvdb"
+  certs:
+    source: /etc/letsencrypt/live/hitsave.io
