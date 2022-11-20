@@ -11,8 +11,8 @@ server {
     listen      443;
     server_name api.${NGINX_HOST};
 
-    ssl_certificate /etc/letsencrypt/live/hitsave.io/fullchain.pem
-    ssl_certificate_key /etc/letsencrypt/live/hitsave.io/privkey.pem
+    ssl_certificate /etc/letsencrypt/live/hitsave.io/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/hitsave.io/privkey.pem;
 
     location / {
         proxy_pass http://api:8080;
