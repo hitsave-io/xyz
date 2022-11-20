@@ -3,6 +3,18 @@ server {
     server_name ${NGINX_HOST};
     
     location / {
+        return 301 https://hitsave.io$request_uri;
+    }
+}
+
+server {
+    listen      443;
+    server_name ${NGINX_HOST};
+    
+    ssl_certificate /etc/letsencrypt/live/hitsave.io/fullchain.pem
+    ssl_certificate_key /etc/letsencrypt/live/hitsave.io/privkey.pem
+
+    location / {
         proxy_pass http://web:3000;
     }
 }

@@ -429,6 +429,54 @@ secrets to the directory, each as a file:
   important secret, I've saved it in my 1Password account, which I
   believe to be very secure.
 
-### n. TLS Certificates
+### 13. Elastic IP and DNS records
 
-TODO
+In the EC2 console, create an elastic IP address, and associate it with
+the production EC2 instance. The IP address we have is: 3.64.152.7
+
+In Route 53, configure A records for:
+
+- hitsave.io
+- api.hitsave.io
+- www.hitsave.io
+
+all pointing to 3.64.152.7. On this machine, Nginx does the routing to
+the relevant service.
+
+Note also that Route 53 nameservers have to be configured on the domain
+registrar - I'm using Namecheap.
+
+### 14. TLS Certificates
+
+Installed `epel` on EC2 instance with `sudo amazon-linux-extras install epel`.
+
+Installed `certbot` on EC2 instance with `sudo yum install certbot`.
+
+Stopped the docker compose stack, because nginx is bound to port 80 and
+certbot needs to use port 80 to host a temporary webserver to verify we
+own our domain. This will prevent autorenewals in future, so need to
+workaround it. At [this link](https://mindsers.blog/post/https-using-nginx-certbot-docker/)
+are some instructions for what we probably need to do long term.
+
+Stopped docker with `docker compose -p xyz-prod down`.
+
+Generated certificates with `sudo certbot certonly --standalone`.
+
+In the interactive CLI, provided `hitsave.io` as the domain name.
+
+Certbot ran some stuff to verify that we own the domain, then generated
+the certificates and stored the key file at `/etc/letsencrypt/live/hitsave.io/privkey.pem`.
+
+Update docker compose config to also expose port 443 from the nginx
+container on port 443 of the host. Also, load in the `/etc/letsencrypt/live/hitsave.io`
+directory as a readonly volume in the nginx container.
+
+Update nginx config to have a separate server block for each service listening
+on port 443. This server block includes the ssl certificate config from
+the loaded letsencrypt volume on the host machine. The original server
+blocks listening on port 80 all now return a 301 redirect to the https
+server block.
+
+[Restarting docker command is (from `xyz/deploy` directory): `docker
+compose -p xyz-prod -f docker-compose.yml -f
+docker-compose.production.yml up -d`]

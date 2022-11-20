@@ -4,21 +4,30 @@ name: "xyz-prod"
 
 services:
   db:
+    restart: always
     volumes:
       - pgdata:/var/lib/postgresql/data
 
   api:
+    restart: always
     environment:
       GH_CLIENT_ID: a569cafe591e507b13ca
 
   nginx:
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: always
     environment:
       NGINX_HOST: hitsave.io
+    volumes:
+      - /etc/letsencrypt/live/hitsave.io:/etc/letsencrypt/live/hitsave.io:ro
 
   web:
+    restart: always
     environment:
       GH_CLIENT_ID: a569cafe591e507b13ca
-      HITSAVE_WEB_URL: http://hitsave.io
+      HITSAVE_WEB_URL: https://hitsave.io
 
 volumes:
   pgdata:
