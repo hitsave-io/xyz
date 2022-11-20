@@ -80,7 +80,7 @@ async def loopback_login():
     redirect_port = 9449  # [todo] check not claimed.
     miniserver_url = urllib.parse.quote(f"http://127.0.0.1:{redirect_port}")
     query_params = {
-        "client_id": "b7d5bad7787df04921e7",
+        "client_id": "a569cafe591e507b13ca",  # Production GitHub OAuth app client id
         "redirect_uri": f"{web_url}/login?client_loopback={miniserver_url}",
         "scope": "user:email",
     }
