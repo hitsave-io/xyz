@@ -20,6 +20,7 @@ rm build.tar.gz
 # empty, we use rsync.
 rsync -a -v api/* xyz/api/
 rsync -a -v web/* xyz/web/
+mv xyz/web/tailwind.css xyz/web/src/tailwind.css
 
 # TODO - clean the base directory
 rm -rf api

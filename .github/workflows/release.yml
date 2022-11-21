@@ -127,7 +127,8 @@ jobs:
           tar -cvzf web-build.tar.gz \
           web/node_modules \
           web/public \
-          web/build
+          web/build \
+          web/src/tailwind.css
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v3

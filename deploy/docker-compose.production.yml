@@ -36,9 +36,9 @@ services:
 
   web:
     build:
+      context: ../
       dockerfile: deploy/web.prod.Dockerfile
     restart: always
-    working_dir: /
     environment:
       GH_CLIENT_ID: a569cafe591e507b13ca
       HITSAVE_WEB_URL: https://hitsave.io
