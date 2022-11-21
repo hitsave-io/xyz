@@ -474,9 +474,7 @@ directory as a readonly volume in the nginx container.
 Update nginx config to have a separate server block for each service listening
 on port 443. This server block includes the ssl certificate config from
 the loaded letsencrypt volume on the host machine. The original server
-blocks listening on port 80 all now return a 301 redirect to the https
-server block.
+blocks which are listening on port 80 all now return a 301 redirect to
+the https server block.
 
-[Restarting docker command is (from `xyz/deploy` directory): `docker
-compose -p xyz-prod -f docker-compose.yml -f
-docker-compose.production.yml up -d`]
+Restart docker command (from `xyz/deploy` directory): `docker compose -p xyz-prod -f docker-compose.yml -f docker-compose.production.yml up -d`]
