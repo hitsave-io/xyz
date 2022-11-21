@@ -15,7 +15,7 @@ permissions:
       - directory
 hooks:
   ApplicationStop:
-    - location: /deploy/aws/scripts/stop_server.sh
+    - location: /deploy/aws/scripts/application-stop.sh
       timeout: 300
       runas: ec2-user
   BeforeInstall:
