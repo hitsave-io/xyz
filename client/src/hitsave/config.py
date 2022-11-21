@@ -157,7 +157,7 @@ class Config(Current):
     local_cache_dir: Path = field(default_factory=find_cache_directory)
     """ This is the directory where hitsave should store local caches of data. """
 
-    cloud_url: str = field(default="http://api.hitsave.io")  # [todo] https
+    cloud_url: str = field(default="https://api.hitsave.io")  # [todo] https
     """ URL for hitsave cloud API server. """
 
     workspace_dir: Path = field(default_factory=find_workspace_folder)
