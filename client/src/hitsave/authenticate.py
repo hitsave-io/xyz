@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import os.path
 from typing import Dict, Optional
@@ -9,25 +8,19 @@ import aiohttp
 from hitsave.config import Config
 from hitsave.util import (
     decorate_ansi,
-    decorate_url,
     eprint,
-    hyperlink,
     is_interactive_terminal,
 )
 
 import urllib.parse
-import uuid
 
 """ Code for connecting to auth server.
 
-[todo] consider removing async code, there is nothing that needs to be concurrent here.
+Todo:
+    * consider removing async code, there is nothing that needs to be concurrent here.
 """
 
 logger = logging.getLogger("hitsave")
-# [todo], not a huge security hole, but this should really be stored with care,
-# since anyone who gets access to it can pretend to be the user.
-# I think the answer is to place it in a designated config directory.
-
 
 def jwt_path():
     return os.path.join(Config.current().local_cache_dir, "hitsave-session.jwt")
@@ -58,12 +51,12 @@ def get_jwt() -> Optional[str]:
         return file.read()
 
 
-async def loopback_login():
+async def loopback_login() -> str:
     """Interactive workflow to perform the github authentication loop.
 
-    ① present a sign-in-with-github link to the user in the terminal
-    ② ping api.hitsave.io/user/login for a new JWT
-    ③ return the JWT and store it locally the JWT in a local file
+    ① present a sign-in-with-github link to the user in the terminal.
+    ② ping api.hitsave.io/user/login for a new JWT.
+    ③ return the JWT and store it locally the JWT in a local file.
 
     A holder of this JWT, for the period that it is valid, is authenticated in hitsave as the person
     who logged in.
@@ -73,15 +66,15 @@ async def loopback_login():
         raise RuntimeError(
             "Can't authenticate the user in a non-interactive terminal session."
         )
-
+    cfg = Config.current()
     # [todo] if there is already a valid jwt, don't bother logging in here.
     # attempt to use the jwt for something, if there is an error (401) then you prompt a login.
-    web_url = Config.current().web_url
+
     redirect_port = 9449  # [todo] check not claimed.
     miniserver_url = urllib.parse.quote(f"http://127.0.0.1:{redirect_port}")
     query_params = {
-        "client_id": "a569cafe591e507b13ca",  # Production GitHub OAuth app client id
-        "redirect_uri": f"{web_url}/login?client_loopback={miniserver_url}",
+        "client_id": cfg.github_client_id,  # Production GitHub OAuth app client id
+        "redirect_uri": f"{cfg.web_url}/login?client_loopback={miniserver_url}",
         "scope": "user:email",
     }
     # query_params = urllib.parse.urlencode(query_params)
@@ -107,13 +100,12 @@ async def loopback_login():
     await runner.setup()
     site = web.TCPSite(runner, "localhost", redirect_port)
     await site.start()
-    # [todo] https://docs.python.org/3/library/webbrowser.html
     decorated = decorate_ansi(sign_in_url, fg="blue")
     eprint("Opening", decorated)
     webbrowser.open_new(sign_in_url)
 
     result = await fut
-    # [todo] are these stopper thingies needed?
+    # [todo] are these stoppers needed?
     await site.stop()
     await runner.cleanup()
     await server.shutdown()
@@ -125,8 +117,8 @@ async def loopback_login():
 
 
 async def generate_api_key(label: str):
-    """Assuming that the user is authenticated (that is, a valid JWT is cached), this will
-    ask the server to generate a new hitsave api key with the given label.
+    """Assuming that the user is authenticated (that is, a valid JWT is cached),
+    this will generate a new hitsave api key with the given label.
     """
     jwt = get_jwt()
     cloud_url = Config.current().cloud_url

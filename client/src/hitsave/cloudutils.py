@@ -12,9 +12,18 @@ from hitsave.visualize import visualize_rec
 
 logger = logging.getLogger("hitsave")
 
-# streaming uploads https://requests.readthedocs.io/en/latest/user/advanced/#streaming-uploads
+"""
+The HitSave wire format is a utf-8 encoded JSON object followed by raw bytes stream.
+
+- 4 byte unsigned integer; the content length of the JSON part,
+- n bytes; the utf-8 encoded JSON object.
+- bytestream
+
+ """
+
+
 def create_header(meta: dict) -> bytes:
-    """Creates a header for the hitsave wire format"""
+    """Creates a header for the HitSave wire format."""
     with io.BytesIO() as tape:
         meta_json = json.dumps(meta).encode("utf-8")
         json_len = len(meta_json).to_bytes(4, byteorder="big", signed=False)
@@ -36,26 +45,36 @@ def read_header(file: BufferedReader) -> dict:
 
 
 class ConnectionError(Exception):
-    """Represents a failure to connect to the hitsave server."""
+    """Represents a failure to connect to the cloud server."""
 
     pass
 
 
+class AuthenticationError(Exception):
+    """Raised when the user is not authenticated.
+
+    That is, the JWT or API key is nonexistent or not valid."""
+
+
 already_reported_connection_error = False
+""" This is true to only report a bad connection as a warning once. """
 
 
 def request(method: str, path, **kwargs) -> requests.Response:
-    """Runs a requests.request to the hitsave api, we provide the right authentication headers.
+    """Sends an HTTP request to the hitsave api, we provide the right authentication headers.
 
-    [todo] eventually this will also reuse existing connections if it can.
+    Uses the same signature as ``requests.request``.
+    You can perform a streaming upload by passing an Iterable[bytes] as the ``data`` argument.
+
+    Reference: https://requests.readthedocs.io/en/latest/user/advanced/#streaming-uploads
+
+    Raises a ConnectionError if we can't connect to the cloud.
     """
     global already_reported_connection_error
     api_key = Config.current().api_key
     if api_key is None:
-        # [todo] should use AuthorizationError.
-        # [todo] use jwt if you can.
-        raise Exception(
-            "No API key found. Please create an API key with hitsave keygen"
+        raise AuthenticationError(
+            "No API key found. Please create an API key with `hitsave keygen`"
         )
     headers: Any = {
         "Authorization": Config.current().api_key,
