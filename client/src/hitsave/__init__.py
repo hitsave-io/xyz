@@ -1,9 +1,5 @@
 import atexit
-import sys
 
-from .deephash import deephash
-from .deepeq import deepeq
-from .deep import reduce, reconstruct, traverse
 from .decorator import memo, experiment
 from .util import decorate_ansi, eprint, is_interactive_terminal
 from .cli import app as main_cli
@@ -29,13 +25,6 @@ except ModuleNotFoundError:
 def exit_message():
     """This is a (hopefully non-annoying) message that we show to the users to
     encourage them to sign up for some cloud storage.
-
-    [todo] also if there is an error (eg 401), the message should be more sympathetic or omitted.
-    [todo] don't show this if run from inside a package.
-      eg suppose in the future numpy uses hitsave, then if a python user
-      installs numpy but not explicitly hitsave, we should be silent.
-    [todo] maybe also give some diagnostics; eg if max time on a saved function is <10ms then it's not worth caching.
-    [todo] if we ran offline; either because we failed to connect to cloud_url or because the API key was invalid, we should say so here.
     """
     cfg = Config.current()
     if cfg.api_key is not None:
@@ -44,7 +33,7 @@ def exit_message():
         return
     if cfg.no_advert:
         return
-    time_saved = "10 minutes"  # [todo] accumulate
+    time_saved = "10 minutes"  # [todo]
     if time_saved:
         eprint(f"You saved {time_saved} of compute time with hitsave.")
     eprint(

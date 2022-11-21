@@ -1,7 +1,4 @@
-from contextlib import contextmanager
-from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field, fields, replace
-import json
 import re
 import tempfile
 import os
@@ -10,20 +7,8 @@ import sys
 import logging
 from pathlib import Path
 from typing import Literal, Optional, Type, TypeVar
-import warnings
 from hitsave.util import Current, as_optional, is_optional, get_git_root
 import importlib.metadata
-
-""" This module is responsible for loading all of the environment based config options.
-
-[todo]: you want to get these args from
-- environment variables
-- cli arguments
-- `.config/hitsave.toml` or similar
-
-[todo] ensure that once the current config is set it can't be changed at runtime.
-
-"""
 
 logger = logging.getLogger("hitsave")
 
@@ -93,7 +78,8 @@ def find_cache_directory() -> Path:
 
 
 def find_global_config_directory() -> Path:
-    """Returns a path to the place on the user's system where they want to store configs. Trying to do this as canonically as possible."""
+    """Returns a path to the place on the user's system where they want to store configs.
+    Trying to do this as canonically as possible."""
     p = Path(os.environ.get("XDG_CONFIG_HOME", "~/.config"))
     if sys.platform == "darwin":
         # we are running macos, also use ~/.config.
@@ -113,6 +99,7 @@ def find_global_config_directory() -> Path:
 
 
 def valid_api_key(k: str) -> bool:
+    """Checks whether the string is a valid API key."""
     # https://stackoverflow.com/a/48730645/352201
     return re.match(r"^[\w-]+\Z", k) is not None
 
@@ -143,22 +130,22 @@ def interpret_var_str(t: Type[T], value: str) -> T:
 
 @dataclass
 class Config(Current):
-    """This dataclass contains all of the configuration needed to use hitsave.
-
-    [todo] some config that will be added later.
-    - limits on local cache size
-
-    [todo] features
-    - merge with CLI arguments
-    - merge with hitsave.toml files. `~/.config/hitsave.toml`, `$PROJECT/hitsave.toml` etc.
-
-    """
-
-    local_cache_dir: Path = field(default_factory=find_cache_directory)
-    """ This is the directory where hitsave should store local caches of data. """
+    """This dataclass contains all of the configuration needed to use hitsave."""
 
     cloud_url: str = field(default="https://api.hitsave.io")  # [todo] https
     """ URL for hitsave cloud API server. """
+
+    github_client_id: str = field(default="a569cafe591e507b13ca")
+    """ This is the github client id used to authenticate the app. """
+
+    cloud_url: str = field(default="https://api.hitsave.io")
+    """ URL for hitsave cloud API server.   """
+
+    web_url: str = field(default="https://hitsave.io")
+    """ URL for the HitSave website. """
+
+    local_cache_dir: Path = field(default_factory=find_cache_directory)
+    """ This is the directory where hitsave should store local caches of data. """
 
     workspace_dir: Path = field(default_factory=find_workspace_folder)
     """ Directory for the current project, should be the same as workspace_folder in vscode.
@@ -167,7 +154,7 @@ class Config(Current):
     config_dir: Path = field(default_factory=find_global_config_directory)
     """ The root config directory. """
 
-    no_advert: bool = field(default=False)
+    no_advert: bool = field(default=True)
     """ If this is true then we won't bother you with a little advert for signing up to hitsave.io on exit. """
 
     no_local: bool = field(default=False)
@@ -182,16 +169,7 @@ class Config(Current):
     """ This is the sensitivity the digest algorithm should have to the versions of external packages.
     So if ``version_sensitivity = 'minor'``, then upgrading a package from ``3.2.0`` to ``3.2.1`` won't invalidate the cache,
     but upgrading to ``3.3.0`` will. Non-standard versioning schemes will always invalidate unless in 'none' mode.
-
-    [todo] choose the sensitivity for different packages: do it by looking at the versioning sensitivity in requirements.txt or the lockfile.
-           eventually remove this file.
     """
-
-    cloud_url: str = field(default="https://api.hitsave.io")
-    """ URL for hitsave cloud API server.   """
-
-    web_url: str = field(default="https://hitsave.io")
-    """ URL for the HitSave website. """
 
     @property
     def local_db_path(self) -> Path:
@@ -200,6 +178,9 @@ class Config(Current):
 
     @property
     def api_key_file_path(self) -> Path:
+        """Gets the path of the local file that contains the API keys of the application.
+        Keys are stored as tab-separated (url, key) pairs.
+        """
         return self.config_dir / "api_keys.txt"
 
     @property
@@ -225,7 +206,7 @@ class Config(Current):
         return self._api_key
 
     def set_api_key(self, k: str):
-        # [todo] assert this looks like an api key.
+        """Save the given API key to the local API key store."""
         # [todo] file locking
         assert valid_api_key(k), "invalid api key"
         with self.api_key_file_path.open("at") as fd:
@@ -233,11 +214,13 @@ class Config(Current):
         self._api_key = k
 
     def merge_env(self):
+        """Get config values from environment variables."""
         d = {}
         for fd in fields(self):
             k = fd.name
             v = os.environ.get(f"HITSAVE_{k.upper()}", None)
             if v is not None:
+                logger.debug(f"Setting config {k} from environment variable.")
                 d[k] = interpret_var_str(fd.type, v)
         return replace(self, **d)
 
@@ -253,14 +236,14 @@ class Config(Current):
                 "NO_CLOUD is enabled. This means that you won't get all of the great features that hitsave has to offer!"
             )
         if self.no_local:
-            # [todo] no_local is really only for development purposes I think we should remove it from the api.
+            # [todo] no_local is really only for development purposes.
             logger.warning(
                 "NO_LOCAL is enabled. This means that results and blobs will not be cached locally which can use uneccessary bandwidth."
             )
 
     @classmethod
     def default(cls):
-        """Creates the config, including environment variables and [todo] hitsave config files."""
+        """Creates the config, including environment variables."""
         return cls().merge_env()
 
 

@@ -93,8 +93,7 @@ class LocalBlobStore:
     def open_blob(self, digest: str, **kwargs) -> IO:
         """Opens the blob. You are responsible for closing it.
 
-        Can throw if the blob doesn't exist.
-        [todo] will download the blob if not present locally.
+        Will throw FileNotFoundError if the blob doesn't exist.
         """
         if not self.has_blob(digest):
             raise FileNotFoundError(f"No blob {digest}")
@@ -104,10 +103,12 @@ class LocalBlobStore:
         self,
         tape: IO[bytes],
         *,
-        digest=None,
-        content_length=None,
+        digest: Optional[str] = None,
+        content_length: Optional[int] = None,
+        label: Optional[str] = None,
     ) -> BlobInfo:
-        """Given a spoolable, readable bytestream. saves it.
+        """Saves a blob to the local store.
+
         If digest and content_length is given, it is trusted.
         """
         if digest is None or content_length is None:
@@ -122,9 +123,8 @@ class LocalBlobStore:
                     c.write(data)
             # blobs are read only.
             # ref: https://stackoverflow.com/a/28492823/352201
-            cp.chmod(S_IREAD | S_IRGRP)  # [todo] what about S_IROTH?
-            # [todo] queue blob for upload.
-            # [todo] have a 'blobs' table that tracks upload status.
+            cp.chmod(S_IREAD | S_IRGRP)
+            # [todo] what about S_IROTH?
         return BlobInfo(digest, content_length)
 
 
@@ -132,10 +132,13 @@ class CloudBlobStore:
     """Methods for getting blobs from the cloud."""
 
     def __init__(self):
-        # [todo] get connection from session.
         pass
 
     def has_blob(self, digest: str) -> bool:
+        """Returns true if the blob exists on the cloud.
+
+        If disconnected raises a ConnectionError.
+        """
         r = request("HEAD", f"/blob/{digest}")
         return r.status_code == 200
 
@@ -146,7 +149,15 @@ class CloudBlobStore:
         content_length: Optional[int] = None,
         label=None,
     ) -> BlobInfo:
-        """Note: this always __uploads__ the blob."""
+        """Upload the blob to the cloud.
+
+        If the blob is already present on the cloud, the blob info is returned.
+        If digest and content_length are given, they are trusted.
+
+        Raises:
+            ConnectionError: We are not connected to the cloud.
+        """
+        # [todo] is requests compressing uploads?
         if digest is None or content_length is None:
             tape.seek(0)
             digest, content_length = get_digest_and_length(tape)
@@ -171,8 +182,15 @@ class CloudBlobStore:
             logger.debug(f"Uploaded {pp_label} ({human_size(content_length)}).")
         return BlobInfo(digest, content_length)
 
-    def open_blob(self, digest: str):
-        """note: this __always__ downloads the blob."""
+    def open_blob(self, digest: str) -> IO[bytes]:
+        """Downloads the given blob to a temporary file.
+
+        This will always cause a download.
+
+        Raises:
+            FileNotFoundError: The blob does not exist on the cloud.
+            ConectionError: We are not connected to the cloud.
+        """
         if not self.has_blob(digest):
             raise FileNotFoundError(f"No blob found {digest}")
         logger.debug(f"Downloading file {digest}.")
@@ -213,7 +231,7 @@ class BlobStore(Current):
         return BlobStore()
 
     def touch(self, digest: str):
-        """Tell the db that the blob has been accessed."""
+        """Tell the local db that the blob has been accessed."""
         time = datetime_to_string(datetime_now())
         with localdb() as conn:
             conn.execute(
@@ -229,7 +247,9 @@ class BlobStore(Current):
         """Returns a readable IO stream of the blob with the given digest.
         If the blob is present in the local cache, this will be used, otherwise we download from the cloud.
 
-        Raises a ``FileNotFoundError`` if the blob is not present locally or on cloud."""
+        Raises:
+            FileNotFoundError: If the blob is not present locally or on cloud.
+        """
         self.touch(digest)
         if no_local():
             return self.cloud.open_blob(digest=digest)
@@ -275,6 +295,7 @@ class BlobStore(Current):
             ).fetchone()
             status: Optional[BlobStatus] = None if x is None else BlobStatus(x[0])
             if status == BlobStatus.deleted:
+                # undelete the blob in the local table.
                 conn.execute(
                     """UPDATE blobs SET status = ? WHERE digest = ?""",
                     (BlobStatus.to_push.value, digest),
@@ -283,7 +304,6 @@ class BlobStore(Current):
             if status == BlobStatus.synced or status == BlobStatus.to_push:
                 logger.debug(f"Blob {digest[:10]} already present in local blob table.")
                 return info
-            # [todo] check if already in table first.
             if x is None:
                 conn.execute(
                     """
@@ -363,10 +383,7 @@ class BlobStore(Current):
         """Pushes all blobs that need pushing."""
         with localdb() as conn:
             digests = conn.execute(
-                """
-            SELECT digest from blobs
-            WHERE status = ?
-            """,
+                """ SELECT digest from blobs WHERE status = ? """,
                 (BlobStatus.to_push.value,),
             ).fetchall()
         for (digest,) in digests:
@@ -374,4 +391,8 @@ class BlobStore(Current):
         raise NotImplementedError()
 
     def local_file_cache_path(self, digest) -> Path:
+        """Path to the local, readonly cached file.
+
+        Note that the file does not necessarily exist.
+        """
         return self.local.local_file_cache_path(digest)
