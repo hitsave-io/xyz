@@ -1,15 +1,11 @@
 from pathlib import Path
 from typing import Dict, Optional
 import typer
+from dataclasses import fields, asdict
 import asyncio
 import platform
-from aiohttp import web
-import json
-import uuid
+from enum import Enum
 import logging
-import urllib.parse
-import aiohttp
-import os
 from hitsave.authenticate import (
     AuthenticationError,
     generate_api_key,
@@ -131,6 +127,81 @@ def snapshot(path: Path = typer.Argument(..., exists=True)):
         print(snap.digest)
     else:
         raise ValueError(f"Can't snapshot {path}.")
+
+
+class Scope(Enum):
+    Global = "global"
+    Project = "project"
+
+
+config_subcommand = typer.Typer()
+app.add_typer(
+    config_subcommand, name="config", short_help="Manage HitSave config files."
+)
+
+config_state = {"scope": "global"}
+
+
+def get_config_path():
+    return (
+        Config.global_config_path()
+        if config_state["scope"] == "global"
+        else Config.current().project_config_path
+    )
+
+
+@config_subcommand.command()
+def set(
+    key: str,
+    value: str,
+    is_global: bool = typer.Option(False, "--global"),
+    is_project: bool = typer.Option(False, "--project"),
+):
+    """Add a key/value pair to the HitSave config."""
+    Config.set_config_file(get_config_path(), **{key: value})
+
+
+@config_subcommand.command()
+def unset(
+    key: str,
+    is_global: bool = typer.Option(False, "--global"),
+    is_project: bool = typer.Option(False, "--project"),
+):
+    """Unset an option in the HitSave config."""
+    Config.set_config_file(get_config_path(), **{key: None})
+
+
+@config_subcommand.command()
+def get(
+    key: str,
+):
+    """Read an option from the HitSave config."""
+    v = Config.read_key_from_config_file(get_config_path(), key)
+    if v is None:
+        print(f"option {key} is not set")
+    else:
+        print(v)
+
+
+@config_subcommand.command()
+def list():
+    """List the values in the current hitsave config."""
+    cfg = Config.current()
+    for k in cfg.__dataclass_fields__.keys():
+        print(f"{k} = {getattr(cfg, k)}")
+
+
+@config_subcommand.callback()
+def config_main(
+    is_global: bool = typer.Option(False, "--global"),
+    is_project: bool = typer.Option(False, "--project"),
+):
+    if is_global and is_project:
+        raise ValueError("Only one of --global and --project allowed.")
+    if is_global:
+        config_state["scope"] = "global"
+    elif is_project:
+        config_state["scope"] = "project"
 
 
 if __name__ == "__main__":
