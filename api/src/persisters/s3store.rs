@@ -3,7 +3,11 @@ use crate::middlewares::auth::Auth;
 use crate::models::eval::EvalError;
 use crate::persisters::Persist;
 use crate::state::State;
+use crate::CONFIG;
 
+use aws_config::profile::{
+    profile_file, ProfileFileCredentialsProvider, ProfileFileRegionProvider,
+};
 use aws_sdk_s3::{
     error::PutObjectError,
     output::PutObjectOutput,
@@ -113,7 +117,27 @@ pub trait BlobMetadata {
 
 impl S3Store {
     pub async fn new() -> S3Store {
-        let config = aws_config::from_env().region("eu-central-1").load().await;
+        let profile_files = profile_file::Builder::new()
+            .with_file(
+                profile_file::ProfileFileKind::Credentials,
+                &CONFIG.aws_s3_cred_file,
+            )
+            .build();
+
+        let credentials_provider = ProfileFileCredentialsProvider::builder()
+            .profile_files(profile_files.clone())
+            .build();
+
+        let region_provider = ProfileFileRegionProvider::builder()
+            .profile_files(profile_files)
+            .build();
+
+        let config = aws_config::from_env()
+            .credentials_provider(credentials_provider)
+            .region(region_provider)
+            .load()
+            .await;
+
         let client = Client::new(&config);
 
         Self { client }
@@ -155,7 +179,7 @@ impl S3Store {
         let aws_res = self
             .client
             .put_object()
-            .bucket("hitsave-binarystore")
+            .bucket(&CONFIG.aws_s3_blob_bucket)
             .key(hash_claim.to_hex().to_string())
             .body(byte_stream)
             .content_length(content_length)
@@ -171,7 +195,7 @@ impl S3Store {
         Ok(self
             .client
             .get_object()
-            .bucket("hitsave-binarystore")
+            .bucket(&CONFIG.aws_s3_blob_bucket)
             .key(content_hash.to_hex().to_string())
             .send()
             .await

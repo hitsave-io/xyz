@@ -76,11 +76,12 @@ async def loopback_login():
 
     # [todo] if there is already a valid jwt, don't bother logging in here.
     # attempt to use the jwt for something, if there is an error (401) then you prompt a login.
-    cloud_url = Config.current().cloud_url
+    web_url = Config.current().web_url
     redirect_port = 9449  # [todo] check not claimed.
+    miniserver_url = urllib.parse.quote(f"http://127.0.0.1:{redirect_port}")
     query_params = {
-        "client_id": "b7d5bad7787df04921e7",
-        "redirect_uri": f"http://127.0.0.1:{redirect_port}",
+        "client_id": "a569cafe591e507b13ca",  # Production GitHub OAuth app client id
+        "redirect_uri": f"{web_url}/login?client_loopback={miniserver_url}",
         "scope": "user:email",
     }
     # query_params = urllib.parse.urlencode(query_params)
@@ -95,17 +96,9 @@ async def loopback_login():
     async def redirected(request: web.BaseRequest):
         """Handler for the mini webserver"""
         ps = dict(request.url.query)
-        assert "code" in ps
-        # [todo] what happens if multiple responses?
+        assert "jwt" in ps
         fut.set_result(ps)
-        """ [todo] this could be a fancy page:
-        - the API key is shown in the browser window instead of in the terminal
-        - you get a css-pretty page saying to return to the terminal
-        - you get a redirect to the hitsave getting started page?
-        - you return a page which calls `window.close()`?
-        - figure out how to get terminal to regain focus
-        """
-        return web.Response(text="login successful, please return to your terminal")
+        return web.Response(text="")
 
     # ref: https://docs.aiohttp.org/en/stable/web_lowlevel.html
     server = web.Server(redirected)
@@ -123,24 +116,8 @@ async def loopback_login():
     await site.stop()
     await runner.cleanup()
     await server.shutdown()
-    assert "code" in result
-    login_params = {"code": result["code"]}
-    # always create a different http session for logging in
-    eprint(f"Connecting to {cloud_url}...")
-    async with aiohttp.ClientSession(cloud_url) as session:
-        async with session.post("/user/login", params=login_params) as resp:
-            resp.raise_for_status()
-            if resp.content_type == "application/json":
-                j = await resp.json()
-                assert "token" in j
-                jwt = j["token"]
-            elif resp.content_type == "text/plain":
-                jwt = await resp.text()
-            else:
-                # [todo] is this the right exception?
-                raise TypeError(
-                    f"Unsupported response content type {resp.content_type}."
-                )
+    assert "jwt" in result
+    jwt = result["jwt"]
     save_jwt(jwt)
     eprint("Successfully logged in.")
     return jwt

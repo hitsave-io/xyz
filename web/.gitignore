@@ -6,8 +6,11 @@ node_modules
 
 # Build artifacts
 build
-/public/build
-/styles/tailwind.css
+public/build
+src/tailwind.css
 
 # Local Remix cache
 /.cache
+
+# Yarn
+yarn-error.log

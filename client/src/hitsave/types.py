@@ -1,7 +1,6 @@
 from dataclasses import asdict, dataclass, field, replace
 import difflib
 from enum import Enum
-from io import BufferedReader
 from typing import (
     IO,
     Any,
@@ -20,18 +19,9 @@ from typing import (
     TypedDict,
     Union,
 )
-import msgpack
-import pickle
 from hitsave.util import decorate_ansi, dict_diff, ofdict
 import json
-import requests
-import os
-import numpy as np
 import logging
-from requests.exceptions import ChunkedEncodingError
-import shelve
-import tempfile
-from diskcache import Cache
 from datetime import datetime
 from uuid import UUID
 from hitsave.codegraph import Symbol

@@ -16,6 +16,8 @@ async fn main() -> std::io::Result<()> {
     let state = config.clone().into_state().await;
     let state2 = state.clone();
 
+    log::info!("starting server..");
+
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(state.clone()))

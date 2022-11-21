@@ -16,15 +16,9 @@ from hitsave.types import (
     StoreAPI,
 )
 from hitsave.config import Config
-from diskcache import Cache
-import os.path
 import logging
-from blake3 import blake3
-import sqlite3
 from hitsave.cloudutils import (
     request,
-    read_header,
-    create_header,
     encode_hitsavemsg,
     ConnectionError,
 )

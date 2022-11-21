@@ -45,7 +45,8 @@ def login():
 
 async def keygen_async():
     """Interactive workflow for generating a new api key."""
-    if Config.current().api_key is not None:
+    cfg = Config.current()
+    if cfg.api_key is not None:
         eprint("Warning: an API key for hitsave is already present.")
         if is_interactive_terminal():
             eprint(
@@ -87,29 +88,8 @@ async def keygen_async():
         "\n",
         sep="",
     )
-    shells = {
-        "/bin/zsh": "~/.zshenv",
-        "/bin/bash": os.environ.get("BASH_ENV"),
-    }
-    sh = os.environ.get("SHELL", "??")
-    envfile = shells[sh]
-    if envfile is not None:
-        cmd = f"export HITSAVE_API_KEY={api_key}"
-        # [todo] what if an api key var is already present?
-        eprint(
-            decorate_ansi(f"Enter 'y' to append the following to {envfile}:"),
-            "\n\n",
-            decorate_ansi(cmd, fg="white"),
-            "\n",
-            sep="",
-        )
-        i = input(">")
-        if i == "y":
-            with open(os.path.expanduser(envfile), "at") as fd:
-                fd.writelines([cmd])
-            # [todo] there is a way of doing this without needing a restart iirc
-            eprint("Successful, reload the terminal to start using hitsave.")
-            return
+    eprint(f"Saving key to {cfg.api_key_file_path}.")
+    cfg.set_api_key(api_key)
     doc_url = decorate_url("https://hitsave.io/doc/keys")
     eprint(
         f"Please see {doc_url} for ways you can include this key in your environment."

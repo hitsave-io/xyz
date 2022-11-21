@@ -6,13 +6,10 @@ flake8
 numpy
 torch
 torchvision
-diskcache ~= 5.4
 typer ~= 0.6.1
-msgpack ~= 1.0
 requests ~= 2.28
 typing_extensions
 aiohttp
-aiofiles
 blake3
 
 # docs

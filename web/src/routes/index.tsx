@@ -79,20 +79,28 @@ export const loader = async ({ request }: LoaderArgs) => {
   // still be invalid. We will leave this to the API itself to validate. This is
   // just a hint.
   const isPossiblyLoggedIn = hasUnexpiredJwt(request);
-  if (isPossiblyLoggedIn) {
-    return await getUser(request);
-  } else {
-    return null;
-  }
+  const user = isPossiblyLoggedIn ? await getUser(request) : null;
+
+  const params = {
+    client_id: process.env.GH_CLIENT_ID || "",
+    redirect_uri: `${process.env.HITSAVE_WEB_URL}/login`,
+    scope: "user:email",
+  };
+
+  const signInUrl = `https://github.com/login/oauth/authorize?${new URLSearchParams(
+    params
+  ).toString()}`;
+
+  return { user, signInUrl };
 };
 
 export default function Home() {
-  const user = useLoaderData<typeof loader>();
+  const { user, signInUrl } = useLoaderData<typeof loader>();
   const formData = useActionData<typeof action>();
 
   return (
     <>
-      <Header user={user} />
+      <Header user={user} signInUrl={signInUrl} />
       <main>
         <Hero formData={formData} />
         <PrimaryFeatures />
