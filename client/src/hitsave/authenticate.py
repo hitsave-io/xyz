@@ -103,6 +103,7 @@ async def loopback_login():
     # ref: https://docs.aiohttp.org/en/stable/web_lowlevel.html
     server = web.Server(redirected)
     runner = web.ServerRunner(server)
+    # [todo] add a 10s timeout
     await runner.setup()
     site = web.TCPSite(runner, "localhost", redirect_port)
     await site.start()

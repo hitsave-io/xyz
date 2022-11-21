@@ -154,7 +154,6 @@ class CloudBlobStore:
             logger.debug(f"Blob is already uploaded. {digest}")
             return BlobInfo(digest, content_length)
         tape.seek(0)
-        # [todo] move this to cloud store.
         mdata = {
             "content_hash": digest,
             "content_length": content_length,
@@ -162,10 +161,14 @@ class CloudBlobStore:
         if label is not None:
             mdata["label"] = label
         msg = encode_hitsavemsg(mdata, tape)
+        pp_label = label or "unlabelled file"
+        if content_length > 2**20:
+            logger.info(f"Uploading {pp_label} ({human_size(content_length)}).")
+        # [todo] cute progress bar.
         r = request("PUT", "/blob", data=msg)
         r.raise_for_status()
         if label is not None:
-            logger.debug(f"Uploaded {label} ({human_size(content_length)}).")
+            logger.debug(f"Uploaded {pp_label} ({human_size(content_length)}).")
         return BlobInfo(digest, content_length)
 
     def open_blob(self, digest: str):

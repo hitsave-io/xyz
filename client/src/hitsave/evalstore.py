@@ -176,6 +176,10 @@ class LocalEvalStore:
             return id
 
     def resolve_eval(self, key: EvalKey, *, result: Any, elapsed_process_time: int):
+        # [todo] fail with friendly error if the result is not picklable.
+        # give a list of suggestions: try saving as a file-snapshot.
+        # instructions on how to use the pickling system.
+        # if the object is defined in a library, tell us and we can support it!
         with localdb() as conn:
             conn.execute(
                 """
