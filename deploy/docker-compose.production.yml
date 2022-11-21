@@ -22,7 +22,7 @@ services:
     environment:
       NGINX_HOST: hitsave.io
     volumes:
-      - /etc/letsencrypt/live/hitsave.io:/etc/letsencrypt/live/hitsave.io
+      - /etc/letsencrypt:/etc/letsencrypt
 
   web:
     restart: always
