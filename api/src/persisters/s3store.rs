@@ -179,7 +179,7 @@ impl S3Store {
         let aws_res = self
             .client
             .put_object()
-            .bucket("hitsave-binarystore")
+            .bucket(&CONFIG.aws_s3_blob_bucket)
             .key(hash_claim.to_hex().to_string())
             .body(byte_stream)
             .content_length(content_length)
@@ -195,7 +195,7 @@ impl S3Store {
         Ok(self
             .client
             .get_object()
-            .bucket("hitsave-binarystore")
+            .bucket(&CONFIG.aws_s3_blob_bucket)
             .key(content_hash.to_hex().to_string())
             .send()
             .await

@@ -52,11 +52,12 @@ services:
       GH_CLIENT_SECRET_FILE: /run/secrets/gh_client_secret
       GH_USER_AGENT: HitSave
       AWS_S3_CRED_FILE: /run/secrets/aws_s3_creds
-    secrets:
-      - postgres_password
-      - jwt_priv
-      - aws_s3_creds
-      - gh_client_secret
+      AWS_S3_BLOB_BUCKET: hitsave-binarystore
+      secrets:
+        - postgres_password
+        - jwt_priv
+        - aws_s3_creds
+        - gh_client_secret
 
   web:
     depends_on:

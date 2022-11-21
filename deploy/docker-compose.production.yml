@@ -12,6 +12,7 @@ services:
     restart: always
     environment:
       GH_CLIENT_ID: a569cafe591e507b13ca
+      AWS_S3_BLOB_BUCKET: hitsave-prod-blobs
 
   nginx:
     ports:

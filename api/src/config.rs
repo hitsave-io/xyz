@@ -13,6 +13,7 @@ pub struct Config {
     pub gh_client_secret: String,
     pub gh_user_agent: String,
     pub aws_s3_cred_file: String,
+    pub aws_s3_blob_bucket: String,
 }
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
@@ -91,6 +92,9 @@ impl Config {
         let aws_s3_cred_file = env_vars
             .remove("AWS_S3_CRED_FILE")
             .expect("no AWS_S3_CRED_FILE environment variable present");
+        let aws_s3_blob_bucket = env_vars
+            .remove("AWS_S3_BLOB_BUCKET")
+            .expect("no AWS_S3_BLOB_BUCKET environemtn variable present");
 
         let mut jwt_priv = std::fs::read_to_string(jwt_priv_file)
             .expect("could not read jwt priv file; does it exist?");
@@ -108,6 +112,7 @@ impl Config {
             gh_client_secret,
             gh_user_agent,
             aws_s3_cred_file,
+            aws_s3_blob_bucket,
         }
     }
     pub async fn into_state(self) -> AppStateRaw {
