@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Dict, Optional
 import typer
 import asyncio
@@ -17,7 +18,9 @@ from hitsave.authenticate import (
 )
 from hitsave.config import Config
 from hitsave.evalstore import EvalStore
+from hitsave.blobstore import BlobStore
 from hitsave.session import Session
+from hitsave.filesnap import DirectorySnapshot, FileSnapshot
 from hitsave.util import decorate_ansi, decorate_url, eprint, is_interactive_terminal
 
 app = typer.Typer()
@@ -115,11 +118,20 @@ def clear_local():
     store.clear()
 
 
-"""
-[todo] clear cloud cache
-[todo] snapshot a directory, upload it and return the digest.
-[todo] snapshot a file
- """
+@app.command()
+def snapshot(path: Path = typer.Argument(..., exists=True)):
+    """Upload the given file or directory to the cloud, returning a digest that can be used to reference data in code."""
+    if path.is_file():
+        snap = FileSnapshot.snap(path)
+        snap.upload()
+        print(snap.digest)
+    elif path.is_dir():
+        snap = DirectorySnapshot.snap(path)
+        snap.upload()
+        print(snap.digest)
+    else:
+        raise ValueError(f"Can't snapshot {path}.")
+
 
 if __name__ == "__main__":
     app()
