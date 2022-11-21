@@ -6,9 +6,10 @@ import os.path
 import sys
 import logging
 from pathlib import Path
-from typing import Literal, Optional, Type, TypeVar
-from hitsave.util import Current, as_optional, is_optional, get_git_root
+from typing import Literal, Optional, Type, TypeVar, Any, List, Dict, Iterable
+from hitsave.util import Current, as_optional, is_optional, get_git_root, validate
 import importlib.metadata
+import configparser
 
 logger = logging.getLogger("hitsave")
 
@@ -128,20 +129,33 @@ def interpret_var_str(t: Type[T], value: str) -> T:
     raise NotImplementedError(f"Don't know how to interpret {t}")
 
 
+CONSTS = {
+    "default": {
+        "cloud_url": "https://api.hitsave.io",
+        "github_client_id": "a569cafe591e507b13ca",
+        "web_url": "https://hitsave.io",
+    },
+    "local": {
+        "web_url": "http://localhost:3000",
+        "cloud_url": "http://localhost:8080",
+        "github_client_id": "b7d5bad7787df04921e7",
+    },
+}
+""" Constants that are different in development environments. """
+# [todo] the above should live in an .ini file or similar that varies in source control.
+
+
 @dataclass
 class Config(Current):
     """This dataclass contains all of the configuration needed to use hitsave."""
 
-    cloud_url: str = field(default="https://api.hitsave.io")  # [todo] https
+    cloud_url: str
     """ URL for hitsave cloud API server. """
 
-    github_client_id: str = field(default="a569cafe591e507b13ca")
+    github_client_id: str
     """ This is the github client id used to authenticate the app. """
 
-    cloud_url: str = field(default="https://api.hitsave.io")
-    """ URL for hitsave cloud API server.   """
-
-    web_url: str = field(default="https://hitsave.io")
+    web_url: str
     """ URL for the HitSave website. """
 
     local_cache_dir: Path = field(default_factory=find_cache_directory)
@@ -218,9 +232,10 @@ class Config(Current):
         d = {}
         for fd in fields(self):
             k = fd.name
-            v = os.environ.get(f"HITSAVE_{k.upper()}", None)
+            K = f"HITSAVE_{k.upper()}"
+            v = os.environ.get(K, None)
             if v is not None:
-                logger.debug(f"Setting config {k} from environment variable.")
+                logger.warn(f"Setting config {k} from environment variable {K}.")
                 d[k] = interpret_var_str(fd.type, v)
         return replace(self, **d)
 
@@ -244,7 +259,85 @@ class Config(Current):
     @classmethod
     def default(cls):
         """Creates the config, including environment variables."""
-        return cls().merge_env()
+        constants: dict = CONSTS["default"]
+        # [todo] we can probably deduce whether we are a deployment build and disallow dev constants.
+        env = os.environ.get("HITSAVE_ENV", None) or cls.read_key_from_config_file(
+            cls.global_config_path(), "env"
+        )
+        if env is not None:
+            if env not in CONSTS:
+                logger.error(f"Unknown environment type '{env}' set.")
+            else:
+                logger.warn(
+                    f"WARNING: Using the '{env}' development environment. Unset this with `hitsave config unset env`"
+                )
+                constants.update(CONSTS[env])
+        cfg = cls(**constants)
+
+        from_global_file = cls.read_keys_from_config_file(
+            cls.global_config_path(), cls.__dataclass_fields__.keys()
+        )
+
+        cfg = replace(
+            cfg,
+            **from_global_file,
+        )
+        cfg = cfg.merge_env()
+        return cfg
+
+    @property
+    def project_config_path(self):
+        return self.workspace_dir / "hitsave.conf"
+
+    @classmethod
+    def global_config_path(cls):
+        # [todo]  default config_dir defined in multiple places.
+        return (
+            Path(os.environ.get("HITSAVE_CONFIG_DIR", find_global_config_directory()))
+            / "hitsave.conf"
+        )
+
+    @classmethod
+    def read_key_from_config_file(cls, path: Path, key: str) -> Any:
+        d = cls.read_keys_from_config_file(path, [key])
+        return d.get(key, None)
+
+    @classmethod
+    def read_keys_from_config_file(
+        cls, path: Path, keys: Iterable[Any]
+    ) -> Dict[str, Any]:
+        cfg = configparser.ConfigParser()
+        cfg.read(path)
+        o = {}
+        for key in keys:
+            v = cfg.get(cfg.default_section, key, fallback=None)
+            if v is None:
+                continue
+            field = cls.__dataclass_fields__.get(key, None)
+            if field is not None and not validate(field.type, v):
+                logging.error(
+                    f"Bad config value {key}, expected {field.type} but was {type(v)}"
+                )
+                continue
+            o[key] = v
+        return o
+
+    @classmethod
+    def set_config_file(cls, path: Path, **kvs):
+        cfg = configparser.ConfigParser()
+        cfg.read(path)
+        for k, v in kvs.items():
+            if v is None:
+                cfg.remove_option(cfg.default_section, k)
+            else:
+                field = cls.__dataclass_fields__.get(k, None)
+                if field is not None:
+                    if not validate(field.type, v):
+                        v = interpret_var_str(field.type, v)
+                cfg.set(cfg.default_section, k, v)
+        logger.info(f"Writing {len(kvs)} values to {path}.")
+        with open(path, "w") as fd:
+            cfg.write(fd)
 
 
 def no_local() -> bool:
