@@ -1,13 +1,14 @@
+import { useState } from "react";
 import { LoaderArgs, LoaderFunction } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { API } from "~/api";
-import { Show, VisualObject, Args } from "../../components/visual";
+import { Show, VisualObject, Arg } from "../../components/visual";
 import { getSession, redirectLogin } from "~/session.server";
 
 interface Experiment {
   fn_key: string;
   fn_hash: string;
-  args: Args;
+  args: Arg[];
   args_hash: string;
   result_json: VisualObject;
   content_hash: string;
@@ -15,6 +16,12 @@ interface Experiment {
   start_time: string;
   elapsed_process_time: number;
   accesses: number;
+}
+
+interface ExperimentTable {
+  fn_key: string;
+  args: { [argName: string]: Arg };
+  experiments: Experiment[];
 }
 
 /* Note on which time pretty-printing library to use:
@@ -30,7 +37,6 @@ so I switched back to using moment. There is also time-ago but whatever.
 */
 
 import moment from "moment";
-import { ChevronDownIcon } from "@heroicons/react/24/outline";
 
 function ppTimeAgo(isostring: string) {
   // luxon: return DateTime.fromISO(experiment.start_time).toRelative()
@@ -60,27 +66,35 @@ export const loader = async ({ request }: LoaderArgs) => {
   }
 };
 
-function getArgs(exp: Experiment) : Args {
-  // this is our first API versioning nightmare!
-  if (exp.args instanceof Array) {
-    return exp.args
-  } else {
-    // [todo] this is for the old version where args are a dictionary
-    // @ts-ignore
-    return Object.keys(exp.args).map((k : string) => ({name : k, value : exp.args[k] }))
+function processFns(exps: Experiment[]): ExperimentTable[] {
+  const tables: { [key: string]: ExperimentTable } = {};
+  for (const exp of exps) {
+    const fk = exp.fn_key;
+
+    if (!tables.hasOwnProperty(fk)) {
+      tables[fk] = { fn_key: fk, args: {}, experiments: [] };
+    }
+
+    const table = tables[fk];
+    for (const arg of exp.args) {
+      // check that arg.name is in table.args
+      if (!table.args.hasOwnProperty(arg.name)) {
+        table.args[arg.name] = arg;
+      }
+    }
+
+    table.experiments.push(exp);
+    table.experiments.sort();
   }
+
+  return Object.entries(tables)
+    .map(([_, v]) => v)
+    .sort();
 }
 
-const argsFreqs = (exps: Experiment[]): { [key: string]: number } => {
-  const freqs: { [key: string]: number } = {};
-  for (const exp of exps) {
-    for (const arg of getArgs(exp)) {
-      const key = arg.name;
-      freqs[key] = (freqs[key] ?? 0) + 1;
-    }
-  }
-  return freqs;
-};
+function getArgs(exp: Experiment): Arg[] {
+  return exp.args;
+}
 
 const parseFnKey = (fnKey: string): [string, string] => {
   const split = fnKey.split(":");
@@ -92,20 +106,20 @@ const parseFnKey = (fnKey: string): [string, string] => {
 };
 
 export default function Experiments() {
-  // TODO: need to figure out this TypeScript stuf..
   const experiments = useLoaderData<typeof loader>() as Experiment[];
 
-  const af = argsFreqs(experiments);
-  const argList = Object.keys(af).sort((a, b) => {
-    return af[b] - af[a];
+  const tables = processFns(experiments).sort((t1, t2) => {
+    if (t1.fn_key >= t2.fn_key) {
+      return 1;
+    } else {
+      return -1;
+    }
   });
 
-  experiments.sort((a, b) => {
-    return Date.parse(b.start_time) - Date.parse(a.start_time);
-  });
+  console.log(tables);
 
   return (
-    <div className="py-6">
+    <div className="max-h-full py-6">
       <div className="mx-auto px-4 sm:px-6 md:px-8">
         <h1 className="text-2xl font-semibold text-gray-900">
           Experiments
@@ -119,130 +133,12 @@ export default function Experiments() {
       </div>
       <div className="mx-auto px-4 sm:px-6 md:px-8">
         <div className="mt-8 flex flex-col">
-          <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
+          <div className="-my-2 -mx-4 sm:-mx-6 lg:-mx-8">
             <div className="inline-block min-w-full py-2 align-middle">
-              <div className="overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5">
-                <table className="min-w-full divide-y divide-gray-300">
-                  <thead>
-                    <tr>
-                      <th
-                        scope="col"
-                        className="px-3.5 py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6 lg:pl-8"
-                      >
-                        Function
-                      </th>
-                      {argList.map((arg, argIdx) => (
-                        <th
-                          scope="col"
-                          className="px-3 py-3.5 text-center text-xs font-normal font-mono whitespace-nowrap"
-                          key={arg}
-                        >
-                          {argIdx === 0 && (
-                            <span className="font-mono text-sm text-gray-500">
-                              {"(  "}
-                            </span>
-                          )}
-                          <span className="whitespace-nowrap rounded-lg bg-gray-100 px-2 py-1 leading-6 text-gray-500 shadow-md hover:shadow-lg hover:bg-gray-200 cursor-pointer select-none">
-                            {arg}
-                          </span>
-                          {argIdx + 1 < argList.length && <>{" ,"}</>}
-                          {argIdx + 1 === argList.length && (
-                            <span className="font-mono text-sm text-gray-500">
-                              {"  )"}
-                            </span>
-                          )}
-                        </th>
-                      ))}
-                      <th
-                        scope="col"
-                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
-                      >
-                        Returned
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
-                      >
-                        <div className="group inline-flex">
-                          Execution Start Time
-                          <span className="ml-2 flex-none rounded bg-gray-200 text-gray-900 group-hover:bg-gray-300">
-                            <ChevronDownIcon
-                              className="h-5 w-5"
-                              aria-hidden="true"
-                            />
-                          </span>
-                        </div>
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
-                      >
-                        Execution Period
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
-                      >
-                        Function Digest
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
-                      >
-                        Arguments Digest
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 bg-white">
-                    {experiments.map((experiment) => {
-                      const [module, functionName] = parseFnKey(
-                        experiment.fn_key
-                      );
-                      return (
-                        <tr
-                          key={`${experiment.fn_hash}${experiment.args_hash}${experiment.fn_key}`}
-                          className="hover:bg-gray-50 cursor-pointer"
-                        >
-                          <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-mono font-medium text-gray-900 sm:pl-6 lg:pl-8">
-                            <FnKey
-                              module={module}
-                              functionName={functionName}
-                            />
-                          </td>
-                          {argList.map((argName) => {
-                            const arg = getArgs(experiment).find(
-                              (a) => a.name === argName
-                            );
-
-                            return (
-                              <td
-                                key={argName}
-                                className="whitespace-nowrap px-3 py-4 font-mono text-sm text-gray-500 text-center"
-                              >
-                                {arg && <Show o={arg.value} />}
-                              </td>
-                            );
-                          })}
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {<Show o={experiment.result_json} />}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {ppTimeAgo(experiment.start_time)}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {ppDuration(experiment.elapsed_process_time)}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {experiment.fn_hash.slice(0, 10)}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {experiment.args_hash.slice(0, 10)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div className="shadow-sm ring-1 ring-black ring-opacity-5">
+                {tables.map((table) => (
+                  <ExperimentTable table={table} key={table.fn_key} />
+                ))}
               </div>
             </div>
           </div>
@@ -251,6 +147,94 @@ export default function Experiments() {
     </div>
   );
 }
+
+interface TableProps {
+  table: ExperimentTable;
+}
+
+const ExperimentTable: React.FC<TableProps> = ({ table }) => {
+  const [open, setOpen] = useState(false);
+  const fnKey = parseFnKey(table.fn_key);
+  const argList = Object.entries(table.args)
+    .map(([_, arg]) => arg)
+    .sort();
+  return (
+    <table
+      className="table-fixed w-full divide-y divide-gray-300 border-separate"
+      style={{ borderSpacing: 0 }}
+      key={table.fn_key}
+    >
+      <thead>
+        <tr className="cursor-pointer" onClick={() => setOpen((o) => !o)}>
+          <th
+            scope="col"
+            className="sticky top-0 w-64 z-10 border-b border-gray-300 bg-gray-50 bg-opacity-75 py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 backdrop-blur backdrop-filter sm:pl-6 lg:pl-8"
+          >
+            <FnKey module={fnKey[0]} functionName={fnKey[1]} />
+          </th>
+          {argList.map((arg, argIdx) => (
+            <th
+              scope="col"
+              className="sticky top-0 w-48 z-10 border-b border-gray-300 bg-gray-50 bg-opacity-75 px-3 py-3.5 text-center text-xs font-normal font-mono whitespace-nowrap backdrop-blur backdrop-filter"
+              key={arg.name}
+            >
+              {argIdx === 0 && (
+                <span className="font-mono text-sm text-gray-500">{"(  "}</span>
+              )}
+              <span className="whitespace-nowrap rounded-lg bg-gray-100 px-2 py-1 leading-6 text-gray-500 shadow-md hover:shadow-lg hover:bg-white hover:text-blue-600 cursor-pointer select-none">
+                {arg.name}
+              </span>
+              {argIdx + 1 < argList.length && <>{" ,"}</>}
+              {argIdx + 1 === argList.length && (
+                <span className="font-mono text-sm text-gray-500">{"  )"}</span>
+              )}
+            </th>
+          ))}
+          <th
+            scope="col"
+            className="sticky top-0 w-96 z-10 border-b border-gray-300 bg-gray-50 bg-opacity-75 py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 backdrop-blur backdrop-filter sm:pl-6 lg:pl-8 whitespace-nowrap"
+          >
+            returns
+          </th>
+          <th className="sticky top-0 w-auto z-10 border-b border-gray-300 bg-gray-50 bg-opacity-75 py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 backdrop-blur backdrop-filter sm:pl-6 lg:pl-8 whitespace-nowrap"></th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-200 bg-white">
+        {open &&
+          table.experiments.map((experiment) => {
+            return (
+              <tr
+                key={`${experiment.fn_hash}${experiment.args_hash}${experiment.fn_key}`}
+                className="hover:bg-gray-50 cursor-pointer"
+              >
+                <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-mono font-medium text-gray-400 sm:pl-6 lg:pl-8 truncate">
+                  {experiment.fn_hash.slice(0, 10)}
+                </td>
+                {argList.map((argCol) => {
+                  const arg = getArgs(experiment).find(
+                    (a) => a.name === argCol.name
+                  );
+
+                  return (
+                    <td
+                      key={argCol.name}
+                      className="whitespace-nowrap px-3 py-4 font-mono text-sm text-gray-500 text-center"
+                    >
+                      {arg !== undefined ? <Show o={arg.value} /> : "null"}
+                    </td>
+                  );
+                })}
+                <td className="truncate px-3 py-4 text-sm text-gray-500 sm:pl-6 lg:pl-8">
+                  {<Show o={experiment.result_json} />}
+                </td>
+                <td className="w-auto"></td>
+              </tr>
+            );
+          })}
+      </tbody>
+    </table>
+  );
+};
 
 interface FnKeyProps {
   module: string;

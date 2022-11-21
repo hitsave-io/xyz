@@ -10,8 +10,6 @@ export interface Arg {
   docs?: string;
 }
 
-export type Args = Arg[];
-
 type Kind = "object" | "html" | "image" | "plotly" | "blob" | "opaque";
 
 interface Html {
