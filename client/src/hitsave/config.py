@@ -1,6 +1,8 @@
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field, fields, replace
+import json
+import re
 import tempfile
 import os
 import os.path
@@ -62,23 +64,57 @@ def find_workspace_folder() -> Path:
     return Path(cwd)
 
 
-def find_cache_directory():
-    """Returns the user-caching directory for the system. Trying to do it as canonically as possible."""
+appname = "hitsave"
+
+
+def find_cache_directory() -> Path:
+    """Returns the user-caching directory for the system. Trying to do it as canonically as possible.
+    This is chosen to be the system-prescribed user-cache directory /hitsave.
+    """
     if sys.platform == "darwin":
         # running macos https://apple.stackexchange.com/questions/316729/what-is-the-equivalent-of-cache-on-macos
         p = Path("~/Library/Caches")
     elif sys.platform == "linux":
         # https://wiki.archlinux.org/title/XDG_Base_Directory#User_directories
-        p = Path(os.environ.get("XDG_CACHE_HOME", "~/.config"))
+        p = Path(os.environ.get("XDG_CACHE_HOME", "~/.cache"))
+    elif sys.platform == "win32":
+        p = Path(os.environ.get("LOCALAPPDATA", "~/.cache"))
     else:
         # [todo] windows
-        logger.debug(f"Unknown platform {sys.platform}, defaulting to tmpdir.")
+        logger.warning(
+            f"Unknown platform {sys.platform}, user cache is defaulting to a tmpdir."
+        )
         p = Path(tempfile.gettempdir())
-    p = p.expanduser().resolve() / "hitsave"
+    p = p.expanduser().resolve() / appname
     p.mkdir(exist_ok=True)
     (p / "blobs").mkdir(exist_ok=True)
     assert p.exists()
     return p
+
+
+def find_global_config_directory() -> Path:
+    """Returns a path to the place on the user's system where they want to store configs. Trying to do this as canonically as possible."""
+    p = Path(os.environ.get("XDG_CONFIG_HOME", "~/.config"))
+    if sys.platform == "darwin":
+        # we are running macos, also use ~/.config.
+        pass
+    elif sys.platform == "linux":
+        # https://wiki.archlinux.org/title/XDG_Base_Directory#User_directories
+        pass
+    elif sys.platform == "win32":
+        p = Path(os.environ.get("APPDATA", "~/.config"))
+    else:
+        # [todo] windows.
+        logger.warning(f"Unsupported platform {sys.platform}, using `~/.config`")
+        pass
+    p = p.expanduser().resolve() / appname
+    p.mkdir(exist_ok=True)
+    return p
+
+
+def valid_api_key(k: str) -> bool:
+    # https://stackoverflow.com/a/48730645/352201
+    return re.match(r"^[\w-]+\Z", k) is not None
 
 
 T = TypeVar("T")
@@ -115,16 +151,21 @@ class Config(Current):
     [todo] features
     - merge with CLI arguments
     - merge with hitsave.toml files. `~/.config/hitsave.toml`, `$PROJECT/hitsave.toml` etc.
+
     """
 
-    local_cache_dir: Path
+    local_cache_dir: Path = field(default_factory=find_cache_directory)
     """ This is the directory where hitsave should store local caches of data. """
-    api_key: Optional[str]
-    """ API key for hitsave cloud. """
 
-    workspace_dir: Path
-    """ Directory for the current project, should be the same as workspace_folder in vscode. It defaults to the nearest
-    parent folder containing pyproject.toml or git root. """
+    cloud_url: str = field(default="https://api.hitsave.io")  # [todo] https
+    """ URL for hitsave cloud API server. """
+
+    workspace_dir: Path = field(default_factory=find_workspace_folder)
+    """ Directory for the current project, should be the same as workspace_folder in vscode.
+    It defaults to the nearest parent folder containing pyproject.toml or git root. """
+
+    config_dir: Path = field(default_factory=find_global_config_directory)
+    """ The root config directory. """
 
     no_advert: bool = field(default=False)
     """ If this is true then we won't bother you with a little advert for signing up to hitsave.io on exit. """
@@ -143,6 +184,7 @@ class Config(Current):
     but upgrading to ``3.3.0`` will. Non-standard versioning schemes will always invalidate unless in 'none' mode.
 
     [todo] choose the sensitivity for different packages: do it by looking at the versioning sensitivity in requirements.txt or the lockfile.
+           eventually remove this file.
     """
 
     cloud_url: str = field(default="https://api.hitsave.io")
@@ -153,7 +195,42 @@ class Config(Current):
 
     @property
     def local_db_path(self) -> Path:
+        """Gets the path to the local sqlite db that is used to store local state."""
         return self.local_cache_dir / "localstore.db"
+
+    @property
+    def api_key_file_path(self) -> Path:
+        return self.config_dir / "api_keys.txt"
+
+    @property
+    def api_key(self):
+        """The API key to authenticate cloud requests."""
+        k = getattr(self, "_api_key", "MISSING")
+        if k != "MISSING":
+            return k
+        p = self.api_key_file_path
+        logger.debug(f"Looking for an API key for {self.cloud_url} at {p}.")
+        if p.exists():
+            with p.open("rt") as fd:
+                keys = [l.rstrip().split("\t") for l in fd.readlines()]
+                assert all(len(kv) == 2 for kv in keys), "malformed keys file"
+                keys = {k: v for [k, v] in keys}
+            key = keys.get(self.cloud_url, None)
+            assert key is None or valid_api_key(key)
+            self._api_key = key
+        else:
+            self._api_key = None
+        if self._api_key == None:
+            logger.debug("No API key found.")
+        return self._api_key
+
+    def set_api_key(self, k: str):
+        # [todo] assert this looks like an api key.
+        # [todo] file locking
+        assert valid_api_key(k), "invalid api key"
+        with self.api_key_file_path.open("at") as fd:
+            fd.writelines(self.cloud_url + "\t" + k)
+        self._api_key = k
 
     def merge_env(self):
         d = {}
@@ -163,16 +240,6 @@ class Config(Current):
             if v is not None:
                 d[k] = interpret_var_str(fd.type, v)
         return replace(self, **d)
-
-    @classmethod
-    def init(cls):
-        """Get the default config, without consulting files or environment varibles."""
-        return cls(
-            local_cache_dir=find_cache_directory(),
-            cloud_url="https://api.hitsave.io",
-            api_key=None,
-            workspace_dir=find_workspace_folder(),
-        )
 
     def __post_init__(self):
         if self.no_cloud and self.no_local:
@@ -194,7 +261,7 @@ class Config(Current):
     @classmethod
     def default(cls):
         """Creates the config, including environment variables and [todo] hitsave config files."""
-        return cls.init().merge_env()
+        return cls().merge_env()
 
 
 def no_local() -> bool:

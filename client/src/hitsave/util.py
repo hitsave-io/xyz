@@ -222,6 +222,8 @@ def validate(t: Type, item) -> bool:
 
 # ref: https://stackoverflow.com/questions/4842424/list-of-ansi-color-escape-sequences
 
+# [todo] don't NIH; use the rich library instead: https://rich.readthedocs.io/en/stable/introduction.html
+
 
 class AnsiColor(Enum):
     black = 0
