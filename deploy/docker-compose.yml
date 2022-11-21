@@ -69,7 +69,6 @@ services:
   web:
     image: node:19
     working_dir: /home/xyz/web
-    command: "yarn dev"
     depends_on:
       - db
       - api
