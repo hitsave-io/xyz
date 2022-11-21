@@ -11,3 +11,6 @@ src/tailwind.css
 
 # Local Remix cache
 /.cache
+
+# Yarn
+yarn-error.log

@@ -9,26 +9,40 @@ services:
       - pgdata:/var/lib/postgresql/data
 
   api:
+    build:
+      dockerfile: deploy/api.prod.Dockerfile
     restart: always
     environment:
       GH_CLIENT_ID: a569cafe591e507b13ca
       AWS_S3_BLOB_BUCKET: hitsave-prod-blobs
 
+  migrate:
+    build:
+      dockerfile: deploy/migrate.prod.Dockerfile
+
   nginx:
+    build:
+      dockerfile: deploy/nginx.prod.Dockerfile
     ports:
       - "80:80"
       - "443:443"
     restart: always
     environment:
       NGINX_HOST: hitsave.io
+      CERT_FILE: /etc/letsencrypt/live/hitsave.io/fullchain.pem
+      CERT_PRIV_KEY_FILE: /etc/letsencrypt/live/hitsave.io/privkey.pem
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt
 
   web:
+    build:
+      dockerfile: deploy/web.prod.Dockerfile
     restart: always
+    working_dir: /
     environment:
       GH_CLIENT_ID: a569cafe591e507b13ca
       HITSAVE_WEB_URL: https://hitsave.io
+      NODE_ENV: production
 
 volumes:
   pgdata:

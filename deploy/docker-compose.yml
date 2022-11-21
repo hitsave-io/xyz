@@ -5,14 +5,15 @@ name: "xyz"
 services:
   db:
     image: postgres
-    volumes:
-      - db_data:/var/lib/postgresql/data
     ports:
       - "5433:5432"
     environment:
       POSTGRES_DB: hitsave
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       PGDATA: /var/lib/postgresql/data
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - "../:/home/xyz"
     secrets:
       - postgres_password
 
@@ -21,26 +22,29 @@ services:
       - db
     build:
       context: ../
-      dockerfile: deploy/migrate.Dockerfile
+      dockerfile: deploy/migrate.dev.Dockerfile
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
       POSTGRES_DB: hitsave
+    volumes:
+      - "../:/home/xyz"
     secrets:
       - postgres_password
 
   api:
     build:
       context: ../
-      dockerfile: deploy/api.Dockerfile
+      dockerfile: deploy/api.dev.Dockerfile
     depends_on:
       - db
       - migrate
     ports:
       - "8080:8080"
     environment:
+      DATABASE_URL: postgres://postgres:seabo123@db:5432/hitsave
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       POSTGRES_HOST: db
@@ -53,6 +57,9 @@ services:
       GH_USER_AGENT: HitSave
       AWS_S3_CRED_FILE: /run/secrets/aws_s3_creds
       AWS_S3_BLOB_BUCKET: hitsave-binarystore
+    volumes:
+      - "../:/home/xyz"
+    working_dir: /home/xyz/api
     secrets:
       - postgres_password
       - jwt_priv
@@ -60,19 +67,21 @@ services:
       - gh_client_secret
 
   web:
+    image: node:19
+    working_dir: /home/xyz/web
+    command: "yarn dev"
     depends_on:
       - db
       - api
-    build:
-      context: ../
-      dockerfile: deploy/web.Dockerfile
     ports:
       - "3000:3000"
+    volumes:
+      - "../:/home/xyz"
     environment:
       HITSAVE_API_URL: http://api:8080
       HITSAVE_WEB_URL: http://hitsave-local.io
       GH_CLIENT_ID: b7d5bad7787df04921e7
-      NODE_ENV: production
+      NODE_ENV: development
 
   nginx:
     depends_on:
@@ -83,9 +92,13 @@ services:
       - "80:80"
     environment:
       NGINX_HOST: hitsave-local.io
+      CERT_FILE: /home/xyz/deploy/certs/cert.pem
+      CERT_PRIV_KEY_FILE: /home/xyz/deploy/certs/key.pem
+    volumes:
+      - "../:/home/xyz"
     build:
       context: ../
-      dockerfile: deploy/nginx.Dockerfile
+      dockerfile: deploy/nginx.dev.Dockerfile
 
 volumes:
   db_data:
