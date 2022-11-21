@@ -5,6 +5,7 @@ from genericpath import isfile
 from io import BufferedReader
 from typing import IO, Any, List, Literal, Optional, Union
 from hitsave.blobstore import BlobStore
+from hitsave.cloudutils import ConnectionError
 from hitsave.config import Config
 import os.path
 from blake3 import blake3
@@ -119,6 +120,7 @@ class FileSnapshot:
         return self.restore_at(abspath, overwrite=overwrite)
 
     def restore_safe(self) -> Path:
+        """ Downloads the file snapshot and returns a path to the snapshot. Guaranteed not to overwrite anything. rename to get_path"""
         if not self.has_local_cache:
             self.download()
         return self.local_cache_path
@@ -143,7 +145,7 @@ class FileSnapshot:
             relpath = None
         time = datetime.now()
         with open(path, "rb") as fd:
-            r = BlobStore.current().add_blob(fd)
+            r = BlobStore.current().add_blob(fd, label = path.name)
         snap = FileSnapshot(
             digest=r.digest,
             time=time,
@@ -158,8 +160,11 @@ class FileSnapshot:
         return BlobStore.current().cloud.has_blob(self.digest)
 
     def upload(self):
-        if BlobStore.current().push_blob(self.digest):
-            logger.info(f"Uploaded {self.name}.")
+        try:
+            if BlobStore.current().push_blob(self.digest):
+                logger.info(f"Uploaded {self.name}.")
+        except ConnectionError as e:
+            logger.error(f"Error uploading {self.name}: {e.message}")
 
 
 @dataclass
