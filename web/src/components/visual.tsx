@@ -180,7 +180,8 @@ export function Show(props: { o: VisualObject; depth?: number }) {
   } else if (o.__kind__ === "blob") {
     throw "blob visualisations not implemented";
   } else if (o.__kind__ === "image") {
-    const src = `https://api.hitsave.io/blob/${o.digest}`;
+    const api_url = "http://127.0.0.1:8080"
+    const src = `${api_url}/blob/${o.digest}`;
     /* Need to use object instead of image so that we can dynamically set the mime type.
        The blob server doesn't know about mime types.
        As a side effect, this also means we can show other things like pdfs. */
