@@ -1,5 +1,6 @@
-import type {
+import {
   ErrorBoundaryComponent,
+  json,
   LinksFunction,
   MetaFunction,
 } from "@remix-run/node";
@@ -12,7 +13,9 @@ import {
   ScrollRestoration,
   useCatch,
   Link,
+  useLoaderData,
 } from "@remix-run/react";
+import { createContext } from "react";
 
 import styles from "./tailwind.css";
 
@@ -30,7 +33,24 @@ export const links: LinksFunction = () => [
   },
 ];
 
+interface AppContextProps {
+  api_url: string;
+}
+
+export const AppContext = createContext<AppContextProps>({
+  api_url: "https://api.hitsave.io",
+});
+
+export const loader = async () => {
+  return json<AppContextProps>({
+    api_url: process.env.HITSAVE_API_URL ?? "",
+  });
+};
+
+export const unstable_shouldReload = () => false;
+
 export default function App() {
+  const env = useLoaderData<typeof loader>();
   return (
     <html lang="en" className="h-full bg-white">
       <head>
@@ -38,10 +58,12 @@ export default function App() {
         <Links />
       </head>
       <body className="h-full">
-        <Outlet />
-        <ScrollRestoration />
-        <Scripts />
-        <LiveReload />
+        <AppContext.Provider value={env}>
+          <Outlet />
+          <ScrollRestoration />
+          <Scripts />
+          <LiveReload />
+        </AppContext.Provider>
       </body>
     </html>
   );

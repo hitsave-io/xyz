@@ -1,4 +1,5 @@
 import * as React from "react";
+import { AppContext } from "~/root";
 import { ClientOnly } from "./clientonly";
 
 export interface Arg {
@@ -180,15 +181,20 @@ export function Show(props: { o: VisualObject; depth?: number }) {
   } else if (o.__kind__ === "blob") {
     throw "blob visualisations not implemented";
   } else if (o.__kind__ === "image") {
-    const api_url = "http://127.0.0.1:8080"
-    const src = `${api_url}/blob/${o.digest}`;
-    /* Need to use object instead of image so that we can dynamically set the mime type.
-       The blob server doesn't know about mime types.
-       As a side effect, this also means we can show other things like pdfs. */
-    return <object type={o.mime_type} data={src} />;
+    return <BlobObject {...o} />;
   } else {
     throw "not implemented";
   }
+}
+
+function BlobObject(props: Image) {
+  const appContext = React.useContext(AppContext);
+  const api_url = appContext.api_url;
+  const src = `${api_url}/blob/${props.digest}`;
+  /* Need to use object instead of image so that we can dynamically set the mime type.
+     The blob server doesn't know about mime types.
+     As a side effect, this also means we can show other things like pdfs. */
+  return <object type={props.mime_type} data={src} />;
 }
 
 function interlace<T>(xs: T[], sep: T): T[] {
