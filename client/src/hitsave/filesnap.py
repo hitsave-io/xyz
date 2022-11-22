@@ -120,7 +120,7 @@ class FileSnapshot:
         return self.restore_at(abspath, overwrite=overwrite)
 
     def restore_safe(self) -> Path:
-        """ Downloads the file snapshot and returns a path to the snapshot. Guaranteed not to overwrite anything. rename to get_path"""
+        """Downloads the file snapshot and returns a path to the snapshot. Guaranteed not to overwrite anything. rename to get_path"""
         if not self.has_local_cache:
             self.download()
         return self.local_cache_path
@@ -145,7 +145,7 @@ class FileSnapshot:
             relpath = None
         time = datetime.now()
         with open(path, "rb") as fd:
-            r = BlobStore.current().add_blob(fd, label = path.name)
+            r = BlobStore.current().add_blob(fd, label=path.name)
         snap = FileSnapshot(
             digest=r.digest,
             time=time,

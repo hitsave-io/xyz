@@ -50,10 +50,12 @@ def _bool_to_bytes(x: bool):
 def _none_to_bytes(x):
     return b""
 
+
 try:
     import numpy
+
     @to_bytes.register(numpy.ndarray)
-    def _numpy_to_bytes(x : numpy.ndarray):
+    def _numpy_to_bytes(x: numpy.ndarray):
         return x.tobytes()
 
 except ModuleNotFoundError:
@@ -62,10 +64,12 @@ except ModuleNotFoundError:
 try:
     from plotly.graph_objects import Figure
     import pickle
+
     @to_bytes.register(Figure)
-    def _plotly_to_bytes(x : Figure):
+    def _plotly_to_bytes(x: Figure):
         # [todo] is this the best thing to do?
         return pickle.dumps(x)
+
 except ModuleNotFoundError:
     pass
 

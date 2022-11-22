@@ -22,6 +22,7 @@ Todo:
 
 logger = logging.getLogger("hitsave")
 
+
 def jwt_path():
     return os.path.join(Config.current().local_cache_dir, "hitsave-session.jwt")
 

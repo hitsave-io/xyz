@@ -141,7 +141,7 @@ class ReductionValue:
         return l
 
     def __iter__(self) -> Iterator[Tuple[Tuple[str, Any], Any]]:
-        """ Iterates on all of the child objects of the reduced value. """
+        """Iterates on all of the child objects of the reduced value."""
         for i, arg in enumerate(self.args):
             yield (("args", i), arg)
         if self.state:
