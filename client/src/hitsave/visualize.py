@@ -4,7 +4,7 @@ from functools import partial, singledispatch
 from itertools import islice
 from json import JSONEncoder
 import logging
-import warnings
+
 
 logger = logging.getLogger("hitsave")
 

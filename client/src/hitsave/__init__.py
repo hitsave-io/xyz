@@ -20,6 +20,11 @@ try:
 except ModuleNotFoundError:
     pass
 
+try:
+    import hitsave.PIL_support
+except ModuleNotFoundError:
+    pass
+
 
 @atexit.register
 def exit_message():

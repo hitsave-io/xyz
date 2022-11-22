@@ -274,6 +274,7 @@ class BlobStore(Current):
         self, tape: IO[bytes], digest=None, content_length=None, label=None
     ) -> BlobInfo:
         """Creates a new binary blob from the given readable, seekable ``tape`` IO stream."""
+        # [todo] can add any json metadata to blob
         assert tape.seekable()
         assert tape.readable()
         if no_local():
