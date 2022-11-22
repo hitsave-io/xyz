@@ -41,8 +41,9 @@ services:
     restart: always
     environment:
       HITSAVE_WEB_HOST: hitsave.io
-      GH_CLIENT_ID: a569cafe591e507b13ca
+      HITSAVE_API_URL: https://api.hitsave.io
       HITSAVE_WEB_URL: https://hitsave.io
+      GH_CLIENT_ID: a569cafe591e507b13ca
       NODE_ENV: production
 
 volumes:
