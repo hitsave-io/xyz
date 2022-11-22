@@ -136,8 +136,8 @@ CONSTS = {
         "web_url": "https://hitsave.io",
     },
     "local": {
-        "web_url": "http://localhost:3000",
-        "cloud_url": "http://localhost:8080",
+        "web_url": "http://127.0.0.1:3000",
+        "cloud_url": "http://127.0.0.1:8080",
         "github_client_id": "b7d5bad7787df04921e7",
     },
 }
@@ -208,7 +208,7 @@ class Config(Current):
         if p.exists():
             with p.open("rt") as fd:
                 keys = [l.rstrip().split("\t") for l in fd.readlines()]
-                assert all(len(kv) == 2 for kv in keys), "malformed keys file"
+                keys = [kv for kv in keys if len(kv) == 2]
                 keys = {k: v for [k, v] in keys}
             key = keys.get(self.cloud_url, None)
             assert key is None or valid_api_key(key)
@@ -224,7 +224,7 @@ class Config(Current):
         # [todo] file locking
         assert valid_api_key(k), "invalid api key"
         with self.api_key_file_path.open("at") as fd:
-            fd.writelines(self.cloud_url + "\t" + k)
+            fd.write(self.cloud_url + "\t" + k + "\n")
         self._api_key = k
 
     def merge_env(self):
