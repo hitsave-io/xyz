@@ -76,10 +76,7 @@ impl Query for Path<BlobParams> {
     type Error = BlobError;
 
     async fn fetch(self, auth: Option<&Auth>, state: &State) -> Result<Self::Resolve, Self::Error> {
-        let api_key = auth
-            .ok_or(BlobError::Unauthorized)?
-            .api_key()
-            .ok_or(BlobError::Unauthorized)?;
+        let auth = auth.ok_or(BlobError::Unauthorized)?;
 
         let content_hash = self.into_inner().content_hash;
 
@@ -91,10 +88,12 @@ impl Query for Path<BlobParams> {
             r#"
                 SELECT count(id) FROM blobs
                 WHERE   content_hash = $1
-                    AND user_id = user_from_key($2)
+                    AND user_id = get_user_id($2, $3)
+                    OR is_public = TRUE
            "#,
             content_hash,
-            api_key
+            auth.jwt().map(|c| c.sub),
+            auth.api_key(),
         )
         .fetch_one(&state.db_conn)
         .await?;
@@ -117,10 +116,7 @@ impl Query for Path<BlobParamsHead> {
     type Error = BlobError;
 
     async fn fetch(self, auth: Option<&Auth>, state: &State) -> Result<Self::Resolve, Self::Error> {
-        let api_key = auth
-            .ok_or(BlobError::Unauthorized)?
-            .api_key()
-            .ok_or(BlobError::Unauthorized)?;
+        let auth = auth.ok_or(BlobError::Unauthorized)?;
 
         let content_hash = self.into_inner().content_hash;
 
@@ -132,10 +128,12 @@ impl Query for Path<BlobParamsHead> {
             r#"
                 SELECT count(id) FROM blobs
                 WHERE   content_hash = $1
-                    AND user_id = user_from_key($2)
+                    AND user_id = get_user_id($2, $3)
+                    OR is_public = TRUE
            "#,
             content_hash,
-            api_key
+            auth.jwt().map(|c| c.sub),
+            auth.api_key(),
         )
         .fetch_one(&state.db_conn)
         .await?;

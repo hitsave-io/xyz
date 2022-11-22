@@ -77,6 +77,7 @@ services:
     volumes:
       - "../:/home/xyz"
     environment:
+      HITSAVE_WEB_HOST: hitsave-local.io
       HITSAVE_API_URL: http://api:8080
       HITSAVE_WEB_URL: http://hitsave-local.io
       GH_CLIENT_ID: b7d5bad7787df04921e7

@@ -36,10 +36,19 @@ impl From<AuthError> for actix_web::Error {
 }
 
 impl Auth {
-    fn from_str(s: &str) -> Result<Self, AuthError> {
+    fn from_auth_header(s: &str) -> Result<Self, AuthError> {
         if s.starts_with(&"Bearer ") {
             // The token is a JWT.
-            Auth::from_jwt(s)
+            let token = s
+                .split("Bearer")
+                .collect::<Vec<&str>>()
+                .get(1)
+                .map(|w| w.trim())
+                .ok_or(AuthError::InvalidAuthHeader(
+                    "Header should be of the form `Bearer {token}`".to_string(),
+                ))?;
+
+            Auth::from_jwt(token)
         } else {
             // The token is an API key.
             Auth::from_api_key(s)
@@ -48,18 +57,9 @@ impl Auth {
 
     // Assumes that the string begins with "Bearer " (i.e. including the space).
     fn from_jwt(s: &str) -> Result<Self, AuthError> {
-        let token = s
-            .split("Bearer")
-            .collect::<Vec<&str>>()
-            .get(1)
-            .map(|w| w.trim())
-            .ok_or(AuthError::InvalidAuthHeader(
-                "Header should be of the form `Bearer {token}`".to_string(),
-            ))?;
-
         let key = &*CONFIG.jwt_priv.as_bytes();
         match decode::<Claims>(
-            token,
+            s,
             &DecodingKey::from_secret(key),
             &Validation::new(Algorithm::HS256),
         ) {
@@ -131,21 +131,23 @@ impl FromRequest for Auth {
     type Future = Ready<Result<Auth, Self::Error>>;
 
     fn from_request(req: &HttpRequest, _payload: &mut dev::Payload) -> Self::Future {
-        let token = req
+        // Need to check both `Authorization` header, and cookie, for the JWT.
+        if let Some(cookie) = req.cookie("jwt") {
+            match Auth::from_jwt(cookie.value()) {
+                Ok(auth) => ok(auth),
+                Err(e) => err(e),
+            }
+        } else if let Some(auth_header) = req
             .headers()
             .get("Authorization")
             .and_then(|h| h.to_str().ok())
-            .ok_or(AuthError::NoAuthHeader);
-
-        match token {
-            Ok(token) => {
-                let auth = Auth::from_str(token);
-                match auth {
-                    Ok(auth) => ok(auth),
-                    Err(e) => err(e),
-                }
+        {
+            match Auth::from_auth_header(auth_header) {
+                Ok(auth) => ok(auth),
+                Err(e) => err(e),
             }
-            Err(e) => err(e),
+        } else {
+            err(AuthError::NoAuthHeader)
         }
     }
 }

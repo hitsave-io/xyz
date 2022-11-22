@@ -40,6 +40,7 @@ services:
       dockerfile: deploy/web.prod.Dockerfile
     restart: always
     environment:
+      HITSAVE_WEB_HOST: hitsave.io
       GH_CLIENT_ID: a569cafe591e507b13ca
       HITSAVE_WEB_URL: https://hitsave.io
       NODE_ENV: production

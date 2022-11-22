@@ -25,7 +25,9 @@ export const loader = async ({ request }: LoaderArgs) => {
     const jwt = await res.text();
 
     const headers = {
-      "Set-Cookie": `jwt=${jwt}; HttpOnly; Max-Age=${60 * 60 * 24 * 30};`,
+      "Set-Cookie": `jwt=${jwt}; HttpOnly; Max-Age=${
+        60 * 60 * 24 * 30
+      }; domain=${process.env.HITSAVE_WEB_HOST}`,
     };
 
     if (!clientLoopbackUrl) {
