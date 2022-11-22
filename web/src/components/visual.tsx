@@ -44,12 +44,20 @@ interface Plotly {
   value: string;
 }
 
+interface Image {
+  __kind__: "image";
+  digest: string;
+  content_length: number;
+  mime_type: string;
+}
+
 export type VisualObject =
   | Html
   | Opaque
   | Basic
   | Plotly
   | Blob
+  | Image
   | number
   | string
   | boolean
@@ -171,6 +179,12 @@ export function Show(props: { o: VisualObject; depth?: number }) {
     return React.createElement(o.tag, o.attrs, ...children);
   } else if (o.__kind__ === "blob") {
     throw "blob visualisations not implemented";
+  } else if (o.__kind__ === "image") {
+    const src = `https://api.hitsave.io/blob/${o.digest}`;
+    /* Need to use object instead of image so that we can dynamically set the mime type.
+       The blob server doesn't know about mime types.
+       As a side effect, this also means we can show other things like pdfs. */
+    return <object type={o.mime_type} data={src} />;
   } else {
     throw "not implemented";
   }
