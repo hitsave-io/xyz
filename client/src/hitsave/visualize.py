@@ -1,10 +1,13 @@
-from dataclasses import fields, is_dataclass
+from dataclasses import dataclass, field, fields, is_dataclass
 from enum import Enum
 from functools import partial, singledispatch
 from itertools import islice
 from hitsave.console import logger
 from typing import List, Dict, Any
 from dataclasses import dataclass
+from typing import Optional
+from hitsave.blobstore import BlobStore
+
 
 """ This file contains the 'visualisation encoding' of python values.
 These are used to make visualisations that our experiment explorer can show.
@@ -182,6 +185,32 @@ def _viz_dict(x: dict, rec):
         }
 
 
+@dataclass
+class Svg:
+    """Use this class to create svg images that can be visualised on the HitSave dashboard."""
+
+    svg: str
+    label: Optional[str] = field(default=None)
+
+    def __visualize__(self):
+        blobstore = BlobStore.current()
+
+        s = self.svg
+        if not s.startswith("<?xml"):
+            s = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>' + s
+        info = blobstore.add_blob(
+            s.encode("utf-8"), label=self.label or "visualisation svg"
+        )
+        blobstore.push_blob(info.digest)
+        return {
+            **init(self),
+            "__kind__": Kind.image.value,
+            "mime_type": "image/svg+xml",
+            "digest": info.digest,
+            "content_length": info.content_length,
+        }
+
+
 try:
     import plotly.io
     import plotly.graph_objects as go
@@ -204,6 +233,19 @@ try:
     def _viz_nparray(x: np.ndarray, rec):
         # [todo] make fancy
         return repr(x)[:256]
+
+except ModuleNotFoundError:
+    pass
+
+try:
+    # [todo] in these, we need to also assert that it is the PyPI module
+    # and not a user-module with the same name.
+    import chess.svg
+    from chess import Board
+
+    @visualize.register(Board)
+    def _viz_board(board: Board):
+        return Svg(chess.svg.board(board))
 
 except ModuleNotFoundError:
     pass
