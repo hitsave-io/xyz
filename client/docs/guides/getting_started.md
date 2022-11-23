@@ -1,6 +1,5 @@
 (getting_started)=
-
-# Getting Started
+# How HitSave Works
 
 ## Prerequisites
 
@@ -36,7 +35,7 @@ With this abstraction, HitSave enables you to persistently memoize
 long-running functions, and avoid manually saving intermediate results to
 persistent disk storage.
 
-For a concrete example, imagine you are ingesting a large dataset
+For example, imagine you are ingesting a large dataset
 through an ETL pipeline. Instead of using Python's native file API to save
 the state of your dataset to your local machine at each step, you can
 instead use `@memo` to persist the dataset to a managed local cache, as
@@ -46,6 +45,7 @@ ETL pipeline, there's no need to reload the previous step's output as a
 starting point: simply running the whole pipeline again will have the
 effect of immediately picking up from the latest unchanged step and
 calculating the new results.
+Because HitSave is on the cloud, this works even if earlier steps were run on different computers!
 
 ### [`@experiment`](hitsave.experiment)
 
@@ -100,10 +100,10 @@ Here's what happens:
 - You train the model for a number of epochs and calculate the accuracy
   performance on the test dataset at the end of each epoch.
 - Along the way, you append the accuracy data to a writer (e.g.
-  something like a Tensorboard log)
+  something like a Tensorboard log).
 - At the end, you construct a figure, plotting the accuracy at each
-  epoch
-- Finally, you return the model and the figure
+  epoch.
+- Finally, you return the model and the figure.
 
 Now, when you visit the [cloud experiment tracker](https://hitsave.io/dashboard/experiments)
 you'll see a row in the table displaying the experiment you ran. It
@@ -117,7 +117,7 @@ the same execution session by nesting it in a for-loop - for example to
 perform a hyperparameter sweep. Best of all, if you rerun the function
 with the same parameters as a previous run, you'll get the output
 instantaneously from the cache (well, at least as quickly as your
-computer can download it from the cloud or local cache).
+computer can download it from the cloud or local disk).
 
 In the future, we're going to make it possible to share caches and
 experiments among team members, as well as allowing you to directly
@@ -131,13 +131,12 @@ whether the function is a good target for other forms of caching such as
 `lru_cache`. Here are some considerations for whether a function can be useful
 for saving:
 
-- The function takes a long time to run. If the function was fast, it's hardly
+- Does the function takes a long time to run? If the function is fast, it's hardly
   worth the overhead of hashing arguments and downloading the saved value.
 - Are the arguments to the function easy to hash? If you pass a huge tensor to
   the function, HitSave will have to hash the entire object before it can
   determine if the function is already hashed.
-- The output of the function is used in multiple places.
-- The function doesn't cause [side-effects](<https://en.wikipedia.org/wiki/Side_effect_(computer_science)>).
+- Does the function cause [side-effects](<https://en.wikipedia.org/wiki/Side_effect_(computer_science)>)?
   A side-effect is a change that the function makes to the environment
   that isn't in the function's return value. Examples are: modifying
   a global value, or changing a file on disk.
