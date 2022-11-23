@@ -9,10 +9,7 @@
 
    guides/installation
    guides/getting_started
-   guides/datasets
-   guides/ml
    guides/files
-   guides/customise
 
 .. toctree::
    :maxdepth: 1
@@ -37,8 +34,8 @@ to granularly version your code _and_ data. This saves your team valuable develo
 and compute resources, as well as giving you experiment management out of the box
 with no additional work.
 
-HitSave is currently in beta. We're working towards delivering a long roadmap 
-of features, culminating in full execution orchestration for large, 
+HitSave is currently in beta. We're working towards delivering a roadmap 
+of exciting features, culminating in full execution orchestration for large, 
 computationally-intensive projects. For now, HitSave offers the following early 
 feature set.
 
