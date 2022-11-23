@@ -2,7 +2,7 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import IO, Optional, Tuple
+from typing import IO, Optional, Tuple, Union
 from hitsave.config import Config, no_cloud, no_local
 from hitsave.console import tape_progress, user_info
 from hitsave.session import Session
@@ -293,7 +293,17 @@ class BlobStore(Current):
         self.touch(digest)
         return tape
 
-    def add_blob(
+    def add_blob(self, item: Union[str, bytes, IO[bytes]], **kwargs) -> BlobInfo:
+        """Creates a new binary blob from the given readable, seekable ``tape`` IO stream."""
+        if isinstance(item, str):
+            item = item.encode("utf-8")
+        if isinstance(item, bytes):
+            with io.BytesIO(item) as tape:
+                return self._add_blob_core(tape, **kwargs)
+        else:
+            return self._add_blob_core(item, **kwargs)
+
+    def _add_blob_core(
         self, tape: IO[bytes], digest=None, content_length=None, label=None
     ) -> BlobInfo:
         """Creates a new binary blob from the given readable, seekable ``tape`` IO stream."""
