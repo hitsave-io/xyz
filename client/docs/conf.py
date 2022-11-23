@@ -6,7 +6,7 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "hitsave"
+project = "HitSave"
 copyright = "2022, hitsave.io"
 author = "hitsave.io"
 
@@ -22,5 +22,9 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = "sphinx_book_theme"
+# html_theme = "sphinx_book_theme"
+html_theme = "hitsave_theme"
+html_theme_path = ["_themes"]
+html_favicon = "../../web/public/favicon.ico"
 html_static_path = ["_static"]
+html_css_files = ["css/custom.css"]
