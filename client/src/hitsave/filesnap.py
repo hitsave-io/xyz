@@ -70,7 +70,7 @@ class FileSnapshot:
         """Open the snapshot in read mode. (writing to a snapshot is not allowed.)"""
         return BlobStore.current().open_blob(digest=self.digest)
 
-    def restore_at(self, path: Path, overwrite=True) -> Path:
+    def restore_at(self, path: Path, overwrite: Optional[bool] = None) -> Path:
         """Restore the file at the given path. Returns the path of the restored file.
         If the given path is a directory, the file will be stored in the directory with the file's given basename.
         Otherwise the file will be saved at the exact path.
@@ -96,18 +96,26 @@ class FileSnapshot:
             logger.warn(f"restore over a symlink not implemented. {path}")
             pass
         if path.exists():
-            if not overwrite:
-                raise FileExistsError(f"Refusing to restore: would overwrite {path}.")
+            if overwrite is False:
+                raise FileExistsError(
+                    f"Refusing to restore: would overwrite {path} and overwrite is set to False."
+                )
             else:
                 # [todo] this can cause damage, we should make a new snapshot of this file so that we don't lose data.
-                logger.info(
-                    f"file {path} already exists, replacing with a symlink to {self.local_cache_path}"
-                )
+                if overwrite is None:
+                    logger.warn(
+                        f"File {path} already exists, replacing with a symlink to {self.local_cache_path}.",
+                        f"To suppress this warning, explicitly pass overwrite=True to restore().",
+                    )
+                else:
+                    assert overwrite is True
+                path.unlink()
+
         self.download()
         path.symlink_to(self.local_cache_path)
         return path
 
-    def restore(self, overwrite=True, project_path=None) -> Path:
+    def restore(self, overwrite: Optional[bool] = None, project_path=None) -> Path:
         """Write the snapshot back to its original location (given by relpath).
         Returns the absolute path of the file that was restored."""
         if not self.has_local_cache:

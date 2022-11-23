@@ -76,6 +76,10 @@ class Symbol:
         if self.module_name == "__main__":
             m = sys.modules.get("__main__")
             assert m is not None
+            if not hasattr(m, "__file__"):
+                # this happens in an interactive session.
+                # [todo] support for using hitsave in a python repl is not implemented yet.
+                return "interactive"
             mf = getattr(m, "__file__")
             assert isinstance(mf, str)
             module = module_name_of_file(mf)
