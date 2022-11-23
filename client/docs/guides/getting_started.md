@@ -1,3 +1,4 @@
+(getting_started)=
 # Getting Started
 
 Step one: [install HitSave](installation).

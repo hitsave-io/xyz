@@ -1,24 +1,9 @@
 # Installation
 
-### Installation with PyPI (recommended)
-
-[todo] submit to pypi
+## Installation with PyPI (recommended)
 
 ```sh
 pip install hitsave
-```
-
-### Installation from source
-
-```sh
-cd $MY_PROJECTS
-git clone git@github.com:hitsave-io/hitsave.git
-```
-
-Then, you can install HitSave using pip.
-
-```sh
-pip install -e $MY_PROJECTS/hitsave
 ```
 
 ## Creating an API key
@@ -31,5 +16,6 @@ To generate an API key from your terminal, use
 hitsave keygen
 ```
 
-It will then prompt you to sign in with github, generate an API key and then
-offer to place the key in your zshenv file.
+It will then prompt you to sign in with github, generate an API key and add it to the HitSave config file.
+
+Next: [Getting Started](getting_started)
