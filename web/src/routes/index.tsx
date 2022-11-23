@@ -21,12 +21,12 @@ export function links() {
 
 export function meta() {
   return {
-    title: "HitSave - Instant caching for your data pipeline.",
-    "og:title": "HitSave - Instant caching for your data pipeline.",
+    title: "HitSave - Effortless data.",
+    "og:title": "HitSave - Effortless data.",
     description:
-      "Automatically and intelligently cache long running, computationally intensive or time consuming functions with a single import and a decorator.",
+      "Optimize your team's workflow with cloud memoization, experiment tracking and effortless data versioning.",
     "og:description":
-      "Automatically and intelligently cache long running, computationally intensive or time consuming functions with a single import and a decorator.",
+      "Optimize your team's workflow with cloud memoization, experiment tracking and effortless data versioning.",
     "og:image:url": hitsaveLogo,
     "og:image:alt": "HitSave",
   };
