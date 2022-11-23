@@ -4,12 +4,6 @@ import clsx from "clsx";
 
 import { Button } from "~/components/Button";
 import { Container } from "~/components/Container";
-import logoLaravel from "~/images/logos/laravel.svg";
-import logoMirage from "~/images/logos/mirage.svg";
-import logoStatamic from "~/images/logos/statamic.svg";
-import logoStaticKit from "~/images/logos/statickit.svg";
-import logoTransistor from "~/images/logos/transistor.svg";
-import logoTuple from "~/images/logos/tuple.svg";
 import hitsaveLogo from "~/images/hitsave_logo.svg";
 import { CodeAnim } from "../CodeAnim";
 
@@ -41,14 +35,13 @@ export const Hero: React.FC<HeroProps> = ({ formData }) => {
 
   return (
     <Container className="pt-20 pb-16 text-center lg:pt-32">
-      <img className="mx-auto mb-4" src={hitsaveLogo} />
-      <h1 className="mx-auto max-w-4xl font-mono text-lg font-bold tracking-tight text-slate-900">
-        Instant caching for your data pipeline.
+      <img className="mx-auto" src={hitsaveLogo} />
+      <h1 className="mx-auto mt-8 max-w-4xl font-mono text-lg font-bold tracking-tight text-slate-900">
+        Effortless data.
       </h1>
       <p className="mx-auto mt-6 max-w-2xl text-lg tracking-tight text-slate-700">
-        Automatically and intelligently cache long running, computationally
-        intensive or time consuming functions with a single import and a
-        decorator.
+        Optimize your team's workflow with cloud memoization, <br />
+        experiment tracking and effortless data versioning.
       </p>
       {waitlist === "message" ? (
         <p className="my-10 h-10 flex justify-center items-center font-semibold text-brand">
@@ -98,7 +91,7 @@ export const Hero: React.FC<HeroProps> = ({ formData }) => {
       <div className="mx-auto mt-4 max-w-2xl text-lg md:text-xl">
         <CodeAnim />
       </div>
-      <div className="mt-36 lg:mt-44">
+      {/*<div className="mt-36 lg:mt-44">
         <p className="font-display text-base text-slate-900">
           Trusted by these companies so far
         </p>
@@ -132,7 +125,7 @@ export const Hero: React.FC<HeroProps> = ({ formData }) => {
             </li>
           ))}
         </ul>
-      </div>
+      </div>*/}
     </Container>
   );
 };

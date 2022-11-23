@@ -12,6 +12,8 @@ import { API } from "~/api";
 import styles from "~/components/CodeAnim/styles.css";
 import { getUser, hasUnexpiredJwt } from "~/session.server";
 import { Footer } from "~/components/Footer";
+import { SecondaryFeatures } from "~/components/landing/SecondaryFeatures";
+import { CallToAction } from "~/components/landing/CallToAction";
 
 export function links() {
   return [{ rel: "stylesheet", href: styles }];
@@ -104,7 +106,9 @@ export default function Home() {
       <main>
         <Hero formData={formData} />
         <PrimaryFeatures />
-        <Pricing />
+        <SecondaryFeatures />
+        <CallToAction signInUrl={signInUrl} />
+        <Pricing signInUrl={signInUrl} />
         {/*<SecondaryFeatures />
         <CallToAction />
         <Testimonials />
