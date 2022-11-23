@@ -136,7 +136,7 @@ export function Show(props: { o: VisualObject; depth?: number }) {
     if (isTruncated) {
       items.push(<span>...</span>);
     }
-    return <span>[{interlace(items, <>, </>)}]</span>;
+    return <span>[{interlace(cs, <>, </>)}]</span>;
   } else if (isDict(o) || o.__kind__ === "object") {
     // [todo] should pretty print on multiple lines if there is space.
     const isTruncated = !!o.__truncated__;

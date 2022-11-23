@@ -84,7 +84,10 @@ def run_deephash(item, hasher):
     hasher.update(_to_bytes_str(type(item).__name__))
     hasher.update(b"(")
     if hasattr(item, "__deephash__"):
+        # [todo] make sure that this is not being invoked as a classmethod
         item.__deephash__(hasher)
+        hasher.update(b')')
+        return
     bs = to_bytes(item)
     if bs is not NotImplemented:
         hasher.update(bs)

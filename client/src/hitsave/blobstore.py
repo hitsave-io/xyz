@@ -275,8 +275,6 @@ class BlobStore(Current):
     ) -> BlobInfo:
         """Creates a new binary blob from the given readable, seekable ``tape`` IO stream."""
         # [todo] can add any json metadata to blob
-        assert tape.seekable()
-        assert tape.readable()
         if no_local():
             return self.cloud.add_blob(
                 tape, digest=digest, content_length=content_length, label=label

@@ -97,7 +97,7 @@ def visualize_rec(item, max_depth=None):
     x = visualize(item)
     if isinstance(x, dict):
         return {k: r(v) for k, v in x.items()}
-    elif isinstance(x, list):
+    elif isinstance(x, (list, tuple)):
         return list(map(r, x))
     else:
         return x
@@ -127,6 +127,7 @@ visualize.register(int)(ident)
 visualize.register(float)(ident)
 visualize.register(bool)(ident)
 visualize.register(list)(ident)
+visualize.register(tuple)(ident)
 visualize.register(dict)(ident)
 # [todo] maybe if it's too long then truncate?
 visualize.register(str)(ident)
