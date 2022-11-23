@@ -14,8 +14,6 @@ author = "hitsave.io"
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = ["myst_parser", "sphinx.ext.autodoc"]
-
-templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 
@@ -23,6 +21,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 # html_theme = "sphinx_book_theme"
+html_title = "HitSave Docs"
 html_theme = "hitsave_theme"
 html_theme_path = ["_themes"]
 html_favicon = "../../web/public/favicon.ico"

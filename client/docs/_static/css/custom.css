@@ -1,3 +1,4 @@
 :root {
-  --pst-font-family-heading: Lexend;
+  --pst-font-family-base: Inter, var(--pst-font-family-base-system);
+  --pst-font-family-heading: Lexend, var(--pst-font-family-base);
 }
