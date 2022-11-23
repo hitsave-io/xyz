@@ -1,8 +1,12 @@
 import clsx from "clsx";
-import { useState } from "react";
+import * as React from "react";
 
 import { Button } from "~/components/Button";
 import { Container } from "~/components/Container";
+
+import { CheckIcon } from "@heroicons/react/20/solid";
+
+const { useState } = React;
 
 interface Price {
   dollars?: number;
@@ -24,10 +28,10 @@ interface Tier {
 
 const tiers: Tier[] = [
   {
-    featured: false,
+    featured: true,
     name: "Community",
-    priceMonthly: { text: "Free" },
-    priceYearly: { text: "Free" },
+    priceMonthly: { text: "Free beta" },
+    priceYearly: { text: "Free beta" },
     description: "The free version of HitSave. Perfect for trying it out.",
     href: "#",
     buttonText: "Get Started",
@@ -41,10 +45,10 @@ const tiers: Tier[] = [
     ],
   },
   {
-    featured: true,
+    featured: false,
     name: "Pro",
-    priceMonthly: { dollars: 50, unit: "/user /mo" },
-    priceYearly: { dollars: 550, unit: "/user /yr" },
+    priceMonthly: { text: "Coming soon" },
+    priceYearly: { text: "Coming soon" },
     description: "Great for individuals and academics.",
     href: "#",
     buttonText: "Get Started",
@@ -64,11 +68,11 @@ const tiers: Tier[] = [
   {
     featured: false,
     name: "Team",
-    priceMonthly: { dollars: 150, unit: "/user /mo" },
-    priceYearly: { dollars: 150 * 11, unit: "/user /yr" },
+    priceMonthly: { text: "Coming soon" },
+    priceYearly: { text: "Coming soon" },
     description: "The full-featured version of HitSave, for data teams.",
     href: "#",
-    buttonText: "Try 14 days free",
+    buttonText: "Get Started",
     featureText: (
       <span>
         Everything in <strong>Pro</strong>, plus:
@@ -79,11 +83,11 @@ const tiers: Tier[] = [
   {
     featured: false,
     name: "Enterprise",
-    priceMonthly: { text: "Custom" },
-    priceYearly: { text: "Custom" },
+    priceMonthly: { text: "Coming soon" },
+    priceYearly: { text: "Coming soon" },
     description: "For large organisations with bespoke requirements.",
     href: "#",
-    buttonText: "Contact us",
+    buttonText: "Get Started",
     featureText: (
       <span>
         Everything in <strong>Team</strong>, plus:
@@ -92,32 +96,6 @@ const tiers: Tier[] = [
     includedFeatures: ["Private cloud deployment", "Priority support SLAs"],
   },
 ];
-
-function CheckIcon({ className }: { className: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className={clsx(
-        "h-6 w-6 flex-none fill-current stroke-current",
-        className
-      )}
-    >
-      <path
-        d="M9.307 12.248a.75.75 0 1 0-1.114 1.004l1.114-1.004ZM11 15.25l-.557.502a.75.75 0 0 0 1.15-.043L11 15.25Zm4.844-5.041a.75.75 0 0 0-1.188-.918l1.188.918Zm-7.651 3.043 2.25 2.5 1.114-1.004-2.25-2.5-1.114 1.004Zm3.4 2.457 4.25-5.5-1.187-.918-4.25 5.5 1.188.918Z"
-        strokeWidth={0}
-      />
-      <circle
-        cx={12}
-        cy={12}
-        r={8.25}
-        fill="none"
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 interface PriceProps {
   price: Price;
@@ -137,14 +115,18 @@ const Price: React.FC<PriceProps> = ({ price }) => {
     );
   } else {
     return (
-      <span className="text-4xl font-bold tracking-tight text-gray-900">
+      <span className="text-2xl font-bold tracking-tight text-gray-900">
         {price.text}
       </span>
     );
   }
 };
 
-export function Pricing() {
+interface PricingProps {
+  signInUrl: string;
+}
+
+export const Pricing: React.FC<PricingProps> = ({ signInUrl }) => {
   const [showYearly, setShowYearly] = useState(false);
   return (
     <section id="pricing" aria-label="Pricing" className="bg-white">
@@ -154,8 +136,14 @@ export function Pricing() {
             <h1 className="text-5xl font-bold tracking-tight text-gray-900 sm:text-center">
               Pricing Plans
             </h1>
-            <p className="mt-5 text-xl text-gray-500 sm:text-center"></p>
-            <div className="relative mt-6 flex self-center rounded-lg bg-gray-100 p-0.5 sm:mt-8">
+            <p className="mt-5 text-xl text-gray-500 sm:text-center">
+              HitSave is currently in{" "}
+              <strong className="text-brand">beta</strong>, and we're not
+              charging for users to sample the current version free for small
+              projects. <br />
+              Let us know what you think!
+            </p>
+            {/*<div className="relative mt-6 flex self-center rounded-lg bg-gray-100 p-0.5 sm:mt-8">
               <button
                 type="button"
                 onClick={() => setShowYearly(false)}
@@ -178,7 +166,7 @@ export function Pricing() {
               >
                 Yearly billing
               </button>
-            </div>
+            </div>*/}
           </div>
           <div className="mt-12 space-y-4 sm:mt-16 sm:grid sm:grid-cols-2 sm:gap-6 sm:space-y-0 lg:mx-auto lg:max-w-4xl xl:mx-0 xl:max-w-none xl:grid-cols-4">
             {tiers.map((tier) => (
@@ -202,7 +190,8 @@ export function Pricing() {
                     />
                   </p>
                   <Button
-                    href={tier.href}
+                    href={signInUrl}
+                    external
                     className={clsx(
                       tier.featured
                         ? "bg-brand border-brand hover:bg-red-500"
@@ -236,4 +225,4 @@ export function Pricing() {
       </Container>
     </section>
   );
-}
+};

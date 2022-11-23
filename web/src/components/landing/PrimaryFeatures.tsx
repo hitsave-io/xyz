@@ -4,36 +4,46 @@ import clsx from "clsx";
 
 import { Container } from "~/components/Container";
 import backgroundImage from "~/images/background-features.jpg";
-import screenshotExpenses from "~/images/screenshots/expenses.png";
+import screenshotExperimentTracker from "~/images/screenshots/experiment-tracking.png";
+import screenshotCodeVersioning from "~/images/screenshots/granular-code-versioning.png";
+import screenshotCloudMemoization from "~/images/screenshots/cloud-memoization.png";
 import screenshotPayroll from "~/images/screenshots/payroll.png";
 import screenshotReporting from "~/images/screenshots/reporting.png";
 import screenshotVatReturns from "~/images/screenshots/vat-returns.png";
 
 const features = [
   {
-    title: "Memoization",
+    title: "Cloud Memoization",
+    description: (
+      <span>
+        HitSave’s core mechanic is simple: memoized functions. Think{" "}
+        <code>@lru_cache</code>, but persistent and anywhere.
+      </span>
+    ),
+    image: screenshotCloudMemoization,
+    comingSoon: false,
+  },
+  {
+    title: "Granular Code Versioning",
     description:
-      "Keep track of everyone's salaries and whether or not they've been paid. Direct deposit not supported.",
-    image: screenshotPayroll,
+      "Advanced static analysis tracks exactly what your code depends on. The memoization invalidates only when a dependency is edited.",
+    image: screenshotCodeVersioning,
+    comingSoon: false,
   },
   {
     title: "Experiment Tracking",
     description:
-      "All of your receipts organized into one place, as long as you don't mind typing in the data by hand.",
-    image: screenshotExpenses,
+      "View all your experiments in one place. You have full control over how you visualize results and logs.",
+    image: screenshotExperimentTracker,
+    comingSoon: false,
   },
-  {
-    title: "Artifact Management",
-    description:
-      "We only sell our software to companies who don't deal with VAT at all, so technically we do all the VAT stuff they need.",
-    image: screenshotVatReturns,
-  },
-  {
-    title: "Time Travel",
-    description:
-      "Easily export your data into an Excel spreadsheet where you can do whatever the hell you want with it.",
-    image: screenshotReporting,
-  },
+  // {
+  //   title: "Time Travel",
+  //   description:
+  //     "We save your code exactly as it ran, without you doing a thing. Restore any experiment at the click of a button: no more reproducibility nightmares.",
+  //   image: screenshotReporting,
+  //   comingSoon: true,
+  // },
 ];
 
 export function PrimaryFeatures() {
@@ -42,7 +52,7 @@ export function PrimaryFeatures() {
   useEffect(() => {
     let lgMediaQuery = window.matchMedia("(min-width: 1024px)");
 
-    function onMediaQueryChange({ matches }) {
+    function onMediaQueryChange({ matches }: any) {
       setTabOrientation(matches ? "vertical" : "horizontal");
     }
 
@@ -57,18 +67,14 @@ export function PrimaryFeatures() {
   return (
     <section
       id="features"
-      aria-label="Features for running your books"
+      aria-label="A powerfully simple system for your data."
       className="relative overflow-hidden bg-brand pt-20 pb-28 sm:py-32"
     >
       <Container className="relative">
         <div className="max-w-2xl md:mx-auto md:text-center xl:max-w-none">
           <h2 className="font-display text-3xl tracking-tight text-white sm:text-4xl md:text-5xl">
-            Everything you need to cache your functions.
+            A powerfully simple system for your data.
           </h2>
-          <p className="mt-6 text-lg tracking-tight text-blue-100">
-            Well everything you need if you aren’t that picky about minor
-            details like tax compliance.
-          </p>
         </div>
         <Tab.Group
           as="div"

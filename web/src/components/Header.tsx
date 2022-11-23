@@ -101,15 +101,22 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
             as="div"
             className="absolute inset-x-0 top-full mt-4 flex origin-top flex-col rounded-2xl bg-white p-4 text-lg tracking-tight text-slate-900 shadow-xl ring-1 ring-slate-900/5"
           >
-            {user && (
-              <MobileNavLink href="/dashboard/experiments">
-                Dashboard
-              </MobileNavLink>
-            )}
             <MobileNavLink href="#features">Why HitSave?</MobileNavLink>
-            <MobileNavLink href="#testimonials">Getting Started</MobileNavLink>
-            <MobileNavLink href="#pricing">Examples</MobileNavLink>
-            <MobileNavLink href="#pricing">Docs</MobileNavLink>
+            <MobileNavLink
+              external
+              href="https://docs.hitsave.io/guides/getting_started.html"
+            >
+              Getting Started
+            </MobileNavLink>
+            <MobileNavLink
+              external
+              href="https://docs.hitsave.io/guides/tutorials.html"
+            >
+              Tutorials
+            </MobileNavLink>
+            <MobileNavLink external href="https://docs.hitsave.io/">
+              Docs
+            </MobileNavLink>
             <MobileNavLink href="#pricing">Pricing</MobileNavLink>
             <hr className="m-2 border-slate-300/40" />
             {!user && (
@@ -145,22 +152,27 @@ export const Header: React.FC<HeaderProps> = ({ user, signInUrl }) => {
             </Link>
             <div className="hidden md:flex lg:gap-x-6">
               <NavLink href="#features">Why HitSave?</NavLink>
-              <NavLink href="#testimonials">Getting Started</NavLink>
-              <NavLink href="#testimonials">Examples</NavLink>
-              <NavLink href="#testimonials">Docs</NavLink>
+              <NavLink
+                external
+                href="https://docs.hitsave.io/guides/getting_started.html"
+              >
+                Getting Started
+              </NavLink>
+              <NavLink
+                external
+                href="https://docs.hitsave.io/guides/tutorials.html"
+              >
+                Tutorials
+              </NavLink>
+              <NavLink external href="https://docs.hitsave.io/">
+                Docs
+              </NavLink>
               <NavLink href="#pricing">Pricing</NavLink>
             </div>
           </div>
           <div className="flex items-center gap-x-2 md:gap-x-3">
-            <div className="hidden md:block">
-              {!user && (
-                <NavLink href={signInUrl} external>
-                  Sign in
-                </NavLink>
-              )}
-            </div>
             {!user ? (
-              <Button href="/register" color="blue">
+              <Button href={signInUrl} external color="brand">
                 Get started
               </Button>
             ) : (
@@ -168,7 +180,7 @@ export const Header: React.FC<HeaderProps> = ({ user, signInUrl }) => {
                 <Button
                   className="hidden md:flex"
                   href="/dashboard/experiments"
-                  color="blue"
+                  color="brand"
                 >
                   Dashboard
                 </Button>

@@ -102,16 +102,21 @@ const highlighter = tagHighlighter([
   { tag: t.definition(t.meta), class: "decorator" },
 ]);
 
-const codeString = `def dependency(y):
-  # try changing the method body!
-  return y + y
+const codeString = `lr = 0.01
+batch_size = 100
 
-def long_running_function(x):
-  print f"Running {x}!"
-  return x + 2 + dependency(x)
+def test():
+    model = train(100)
+    accuracy = evaluate(model, test_data)
+    return accuracy
 
-long_running_function(3)
-long_running_function(4)`;
+def train(epochs):
+    model = RCNN(lr, batch_size)
+    model.train(epochs, train_data)
+    return model
+    
+model = train()
+print(test(model))`;
 
 const codeFactory: (init: string, setState: any) => Code = (init, setState) => {
   return new Code(init, setState)
@@ -121,19 +126,39 @@ const codeFactory: (init: string, setState: any) => Code = (init, setState) => {
       `
 
 `,
-      150
+      250
     )
     .setCursor(0)
-    .typeLine(`from hitsave import memo`, 125)
-    .setCursor(95)
+    .typeLine(`from hitsave import experiment, memo`, 100)
+    .setCursor(65)
     .typeLine(
       `
 `,
       125
     )
+    .wait(750)
+    .setCursor(66)
+    .typeLine(`@experiment`, 100)
     .wait(1500)
-    .setCursor(95)
-    .typeLine(`@memo`, 125);
+    .setCursor(175)
+    .typeLine(
+      `
+`,
+      125
+    )
+    .wait(750)
+    .setCursor(176)
+    .typeLine(`@memo`, 100)
+    .wait(1500)
+    .setCursor(37)
+    .typeLine(
+      `
+`,
+      100
+    )
+    .wait(750)
+    .setCursor(38)
+    .typeLine(`# Run some different experiments!!`, 100);
 };
 
 export const CodeAnim: React.FC = () => {
