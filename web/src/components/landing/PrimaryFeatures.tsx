@@ -3,13 +3,9 @@ import { Tab } from "@headlessui/react";
 import clsx from "clsx";
 
 import { Container } from "~/components/Container";
-import backgroundImage from "~/images/background-features.jpg";
 import screenshotExperimentTracker from "~/images/screenshots/experiment-tracking.png";
 import screenshotCodeVersioning from "~/images/screenshots/granular-code-versioning.png";
 import screenshotCloudMemoization from "~/images/screenshots/cloud-memoization.png";
-import screenshotPayroll from "~/images/screenshots/payroll.png";
-import screenshotReporting from "~/images/screenshots/reporting.png";
-import screenshotVatReturns from "~/images/screenshots/vat-returns.png";
 
 const features = [
   {
