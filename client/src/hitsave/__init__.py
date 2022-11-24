@@ -14,7 +14,7 @@ __all__ = [
     "DirectorySnapshot",
     "__version__",
     "experiment",
-    "restore"
+    "restore",
 ]
 
 try:
