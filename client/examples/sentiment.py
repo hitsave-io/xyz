@@ -128,8 +128,6 @@ vocab = make_vocab()
 # -----------------
 #
 
-train_dataset = to_map_style_dataset(load_dataset("train"))
-test_dataset = to_map_style_dataset(load_dataset("test"))
 text_pipeline = lambda x: vocab(tokenizer(x))
 
 
@@ -148,12 +146,14 @@ def collate_batch(batch):
 
 BATCH_SIZE = 64  # batch size for training
 
-train_dataloader = DataLoader(
-    train_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch
-)
-test_dataloader = DataLoader(
-    test_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch
-)
+
+@memo
+def create_dataloader(split: Split):
+    dataset = to_map_style_dataset(load_dataset(split))
+    return DataLoader(
+        dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch
+    )
+
 
 #%%
 # Defining the model
@@ -236,6 +236,8 @@ def train_model():
     optimizer = torch.optim.SGD(model.parameters(), lr=LR)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.1)
     total_accu = None
+    train_dataloader = create_dataloader("train")
+    test_dataloader = create_dataloader("test")
 
     for epoch in range(1, EPOCHS + 1):
         epoch_start_time = time.time()
@@ -267,6 +269,7 @@ def train_model():
 @experiment
 def test():
     model = train_model()
+    test_dataloader = create_dataloader("test")
 
     print("Checking the results of test dataset.")
     results = evaluate(test_dataloader, model)
