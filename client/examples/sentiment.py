@@ -53,15 +53,9 @@ from torchtext.vocab import build_vocab_from_iterator, Vocab
 from torch import nn
 from torchtext.data.functional import to_map_style_dataset
 
-device = torch.device(
-    "cuda"
-    if torch.cuda.is_available()
-    else ("mps" if torch.backends.mps.is_available() else "cpu")
-)
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 from hitsave import experiment, FileSnapshot, memo, restore
-
 
 #%%
 # Loading the data.
@@ -75,13 +69,6 @@ from hitsave import experiment, FileSnapshot, memo, restore
 #
 # You can download the original dataset from `Xiang Zhang's Google Drive <drive_>`_ (amazon_review_polarity_csv.tar.gz).
 # However, we are using HitSave and so we can use HitSave's snapshot-restore feature.
-
-""" Our pipeline consists of the following steps:
-
-
-
-"""
-
 
 Split = Literal["test", "train"]
 digests = {
@@ -103,7 +90,7 @@ def load_dataset(split: Split) -> List[Tuple[int, str]]:
             (int(rating) - 1, title + ": " + body)
             for rating, title, body in csv.reader(f, delimiter=",")
         ]
-        return items
+        return items[:1000]
 
 
 load_dataset("test")[:10]
@@ -193,7 +180,7 @@ class TextClassificationModel(nn.Module):
         return self.fc(embedded)
 
 
-EPOCHS = 1  # epoch
+EPOCHS = 1
 LR = 5  # learning rate
 num_class = 2
 vocab_size = len(vocab)
@@ -201,7 +188,7 @@ emsize = 64
 criterion = torch.nn.CrossEntropyLoss()
 
 
-def train(dataloader, model):
+def train_epoch(dataloader, model, optimizer, epoch):
     model.train()
     total_acc, total_count = 0, 0
     log_interval = 500
@@ -232,7 +219,6 @@ def evaluate(dataloader, model):
     model.eval()
     total_acc, total_count = 0, 0
     total_loss = 0.0
-
     with torch.no_grad():
         for _, (label, text, offsets) in enumerate(dataloader):
             predicted_label = model(text, offsets)
@@ -244,7 +230,7 @@ def evaluate(dataloader, model):
 
 
 @experiment
-def run():
+def train_model():
     model = TextClassificationModel(vocab_size, emsize, num_class).to(device)
 
     optimizer = torch.optim.SGD(model.parameters(), lr=LR)
@@ -253,8 +239,11 @@ def run():
 
     for epoch in range(1, EPOCHS + 1):
         epoch_start_time = time.time()
-        train(train_dataloader, model)
-        accu_val = evaluate(valid_dataloader)
+        train_epoch(train_dataloader, model, optimizer, epoch)
+        ev = evaluate(
+            test_dataloader, model
+        )  # [todo] this is naughty, use a validation split
+        accu_val = ev["acc"]
         if total_accu is not None and total_accu > accu_val:
             scheduler.step()
         else:
@@ -268,11 +257,21 @@ def run():
         )
         print("-" * 59)
 
+    return model
 
-print("Checking the results of test dataset.")
-accu_test = evaluate(test_dataloader)
-print("test accuracy {:8.3f}".format(accu_test))
 
-if __name__ == "__main__":
-    ds = load_dataset("test")
-    print(ds[0])
+#%%
+# Now we put it all together
+
+
+@experiment
+def test():
+    model = train_model()
+
+    print("Checking the results of test dataset.")
+    results = evaluate(test_dataloader, model)
+    print("test accuracy {:8.3f}".format(results["acc"]))
+    return results
+
+
+test()
