@@ -282,3 +282,4 @@ class DirectorySnapshot:
     def upload(self):
         for file in self.files:
             file.upload()
+        # [todo] need an extra step here where we upload a blob containing the directory info.

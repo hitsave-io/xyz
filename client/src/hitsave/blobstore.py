@@ -395,3 +395,18 @@ class BlobStore(Current):
         Note that the file does not necessarily exist.
         """
         return self.local.local_file_cache_path(digest)
+
+    def restore(self, digest: str) -> Path:
+        """Pulls the blob with the given digest and returns a path to it."""
+        self.pull_blob(digest)
+        return self.local.local_file_cache_path(digest)
+
+
+def restore(digest: str) -> Path:
+    """Pull and restore the blob with the given digest.
+
+    Raises:
+      FileNotFoundError: if not a known digest.
+    """
+    # [todo] assert this looks like a hex digest.
+    return BlobStore.current().restore(digest)

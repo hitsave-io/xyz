@@ -5,6 +5,7 @@ from .util import decorate_ansi, eprint, is_interactive_terminal
 from .cli import app as main_cli
 from .config import Config, __version__
 from .filesnap import FileSnapshot, DirectorySnapshot
+from .blobstore import restore
 
 __all__ = [
     "memo",
@@ -13,6 +14,7 @@ __all__ = [
     "DirectorySnapshot",
     "__version__",
     "experiment",
+    "restore"
 ]
 
 try:
