@@ -13,14 +13,18 @@ author = "hitsave.io"
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ["myst_parser", "sphinx.ext.autodoc", "sphinx_gallery.gen_gallery"]
+extensions = [
+    "myst_parser",
+    "sphinx.ext.autodoc",
+    # "sphinx_gallery.gen_gallery"
+]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # Sphinx gallery
 # reference: https://sphinx-gallery.github.io/stable/getting_started.html
 sphinx_gallery_conf = {
-     'examples_dirs': '../examples',   # path to your example scripts
-     'gallery_dirs': 'auto_examples',  # path to where to save gallery generated output
+    "examples_dirs": "../examples",  # path to your example scripts
+    "gallery_dirs": "auto_examples",  # path to where to save gallery generated output
 }
 
 # -- Options for HTML output -------------------------------------------------

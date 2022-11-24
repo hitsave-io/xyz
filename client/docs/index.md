@@ -13,12 +13,6 @@
 
 .. toctree::
    :maxdepth: 1
-   :caption: Examples
-
-   auto_examples/sentiment
-
-.. toctree::
-   :maxdepth: 1
    :caption: API reference
 
    module/decorators
@@ -52,8 +46,8 @@ HitSave can be configured to cache your function executions to the cloud. Read t
 ### Granular code versioning
 
 HitSave uses a cache invalidation algorithm that caches both your code and your
-data. This algorithm traverses the full tree of code dependencies to ensure 
-soundness. So if your code changes, the cache invalidates. 
+data. This algorithm traverses the full tree of code dependencies to ensure
+soundness. So if your code changes, the cache invalidates.
 
 ### Experiment management
 
