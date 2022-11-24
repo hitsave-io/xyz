@@ -1,3 +1,4 @@
+(files)=
 # Working with Files
 
 When using HitSave, we recommend returning output computations directly as return values of your `@memo`ed functions.
