@@ -3,10 +3,8 @@ from enum import Enum
 from functools import partial, singledispatch
 from itertools import islice
 from json import JSONEncoder
-import logging
+from hitsave.console import logger
 
-
-logger = logging.getLogger("hitsave")
 
 """ This file contains the 'visualisation encoding' of python values.
 These are used to make visualisations that our experiment explorer can show.

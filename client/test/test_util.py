@@ -3,18 +3,11 @@ from typing import List, Optional, Union
 from hitsave.util import (
     Current,
     as_list,
-    decorate_ansi,
     human_size,
     is_optional,
     as_optional,
 )
 from pytest import raises
-
-
-def test_decorate(snapshot):
-    x = decorate_ansi("hello", bold=True, fg="blue")
-    y = "I say " + x + " to you."
-    snapshot.assert_match(y, "hello")
 
 
 def test_human_size(snapshot):

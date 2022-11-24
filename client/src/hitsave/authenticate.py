@@ -1,18 +1,12 @@
 import asyncio
-import logging
-import os.path
 from typing import Dict, Optional
 import webbrowser
 from aiohttp import web
 import aiohttp
 from hitsave.config import Config
-from hitsave.util import (
-    decorate_ansi,
-    eprint,
-    is_interactive_terminal,
-)
-
+from hitsave.console import console, is_interactive_terminal, logger
 import urllib.parse
+from pathlib import Path
 
 """ Code for connecting to auth server.
 
@@ -20,11 +14,9 @@ Todo:
     * consider removing async code, there is nothing that needs to be concurrent here.
 """
 
-logger = logging.getLogger("hitsave")
 
-
-def jwt_path():
-    return os.path.join(Config.current().local_cache_dir, "hitsave-session.jwt")
+def jwt_path() -> Path:
+    return Config.current().local_cache_dir / "hitsave-session.jwt"
 
 
 class AuthenticationError(RuntimeError):
@@ -33,7 +25,7 @@ class AuthenticationError(RuntimeError):
 
 def save_jwt(jwt: str):
     p = jwt_path()
-    if os.path.exists(p):
+    if p.exists():
         logger.debug(f"File {p} already exists, overwriting.")
     else:
         logger.debug(f"Writing authentication JWT to {p}.")
@@ -44,12 +36,17 @@ def save_jwt(jwt: str):
 def get_jwt() -> Optional[str]:
     """Gets the cached JWT. If it doesn't exist, returns none."""
     p = jwt_path()
-    if not os.path.exists(p):
+    if not p.exists():
         logger.debug(f"File {p} does not exist.")
         return None
     with open(p, "rt") as file:
         logger.debug(f"Reading JWT from {p}.")
         return file.read()
+
+
+def erase_jwt():
+    p = jwt_path()
+    p.unlink()
 
 
 async def loopback_login() -> str:
@@ -82,7 +79,8 @@ async def loopback_login() -> str:
     query_params = "&".join(
         [f"{k}={q}" for k, q in query_params.items()]
     )  # [note] this gives slightly nicer messages.
-    sign_in_url = f"https://github.com/login/oauth/authorize?{query_params}"
+    base_url = "https://github.com/login/oauth/authorize"
+    sign_in_url = f"{base_url}?{query_params}"
     # [todo] check user isn't already logged in
 
     fut = asyncio.get_running_loop().create_future()
@@ -90,7 +88,7 @@ async def loopback_login() -> str:
     async def redirected(request: web.BaseRequest):
         """Handler for the mini webserver"""
         ps = dict(request.url.query)
-        assert "jwt" in ps
+        assert "jwt" in ps, "Github redirect did not include a `jwt` param."
         fut.set_result(ps)
         return web.Response(text="")
 
@@ -101,8 +99,7 @@ async def loopback_login() -> str:
     await runner.setup()
     site = web.TCPSite(runner, "localhost", redirect_port)
     await site.start()
-    decorated = decorate_ansi(sign_in_url, fg="blue")
-    eprint("Opening", decorated)
+    console.print("Opening GitHub OAuth login...")
     webbrowser.open_new(sign_in_url)
 
     result = await fut
@@ -113,7 +110,7 @@ async def loopback_login() -> str:
     assert "jwt" in result
     jwt = result["jwt"]
     save_jwt(jwt)
-    eprint("Successfully logged in.")
+    console.print("Successfully logged in.")
     return jwt
 
 
@@ -126,14 +123,14 @@ async def generate_api_key(label: str):
     if jwt is None:
         raise AuthenticationError("User has not logged in.")
 
-    logger.info(f"Asking {cloud_url} for a new API key with label {label}.")
+    logger.debug(f"Asking {cloud_url} for a new API key with label {label}.")
     async with aiohttp.ClientSession(
         cloud_url, headers={"Authorization": f"Bearer {jwt}"}
     ) as session:
         async with session.get("/api_key/generate", params={"label": label}) as resp:
             if resp.status == 401:
                 msg = await resp.text()
-                logger.info(msg)
+                logger.debug(msg)
                 raise AuthenticationError(f"Authentication session has expired.")
             resp.raise_for_status()
             if resp.content_type == "application/json":

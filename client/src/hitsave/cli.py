@@ -5,33 +5,24 @@ from dataclasses import fields, asdict
 import asyncio
 import platform
 from enum import Enum
-import logging
 from hitsave.authenticate import (
     AuthenticationError,
     generate_api_key,
     get_jwt,
     loopback_login,
 )
+from hitsave.console import console, logger
 from hitsave.config import Config
 from hitsave.evalstore import EvalStore
 from hitsave.blobstore import BlobStore
 from hitsave.session import Session
 from hitsave.filesnap import DirectorySnapshot, FileSnapshot
-from hitsave.util import decorate_ansi, decorate_url, eprint, is_interactive_terminal
+from rich.prompt import Confirm
+
+from hitsave.console import is_interactive_terminal
 
 app = typer.Typer()
 """ Entrypoint for CLI tool. """
-
-logger = logging.getLogger("hitsave")
-# logger.setLevel(logging.DEBUG)
-
-
-@app.command()
-def serve():
-    """Runs the hitsave LSP server."""
-    from hitsave.server import main
-
-    main()
 
 
 @app.command()
@@ -46,12 +37,11 @@ async def keygen_async():
     """Interactive workflow for generating a new api key."""
     cfg = Config.current()
     if cfg.api_key is not None:
-        eprint("Warning: an API key for hitsave is already present.")
+        console.print(f"An API key for hitsave is already present.")
         if is_interactive_terminal():
-            eprint(
-                "Please press enter to confirm that you wish to generate another API key."
-            )
-            input(">")
+            r = Confirm.ask("Do you wish to generate another API key?")
+            if not r:
+                return
     label = platform.node()
 
     async def login():
@@ -67,7 +57,7 @@ async def keygen_async():
     try:
         api_key = await generate_api_key(label)
     except AuthenticationError as err:
-        eprint("Authentication session expired, please log in again:")
+        console.print("Authentication session expired, please log in again:")
         await login()
         api_key = await generate_api_key(label)
 
@@ -76,21 +66,19 @@ async def keygen_async():
         # api_key on stdout and exit.
         print(api_key)
         return
-    eprint(
+    console.print(
         "API keys are used to provide programmatic access to the HitSave cloud API.\n",
         "This API key should be stored in a secret location and not shared, as anybody\ncan use it to authenticate as you.",
-        "To revoke an API key, visit ",
-        decorate_url("https://hitsave.io/my-keys"),
+        "To revoke an API key, visit https://hitsave.io/my-keys",
         # "Otherwise, [see here]() for other ways to load your API key into the HitSave client.",
         "\n\n",
-        decorate_ansi(api_key, bold=True, fg="green"),
-        "\n",
+        f"[green bold]{api_key}[/]" "\n",
         sep="",
     )
-    eprint(f"Saving key to {cfg.api_key_file_path}.")
+    console.print(f"Saving key to {cfg.api_key_file_path}.")
     cfg.set_api_key(api_key)
-    doc_url = decorate_url("https://hitsave.io/doc/keys")
-    eprint(
+    doc_url = "https://docs.hitsave.io/keys"
+    console.print(
         f"Please see {doc_url} for ways you can include this key in your environment."
     )
 
@@ -110,7 +98,7 @@ def clear_local():
     """Deletes the local eval store (not cached blobs)."""
     store = EvalStore().local
     p = Config.current().local_db_path
-    eprint(f"Deleting {len(store)} entries in {p}")
+    console.print(f"Deleting {len(store)} entries in {p}")
     store.clear()
 
 

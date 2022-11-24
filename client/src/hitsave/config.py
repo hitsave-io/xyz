@@ -10,8 +10,7 @@ from typing import Literal, Optional, Type, TypeVar, Any, List, Dict, Iterable
 from hitsave.util import Current, as_optional, is_optional, get_git_root, validate
 import importlib.metadata
 import configparser
-
-logger = logging.getLogger("hitsave")
+from hitsave.console import logger
 
 __version__ = importlib.metadata.version("hitsave")
 
@@ -268,8 +267,8 @@ class Config(Current):
             if env not in CONSTS:
                 logger.error(f"Unknown environment type '{env}' set.")
             else:
-                logger.warn(
-                    f"WARNING: Using the '{env}' development environment. Unset this with `hitsave config unset env`"
+                logger.warning(
+                    f"Using the '{env}' development environment. Unset this with [green]hitsave config unset env[/green]"
                 )
                 constants.update(CONSTS[env])
         cfg = cls(**constants)
@@ -335,7 +334,7 @@ class Config(Current):
                     if not validate(field.type, v):
                         v = interpret_var_str(field.type, v)
                 cfg.set(cfg.default_section, k, v)
-        logger.info(f"Writing {len(kvs)} values to {path}.")
+        log_info(f"Writing {len(kvs)} values to {path}.")
         with open(path, "w") as fd:
             cfg.write(fd)
 

@@ -2,7 +2,8 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from enum import Enum
 import functools
-from functools import singledispatch
+from functools import singledispatch, lru_cache
+from blake3 import blake3
 from dataclasses import dataclass, is_dataclass, Field, fields
 from itertools import filterfalse, tee
 import json
@@ -12,7 +13,10 @@ from typing import (
     IO,
     Any,
     BinaryIO,
+    Callable,
     Dict,
+    Generic,
+    Iterable,
     Iterator,
     Set,
     Tuple,
@@ -220,96 +224,6 @@ def validate(t: Type, item) -> bool:
     raise NotImplementedError(f"Don't know how to validate {t}")
 
 
-# ref: https://stackoverflow.com/questions/4842424/list-of-ansi-color-escape-sequences
-
-# [todo] don't NIH; use the rich library instead: https://rich.readthedocs.io/en/stable/introduction.html
-
-
-class AnsiColor(Enum):
-    black = 0
-    red = 1
-    green = 2
-    yellow = 3
-    blue = 4
-    magenta = 5
-    cyan = 6
-    white = 7
-
-
-class AnsiCode(Enum):
-    reset = 0
-    bold = 1
-    underline = 4
-    fg = 30
-    fg_bright = 90
-    bg = 40
-    bg_bright = 100
-
-
-def ansiseq(params: List[int]) -> str:
-    ps = ";".join([str(p) for p in params])
-    return f"\033[{ps}m"
-
-
-def decorate_ansi(
-    x: str,
-    fg: Optional[Union[AnsiColor, str]] = None,
-    bg: Optional[Union[AnsiColor, str]] = None,
-    fg_bright=False,
-    bg_bright=True,
-    bold=False,
-    underline=False,
-):
-    params = []
-    if fg is not None:
-        code = AnsiCode.fg_bright if fg_bright else AnsiCode.fg
-        c = getattr(AnsiColor, fg) if isinstance(fg, str) else fg
-        code = code.value + c.value
-        params.append(code)
-    if bg is not None:
-        code = AnsiCode.bg_bright if bg_bright else AnsiCode.bg
-        c = getattr(AnsiColor, bg) if isinstance(bg, str) else bg
-        code = code.value + c.value
-        params.append(code)
-    if bold:
-        params.append(AnsiCode.bold.value)
-    if underline:
-        params.append(AnsiCode.underline.value)
-    return ansiseq(params) + x + ansiseq([AnsiCode.reset.value])
-
-
-def eprint(*args, **kwargs):
-    """Use this for printing messages for human users of the library to see."""
-    return print(*args, file=sys.stderr, **kwargs)
-
-
-def is_interactive_terminal():
-    """Returns true if this program is running in an interactive terminal
-    that we can reasonably expect a human to interact with."""
-    return sys.__stdin__.isatty()
-
-
-def decorate_url(href: str, text: Optional[str] = None):
-    text = text or href
-    return decorate_ansi(hyperlink(text, href), fg="blue")
-
-
-def hyperlink(text: str, href: str, params: str = ""):
-    """Makes a hyperlink in your terminal emulator.
-
-    Note this doesn't work well with
-    - tmux
-    - vscode terminal emulator
-    - iterm2; you have to cmd+click on link
-
-    refs:
-    https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
-    https://stackoverflow.com/a/71309268/352201
-    """
-    # OSC 8 ; params ; URI ST <name> OSC 8 ;; ST
-    return f"\033]8;{params};{href}\033\\{text}\033]8;;\033\\"
-
-
 def get_git_root():
     """
     Gets the git root for the current working directory.
@@ -320,6 +234,7 @@ def get_git_root():
     try:
         base = check_output(["git", "rev-parse", "--show-toplevel"])
         return base.decode().strip()
+    # [todo] stop the error from being printed to the terminal. contextlib?
     except CalledProcessError:
         return None
 
@@ -343,10 +258,8 @@ def human_size(bytes: int, units=[" bytes", "KB", "MB", "GB", "TB", "PB", "EB"])
 
 def chunked_read(x: IO[bytes], block_size=2**20) -> Iterator[bytes]:
     """Repeatededly read in BLOCK_SIZE chunks from the BufferedReader until it's empty."""
-    # mad skills:
-    # iter(f, x) will call f repeatedly until x is returned and then stop!
+    # iter(f, x) will call f repeatedly until x is returned and then stop
     # https://docs.python.org/3/library/functions.html#iter
-
     return iter(partial(x.read, block_size), b"")
 
 
@@ -385,6 +298,7 @@ class Current:
 
     @classmethod
     def current(cls: Type[T]) -> T:
+        """The current value of the singleton class."""
         c = cls.CURRENT.get(None)
         if c is None:
             c = cls.default()
@@ -392,17 +306,21 @@ class Current:
         return c
 
 
+X = TypeVar("X")
+Y = TypeVar("Y")
+
+
 @dataclass
-class DictDiff:
+class DictDiff(Generic[X, Y]):
     add: Set[str]
     rm: Set[str]
-    mod: Dict[str, Tuple[Any, Any]]
+    mod: Dict[str, Tuple[X, Y]]
 
     def is_empty(self):
         return len(self.add) == 0 and len(self.rm) == 0 and len(self.mod) == 0
 
 
-def dict_diff(d1, d2) -> DictDiff:
+def dict_diff(d1: Dict[str, X], d2: Dict[str, Y]) -> DictDiff[X, Y]:
     k1 = set(d1.keys())
     k2 = set(d2.keys())
     return DictDiff(
@@ -412,7 +330,9 @@ def dict_diff(d1, d2) -> DictDiff:
     )
 
 
-def partition(pred, iterable):
+def partition(
+    pred: Callable[[T], bool], iterable: Iterable[T]
+) -> Tuple[Iterable[T], Iterable[T]]:
     """Use a predicate to partition entries into false entries and true entries.
 
     ref: https://docs.python.org/3/library/itertools.html
@@ -433,3 +353,26 @@ def datetime_now() -> datetime:
 def datetime_to_string(dt: datetime) -> str:
     """Converting to/from a datetime to an iso string is broken in python because of the trailing Zs."""
     return dt.isoformat()
+
+
+def digest_string(x: str) -> str:
+    """String to blake3 hex-digest"""
+    h = blake3()
+    h.update(x.encode())
+    return h.hexdigest()
+
+
+def digest_dictionary(d: Dict[str, str]):
+    h = blake3()
+    h.update(b"{")
+    for k in sorted(d.keys()):
+        h.update(k.encode())
+        h.update(b":")
+        v = d[k]
+        if isinstance(v, str):
+            v = v.encode()
+        assert isinstance(v, bytes)
+        h.update(v)
+        h.update(b",")
+    h.update(b"}")
+    return h.hexdigest()

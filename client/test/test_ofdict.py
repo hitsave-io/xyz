@@ -1,6 +1,6 @@
 from dataclasses import dataclass, asdict
 from typing import List
-from hitsave import deepeq
+from .deepeq import deepeq
 from hitsave.util import ofdict
 
 

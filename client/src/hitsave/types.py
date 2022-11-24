@@ -19,14 +19,13 @@ from typing import (
     TypedDict,
     Union,
 )
-from hitsave.util import decorate_ansi, dict_diff, ofdict
+from hitsave.console import decorate
+from hitsave.util import dict_diff, ofdict
 import json
-import logging
 from datetime import datetime
 from uuid import UUID
 from hitsave.codegraph import Symbol
-
-logger = logging.getLogger("hitsave")
+from hitsave.console import logger
 
 
 @dataclass
@@ -126,13 +125,13 @@ class CodeChanged(StoreMiss):
             diff = dict_diff(self.old_deps, self.new_deps)
             if len(diff.add) > 0:
                 for x in diff.add:
-                    lines.append(decorate_ansi("+++ " + x, fg="green"))
+                    lines.append(decorate("+++ " + x, "green"))
             if len(diff.rm) > 0:
                 for x in diff.rm:
-                    lines.append(decorate_ansi("--- " + x, fg="red"))
+                    lines.append(decorate("--- " + x, "red"))
             if len(diff.mod) > 0:
                 for x, (v1, v2) in diff.mod.items():
-                    lines.append(decorate_ansi("~~~ " + x, fg="yellow"))
+                    lines.append(decorate("~~~ " + x, "yellow"))
                     if (v1, v2) in CodeChanged._ALREADY_SEEN:
                         continue
                     CodeChanged._ALREADY_SEEN.add((v1, v2))
@@ -144,9 +143,9 @@ class CodeChanged(StoreMiss):
 
                     def m(x: str):
                         if x.startswith("+"):
-                            return decorate_ansi(x, fg="green")
+                            return decorate(x, "green")
                         if x.startswith("-"):
-                            return decorate_ansi(x, fg="red")
+                            return decorate(x, "red")
                         return x
 
                     lines += "".join(map(m, xs)).split("\n")
@@ -156,46 +155,7 @@ class CodeChanged(StoreMiss):
             return "Function hash has changed."
 
 
-# [todo] use same protocol as aiocache https://github.com/aio-libs/aiocache
-# [todo] rename to StoreAPI, make this the general interface for storing evaluations, blobs and functions.
-
-
 @dataclass
 class PollEvalResult:
     value: Any
     origin: Literal["local", "cloud"]
-
-
-class StoreAPI(Protocol):
-    """Common calls for local and cloud cache. We assume that the API has access to the current session."""
-
-    def poll_eval(self, key: EvalKey, deps=None) -> Union[PollEvalResult, StoreMiss]:
-        ...
-
-    def start_eval(
-        self,
-        key: EvalKey,
-        *,
-        is_experiment: bool = False,
-        args: Dict[str, Any],
-        deps: Dict,
-        start_time: datetime,
-    ) -> int:
-        ...
-
-    def resolve_eval(
-        self,
-        key: EvalKey,
-        *,
-        result: Any,
-        elapsed_process_time: int,
-    ) -> None:
-        ...
-
-    # def reject_eval(
-    #     self, key: EvalKey, error: Exception, elapsed_process_time: int
-    # ) -> None:
-    #     ...
-
-    # def invalidate(self, fn_key: CodeVertex, fn_hash=None, args_hash=None):
-    #     ...

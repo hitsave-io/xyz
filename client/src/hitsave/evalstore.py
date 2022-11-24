@@ -7,13 +7,13 @@ import requests
 from typing import IO, Any, Dict, List, Literal, Optional, Union
 from hitsave.blobstore import BlobStore, get_digest_and_length
 from hitsave.codegraph import Binding, Symbol
+from hitsave.console import internal_error, user_info, tape_progress
 from hitsave.types import (
     CodeChanged,
     EvalKey,
     EvalStatus,
     PollEvalResult,
     StoreMiss,
-    StoreAPI,
 )
 from hitsave.config import Config
 import logging
@@ -22,12 +22,12 @@ from hitsave.cloudutils import (
     encode_hitsavemsg,
     ConnectionError,
 )
+from contextlib import nullcontext
 from hitsave.session import Session
 from hitsave.util import Current, datetime_to_string
 from hitsave.visualize import visualize_rec
 from hitsave.visualize import visualize_rec
-
-logger = logging.getLogger("hitsave")
+from hitsave.console import logger
 
 
 def localdb():
@@ -188,7 +188,7 @@ class LocalEvalStore:
                 WHERE fn_key = ? AND fn_hash = ? AND args_hash = ? AND status = ?; """,
                 (
                     EvalStatus.resolved.value,
-                    pickle.dumps(result),
+                    pickle.dumps(result),  # [todo] should go to blob
                     str(key.fn_key),
                     key.fn_hash,
                     key.args_hash,
@@ -210,7 +210,7 @@ class LocalEvalStore:
                 tables,
             )
             conn.executemany("""DROP TABLE ?;""", tables)
-            logger.info(f"Dropped tables {tables}")
+            user_info(f"Dropped tables {tables}")
 
     def __len__(self):
         return len(self._store)  # type: ignore
@@ -259,7 +259,7 @@ class CloudEvalStore:
             return StoreMiss(msg)
         results: list = r.json()
         for result in results:
-            logger.debug(f"Found cloud eval for {key.fn_key.pp()}.")
+            logger.debug(f"Found cloud eval for {key.fn_key}.")
             digest = result["content_hash"]  # [todo] will be renamed
             # [todo]; for now, blobs are always streamed, but in the future we will probably put small blobs inline.
             # we also don't store result blobs locally.
@@ -283,7 +283,8 @@ class CloudEvalStore:
         return key
 
     def resolve_eval(self, key: EvalKey, *, result: Any, elapsed_process_time: int):
-        assert key in self.pending, f"{key} is not pending."
+        if not key in self.pending:
+            internal_error(f"EvalKey {key} is not pending resolution")
         e = self.pending[key]
         with tempfile.SpooledTemporaryFile() as tape:
             pickle.dump(result, tape)
@@ -291,27 +292,38 @@ class CloudEvalStore:
             digest, content_length = get_digest_and_length(tape)
             tape.seek(0)
             args = visualize_rec(e.get("args", None))
-            payload = encode_hitsavemsg(
-                dict(
-                    fn_key=str(key.fn_key),
-                    fn_hash=key.fn_hash,
-                    args_hash=key.args_hash,
-                    args=args,
-                    content_hash=digest,
-                    content_length=content_length,
-                    is_experiment=e["is_experiment"],
-                    start_time=datetime_to_string(e["start_time"]),
-                    elapsed_process_time=elapsed_process_time,
-                    result_json=visualize_rec(result),
-                ),
-                tape,
+            metadata = dict(
+                fn_key=str(key.fn_key),
+                fn_hash=key.fn_hash,
+                args_hash=key.args_hash,
+                args=args,
+                content_hash=digest,
+                content_length=content_length,
+                is_experiment=e["is_experiment"],
+                start_time=datetime_to_string(e["start_time"]),
+                elapsed_process_time=elapsed_process_time,
+                result_json=visualize_rec(result),
             )
+
             try:
-                r = request("PUT", f"/eval/", data=payload)
-                r.raise_for_status()
+                with tape_progress(
+                    tape,
+                    content_length,
+                    description="Uploading",
+                    message=(
+                        "Uploading evaluation for",
+                        key.fn_key,
+                        f"to {Config.current().cloud_url}. Hit Ctrl+C to skip upload.",
+                    ),
+                ) as tape:
+                    payload = encode_hitsavemsg(metadata, tape)
+                    r = request("PUT", f"/eval/", data=payload)
+                    r.raise_for_status()
             except ConnectionError:
                 # we are offline. we have already told the user this.
                 return False
+            except KeyboardInterrupt:
+                user_info("Keyboard interrupt detected, skipping upload.")
             except Exception as err:
                 # [todo] manage errors
                 # they should all result in the user being given some friendly advice about

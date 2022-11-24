@@ -1,10 +1,10 @@
+from contextlib import nullcontext
 from dataclasses import dataclass
-import datetime
 from enum import Enum
 from pathlib import Path
 from typing import IO, Optional, Tuple
-import warnings
 from hitsave.config import Config, no_cloud, no_local
+from hitsave.console import tape_progress, user_info
 from hitsave.session import Session
 from hitsave.util import (
     Current,
@@ -15,13 +15,11 @@ from hitsave.util import (
 )
 from blake3 import blake3
 from stat import S_IREAD, S_IRGRP
-import logging
 import tempfile
+from hitsave.console import logger, internal_error
 from hitsave.cloudutils import request, read_header, create_header, encode_hitsavemsg
 
 """ This file contains everything to do with storing and retrieving blobs locally and on the cloud. """
-
-logger = logging.getLogger("hitsave")
 
 
 @dataclass
@@ -171,15 +169,18 @@ class CloudBlobStore:
         }
         if label is not None:
             mdata["label"] = label
-        msg = encode_hitsavemsg(mdata, tape)
         pp_label = label or "unlabelled file"
-        if content_length > 2**20:
-            logger.info(f"Uploading {pp_label} ({human_size(content_length)}).")
-        # [todo] cute progress bar.
-        r = request("PUT", "/blob", data=msg)
+        with tape_progress(
+            tape,
+            content_length,
+            message=f"Uploading {pp_label} ({human_size(content_length)}) {digest}.",
+            description="Uploading",
+        ) as tape:
+            msg = encode_hitsavemsg(mdata, tape)
+            r = request("PUT", "/blob", data=msg)
         r.raise_for_status()
         if label is not None:
-            logger.debug(f"Uploaded {pp_label} ({human_size(content_length)}).")
+            logger.debug(f"Uploaded {pp_label} {digest}.")
         return BlobInfo(digest, content_length)
 
     def open_blob(self, digest: str) -> IO[bytes]:
@@ -194,10 +195,20 @@ class CloudBlobStore:
         if not self.has_blob(digest):
             raise FileNotFoundError(f"No blob found {digest}")
         logger.debug(f"Downloading file {digest}.")
+        # [todo] progress bar, header should contain content length.
         r = request("GET", f"/blob/{digest}")
+        content_length = r.headers.get("Content-Length", None)
+        if content_length is not None:
+            content_length = int(content_length)
         tape = tempfile.SpooledTemporaryFile()
-        for chunk in r.iter_content(chunk_size=2**20):
-            tape.write(chunk)
+        with tape_progress(
+            tape,
+            total=content_length,
+            message=f"Downloading {digest}",
+            description="Downloading",
+        ) as tape:
+            for chunk in r.iter_content(chunk_size=2**20):
+                tape.write(chunk)
         tape.seek(0)
         return tape
 
@@ -265,7 +276,8 @@ class BlobStore(Current):
             )
         tape = self.cloud.open_blob(digest=digest)
         info = self.local.add_blob(tape)
-        assert info.digest != digest, f"Corrupted digest of cloud file {digest}"
+        if info.digest != digest:
+            internal_error(f"Corrupted digest of cloud file {digest}")
         tape.seek(0)
         self.touch(digest)
         return tape
@@ -348,7 +360,8 @@ class BlobStore(Current):
         with self.cloud.open_blob(digest) as tape:
             # [todo] fancy progress bar goes here.
             info = self.local.add_blob(tape)
-            assert info.digest == digest, f"Corrupted cloud blob {digest[:10]}"
+            if info.digest != digest:
+                internal_error( f"Corrupted cloud blob {digest[:10]}")
             logger.debug(f"Pulled blob {digest}")
         # [todo] update blobs table.
         return True
@@ -366,7 +379,8 @@ class BlobStore(Current):
         with self.local.open_blob(digest) as tape:
             # [todo] fancy progress bar logging goes here.
             info = self.cloud.add_blob(tape)
-            assert info.digest == digest, f"Corrupted local blob {digest[:10]}"
+            if digest != info.digest:
+                internal_error(f"Corrupted local blob {digest[:10]}")
             logger.debug(f"Pushed blob {digest}")
         with localdb() as conn:
             conn.execute(

@@ -27,6 +27,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 import importlib
 from importlib.machinery import ModuleSpec
+from blake3 import blake3
+from pickle import Pickler
 import importlib.util
 import importlib.metadata
 import builtins
@@ -38,7 +40,6 @@ from symtable import SymbolTable
 import ast
 import pprint
 import os.path
-import logging
 from types import ModuleType
 from typing import (
     Any,
@@ -52,141 +53,20 @@ from typing import (
     Tuple,
     Union,
 )
-from hitsave.config import Config, __version__
-from hitsave.deephash import deephash
-from hitsave.graph import DirectedGraph
-from hitsave.util import cache, decorate_ansi
 from functools import cached_property
 
-logger = logging.getLogger("hitsave/codegraph")
-
-
-@dataclass
-class Symbol:
-    """Identifies a symbol for python objects."""
-
-    module_name: str
-    decl_name: Optional[str] = field(default=None)
-
-    @cached_property
-    def display_module_name(self):
-        """This is the same as self.module_name, but with a special case
-        for when the module is __main__. In this case we make a guess as to what the module would be
-        called if invoked from a different file."""
-        if self.module_name == "__main__":
-            m = sys.modules.get("__main__")
-            assert m is not None
-            if not hasattr(m, "__file__"):
-                # this happens in an interactive session.
-                # [todo] support for using hitsave in a python repl is not implemented yet.
-                return "interactive"
-            mf = getattr(m, "__file__")
-            assert isinstance(mf, str)
-            module = module_name_of_file(mf)
-            assert module is not None
-            assert module != "__main__"
-            return module
-        else:
-            return self.module_name
-
-    def __hash__(self):
-        """Note this only hashes on the string value, not the binding."""
-        return hash(self.__str__())
-
-    def __str__(self):
-        module_name = self.display_module_name
-        if self.decl_name is None:
-            return module_name
-        else:
-            return f"{module_name}:{self.decl_name}"
-
-    def pp(self):
-        """Pretty print with nice formatting."""
-        module_name = self.display_module_name
-        m = ".".join([decorate_ansi(n, fg="cyan") for n in module_name.split(".")])
-        d = (
-            ".".join([decorate_ansi(n, fg="yellow") for n in self.decl_name.split(".")])
-            if self.decl_name is not None
-            else ""
-        )
-        return f"{m}:{d}"
-
-    def get_bound_object(self) -> object:
-        """Returns the best-guess python object associated with the symbol."""
-        m = self.get_module()
-        if self.decl_name is None:
-            return m
-        if "." in self.decl_name:
-            xs = self.decl_name.split(".")
-            for x in xs:
-                m = getattr(m, x)
-            return m
-        d = getattr(m, self.decl_name)
-        return d
-
-    def get_module(self) -> ModuleType:
-        """Returns the module that this vertex lives in.
-
-        This does not cause the module to be loaded.
-        """
-        # [note] this loads the module but _does not execute it_ and doesn't add to sys.modules.
-        module_name = self.module_name
-        if module_name in sys.modules:
-            return sys.modules[module_name]
-        spec = self.get_module_spec()
-        if spec is None:
-            raise ModuleNotFoundError(name=module_name)
-        return importlib.util.module_from_spec(spec)
-
-    def get_module_spec(self):
-        """Get the spec of the module that this vertex lives in."""
-        return get_module_spec(self.module_name)
-
-    @classmethod
-    def of_str(cls, s):
-        """Parse a code vertex from a string "module_name:decl_name"."""
-        if ":" not in s:
-            return cls(s, None)
-        module_name, id = s.split(":")
-        # [todo] validation
-        return cls(module_name, id)
-
-    @classmethod
-    def of_object(cls, o):
-        """Create a Symbol from a python object by trying to inspect what the Symbol and parent module are."""
-        assert hasattr(o, "__qualname__")
-        assert hasattr(o, "__module__")
-        # [todo] more helpful error.
-        module = o.__module__
-        return cls(module, o.__qualname__)
-
-    def get_st_symbol(self) -> st.Symbol:
-        """Return the SymbolTable Symbol for this vertex."""
-        assert self.decl_name is not None, "No symbol for entire module."
-
-        st = symtable_of_module_name(self.module_name)
-        if "." in self.decl_name:
-            parts = self.decl_name.split(".")
-            for part in parts[:-1]:
-                s = st.lookup(part)
-                if s.is_namespace():
-                    st = s.get_namespace()
-            s = st.lookup(parts[-1])
-            return s
-            # [todo] test this
-        return st.lookup(self.decl_name)
-
-    def is_namespace(self) -> bool:
-        """Returns true if the symbol is a namespace, which means that there is some
-        internal structure; eg a function, a class, a module."""
-        assert self.decl_name is not None
-        return self.get_st_symbol().is_namespace()
-
-    def is_import(self) -> bool:
-        """Returns true if the symbol was declared from an `import` statement."""
-        if self.decl_name is None:
-            return False
-        return self.get_st_symbol().is_imported()
+from hitsave.graph import DirectedGraph
+from hitsave.config import Config, __version__
+from hitsave.util import cache, digest_dictionary, digest_string
+from hitsave.console import logger, console, internal_error, user_warning
+from hitsave.symbol import (
+    Symbol,
+    get_module_spec,
+    module_name_of_file,
+    get_origin,
+    get_source,
+    symtable_of_module_name,
+)
 
 
 class BindingKind(Enum):
@@ -243,12 +123,12 @@ class FnBinding(Binding):
     sourcetext: str
     deps: Set[Symbol]
 
-    @property
-    def digest(self):
-        return deephash(self.sourcetext)
+    @cached_property
+    def digest(self) -> str:
+        return digest_string(self.sourcetext)
 
     @property
-    def diffstr(self):
+    def diffstr(self) -> str:
         return self.sourcetext
 
 
@@ -263,28 +143,59 @@ class ClassBinding(Binding):
     def deps(self):
         return self.code_deps.union(self.methods)
 
-    @property
-    def digest(self):
-        return deephash(self.sourcetext)
+    @cached_property
+    def digest(self) -> str:
+        return digest_string(self.sourcetext)
 
     @property
-    def diffstr(self):
+    def diffstr(self) -> str:
         return self.sourcetext
 
 
 @dataclass
+class UnresolvedBinding(Binding):
+    kind: BindingKind = field(default=BindingKind.val)
+    diffstr: str = field(default="??? unknown binding ???")
+    deps: Set[Symbol] = field(default_factory=set)
+    digest: str = field(default="??????????")
+
+
+@dataclass
 class ValueBinding(Binding):
+    """A ValueBinding represents a global python object that the code depends on.
+
+    In real python code, value bindings can mutate.
+    However here (for now) we only save and hash the value at the point that we ingest the python function.
+    We assume that if you are depending on constants that are not args, then they are not mutating.
+
+    This is not true for certain objects such as loggers and pytorch models or dataloaders, but these should always be passed as args.
+
+    [todo] this is not always desired, in the future, we will give the option to recompute the digest and dependencies at the point of function
+    execution, so that we can detect whether a constant has changed.
+    """
+
     kind = BindingKind.val
-    repr: str
     digest: str
+    deps: Set[Symbol]
+    diffstr: str
+    # [todo] weakref to object
 
-    @property
-    def deps(self):
-        return set()
-
-    @property
-    def diffstr(self):
-        return self.repr
+    @classmethod
+    def from_object(cls, obj):
+        if inspect.isfunction(obj):
+            s = Symbol.of_object(obj)
+            diffstr = f"<function {str(s)}>"
+        else:
+            diffstr = pprint.pformat(obj)
+        if len(diffstr) > 10000:
+            diffstr = diffstr[:10000] + " ... [truncated]"
+        h = HashingPickler()
+        h.dump(obj)
+        return cls(
+            digest=h.digest,
+            deps=h.code_dependencies,
+            diffstr=diffstr,
+        )
 
 
 @dataclass
@@ -350,10 +261,14 @@ def module_version(module_name: str) -> Optional[str]:
     except:
         pass
     m = sys.modules.get(module_name)
-    assert m is not None, module_name
+    if m is None:
+        internal_error("Module", module_name, "not loaded.")
+        return None
     if hasattr(m, "__version__"):
         v = m.__version__
-        assert v is not None
+        if v is None:
+            internal_error("Module", module_name, "has no __version__ field.")
+            return None
         return v
     return None
 
@@ -364,29 +279,44 @@ def is_relative_import(module_name: str) -> bool:
 
 def head_module(module_name) -> str:
     """Given a dot-separated module name such as ``torch.nn.functional``,
-    returns the 'head module' name ``torch``."""
+    returns the 'head module' name ``torch``.
+
+    Raises:
+      NotImplementedError: if it's a relative import.
+    """
     if "." in module_name:
         parts = module_name.split(".")
         head = parts[0]
-        assert head != "", "relative imports not supported"
+        if head == "":
+            raise NotImplementedError(
+                f'head_module for relative imports not supported: "{module_name}"'
+            )
         return head
     return module_name
 
 
-def _mk_extern_package_from_site_package(module_name: str):
+def _mk_extern_package_from_site_package(module_name: str) -> Binding:
     v = module_version(module_name)
     if v is not None:
         return ExternalBinding(name=module_name, version=v)
     if "." in module_name:
+        if is_relative_import(module_name):
+            internal_error(
+                "Finding the binding of relative imports is not supported yet",
+                module_name,
+            )
+            return UnresolvedBinding()
         head = head_module(module_name)
         v = module_version(head)
         if v is not None:
             return ExternalBinding(name=head, version=v)
-    raise ValueError(f"Can't find a module version for {module_name}.")
+
+    internal_error(f"Can't find a module version for {module_name}.")
+    return UnresolvedBinding()
 
 
 @cache
-def module_as_external_package(module_name: str) -> Optional[ExternalBinding]:
+def module_as_external_package(module_name: str) -> Optional[Binding]:
     """Looks at the module name and tries to determine whether the module should be considered as being
     external for the project.
 
@@ -398,7 +328,9 @@ def module_as_external_package(module_name: str) -> Optional[ExternalBinding]:
         return ExternalBinding("hitsave", __version__)
     m = sys.modules.get(module_name)
     o = get_origin(module_name)
-    assert o is not None
+    if o is None:
+        internal_error("Failed to find origin of", module_name)
+        return None
     if "site-packages" in o:
         # [todo] there should be a canonical way to do this.
         return _mk_extern_package_from_site_package(module_name)
@@ -413,88 +345,25 @@ def module_as_external_package(module_name: str) -> Optional[ExternalBinding]:
     return None
 
 
-@cache
-def get_module_spec(module_name: str) -> ModuleSpec:
-    m = sys.modules.get(module_name)
-    spec = None
-    if m is not None:
-        assert hasattr(m, "__spec__")
-        spec = getattr(m, "__spec__")
-    if spec is None:
-        # [todo] this can raise a value error if `module_name = '__main__'` and we are degubbing.
-        spec = importlib.util.find_spec(module_name)
-    assert spec is not None
-    return spec
-
-
 def is_subpath(path1: str, path2: str):
     """Returns true if there is a `q` such that `path2 = path1 + q`"""
     return os.path.commonpath([path1, path2]) == path1
-
-
-def module_name_of_file(path: str) -> Optional[str]:
-    """Given a file location, gives a non-relative module name.
-
-    This is supposed to be the inverse of the
-    default [module finder](https://docs.python.org/3/glossary.html#term-finder)
-    """
-    path = os.path.abspath(path)
-    # reference: https://stackoverflow.com/questions/897792/where-is-pythons-sys-path-initialized-from
-    ps = [p for p in sys.path]
-    ps.reverse()
-    for p in ps:
-        if p == "":
-            continue
-        if os.path.commonpath([p, path]) == p:
-            r = os.path.relpath(path, p)
-            r, ext = os.path.splitext(r)
-            assert ext == ".py"
-            r = r.split(os.path.sep)
-            r = ".".join(r)
-            return r
-    return None
-
-
-def get_origin(module_name: str) -> str:
-    """Returns a string with the module's file path as a string.
-
-    If the module is not found, throw an error.
-    If the module is a builtin, returns 'built-in'.
-    """
-    m = sys.modules.get(module_name)
-    f = getattr(m, "__file__", None)
-    if f is not None:
-        return f
-    spec = get_module_spec(module_name)
-    assert hasattr(spec, "origin")
-    return getattr(spec, "origin")
-
-
-@cache
-def get_source(module_name: str) -> str:
-    """Returns the sourcefile for the given module."""
-    o = get_origin(module_name)
-    assert o is not None
-    # [todo] assert it's a python file with ast etc.
-    with open(o, "rt") as f:
-        return f.read()
-
-
-@cache
-def symtable_of_module_name(module_name: str) -> st.SymbolTable:
-    o = get_origin(module_name)
-    assert o is not None
-    return st.symtable(get_source(module_name), o, "exec")
 
 
 @cache
 def _get_namespace_binding(s: Symbol) -> Binding:
     """Return a binding for the case of s being a namespace.
     This is it's own method because we can safely cache namespace bindings.
-    """
-    assert s.is_namespace()
 
-    ns = s.get_st_symbol().get_namespace()
+    Raises:
+      ValueError: the symbol table entry of s is not a namespace.
+    """
+    if not s.is_namespace():
+        raise ValueError(f"Symbol {str(s)} is not a namespace in the symbol table.")
+
+    sts = s.get_st_symbol()
+    assert sts is not None
+    ns = sts.get_namespace()
     # [todo] what are some cases where there are multiple namespaces?
     if isinstance(ns, st.Function):
         deps = [
@@ -503,15 +372,21 @@ def _get_namespace_binding(s: Symbol) -> Binding:
             if not hasattr(builtins, decl_name)
         ]
         src = getsource(s)
-        assert src is not None, f"failed to find sourcecode for {str(s)}"
+        if src is None:
+            internal_error(f"failed to find sourcecode for", s)
+            src = "???"
         return FnBinding(deps=set(deps), sourcetext=src)
     if isinstance(ns, st.Class):
-        assert s.decl_name is not None
+        if s.decl_name is None:
+            internal_error(s, "is a module but expecting a symbol")
+            return UnresolvedBinding(kind=BindingKind.cls)
         methods = [
             Symbol(s.module_name, s.decl_name + "." + mn) for mn in ns.get_methods()
         ]
         src = getsource(s)
-        assert src is not None, f"failed to find sourcecode for {str(s)}"
+        if src is None:
+            internal_error("failed to find sourcecode for class", s)
+            return UnresolvedBinding(kind=BindingKind.cls)
 
         return ClassBinding(
             sourcetext=src,
@@ -519,7 +394,8 @@ def _get_namespace_binding(s: Symbol) -> Binding:
             methods=methods,
         )
 
-    raise NotImplementedError(f"Don't know how to get deps of namespace {str(s)}")
+    internal_error(f"Don't know how to get deps of namespace", s)
+    return UnresolvedBinding()
 
 
 def get_binding(s: Symbol) -> Binding:
@@ -539,7 +415,9 @@ def get_binding(s: Symbol) -> Binding:
 
     if s.is_import():
         imports = get_module_imports(s.module_name)
-        assert s.decl_name in imports
+        if s.decl_name not in imports:
+            internal_error("Failed to resolve the import for ", s.module_name)
+            return UnresolvedBinding()
         i = imports[s.decl_name]
         return ImportedBinding(symb=i)
 
@@ -548,9 +426,7 @@ def get_binding(s: Symbol) -> Binding:
         return _get_namespace_binding(s)
     else:  # not a namespace
         o = s.get_bound_object()
-        digest = deephash(o)
-        repr = pprint.pformat(o)
-        return ValueBinding(repr=repr, digest=digest)
+        return ValueBinding.from_object(o)
 
 
 def get_digest(s: Symbol):
@@ -560,7 +436,11 @@ def get_digest(s: Symbol):
 @cache
 def get_module_imports(module_name: str) -> Dict[str, Symbol]:
     """Returns all of the vertices that are imported from the given module name."""
-    t = ast.parse(get_source(module_name))
+    src = get_source(module_name)
+    if src is None:
+        internal_error("couldn't get source for", module_name)
+        return {}
+    t = ast.parse(src)
     r = {}
 
     def mk_vertex(module_name, fn_name=None) -> Symbol:
@@ -570,17 +450,23 @@ def get_module_imports(module_name: str) -> Dict[str, Symbol]:
         def visit_Import(self, node: ast.Import):
             for alias in node.names:
                 asname = alias.asname or alias.name
-                assert asname not in r, f"multiple imports of same symbol {asname}"
+                if asname in r:
+                    user_warning(
+                        "Multiple imports of", asname, "detected in", module_name
+                    )
                 r[asname] = mk_vertex(alias.name)
 
         def visit_ImportFrom(self, node: ast.ImportFrom):
-            assert node.module is not None
+            if node.module is None:
+                internal_error("trouble traversing python AST", node)
+                return
             module_name: str = node.module
             for alias in node.names:
                 asname = alias.asname or alias.name
-                assert (
-                    asname not in r
-                ), f"multiple imports introducing the same name {asname} are not yet implemented"
+                if asname in r:
+                    user_warning(
+                        "Multiple imports of", asname, "detected in", module_name
+                    )
                 r[asname] = mk_vertex(module_name, alias.name)
 
     V().visit(t)
@@ -588,7 +474,8 @@ def get_module_imports(module_name: str) -> Dict[str, Symbol]:
 
 
 def pp_symbol(sym: st.Symbol):
-    assert type(sym) == st.Symbol
+    if not isinstance(sym, st.Symbol):
+        raise TypeError(f"argument sym should be a {st.Symbol} but was {type(sym)}.")
     print("Symbol:", sym.get_name())
     ps = [
         "referenced",
@@ -606,7 +493,9 @@ def pp_symbol(sym: st.Symbol):
 
 
 def pp_symtable(st: SymbolTable):
-    assert isinstance(st, SymbolTable)
+    """Pretty print a symbol table for debugging purposes."""
+    if not isinstance(st, SymbolTable):
+        raise TypeError(f"arg st should be a SymbolTable but was {type(st)}")
 
     def rec(st):
         s = f"SymbolTable(type={st.get_type()}, id={st.get_id()}, name={st.get_name()}, nested={st.is_nested()})"
@@ -617,15 +506,90 @@ def pp_symtable(st: SymbolTable):
 
 @cache
 def getsource(s: Symbol) -> Optional[str]:
+    """Given a symbol, return the source string or None if there is no source."""
     o: Any = s.get_bound_object()
-    if inspect.isfunction(o) or inspect.isclass(o):
-        return inspect.getsource(o)
-    elif hasattr(o, "__wrapped__") and inspect.isfunction(o.__wrapped__):
-        return inspect.getsource(o.__wrapped__)
-    else:
+    try:
+        if inspect.isfunction(o) or inspect.isclass(o):
+            return inspect.getsource(o)
+        elif hasattr(o, "__wrapped__") and inspect.isfunction(o.__wrapped__):
+            return inspect.getsource(o.__wrapped__)
+        else:
+            return None
+    except Exception as e:
+        internal_error("getsource threw on", s, "\n", e)
         return None
 
 
-def hash_function(g: CodeGraph, fn: Callable):
-    g.eat_obj(fn)
-    deps = {}
+opaque_types = set()
+""" Set of python datatypes that should be ignored by the hashing pickler. Good candidates for this are logging functions """
+
+
+def register_opaque(t: type):
+    """Register the given type as being *opaque* with respect to the HitSave hashing algorithm.
+
+    You can use this to tell HitSave that it shouldn't care about certain types of objects.
+    Note that subtype checking is not done, if you inherit from a type registered as opaque, you will need to register that too.
+    [todo] fix this; singledispatch has some code that does this.
+
+    Returns: the input argument.
+    """
+    global opaque_types
+    opaque_types.add(t)
+    return t
+
+
+class HashingPickler(Pickler):
+    hasher: blake3
+    code_dependencies: Set[Symbol]
+
+    def write(self, b: bytes) -> None:
+        self.hasher.update(b)
+
+    def __init__(self, protocol=None, **kwargs):
+        self.hasher = blake3()
+        self.code_dependencies = set()
+        super().__init__(self, protocol=protocol, **kwargs)
+
+    def persistent_id(self, obj):
+        # Abusing the persistent_id mechanism.
+        # https://docs.python.org/3/library/pickle.html#persistence-of-external-objects
+        if type(obj) in opaque_types:
+            return "___OPAQUE___"
+
+        if hasattr(obj, "__module__") and hasattr(obj, "__qualname__"):
+            # we have encountered a code-dependency.
+            if obj.__name__ == "<lambda>":
+                try:
+                    src = inspect.getsource(obj)
+                    # [todo]: here, rather than just returning the source code to hash,
+                    # we should attempt to find the parent symbol_table namespace
+                    # and add the symbol for that as a code dependency. The code graph explorer will then pick
+                    # up any dependencies internal to the lambda function.
+                    # With regards to naming the lambda function (not the symbol, the python object), the HitSave way is that the lambda's string source is exactly the name.
+                    # hence returning the source for hashing here is the right thing to do.
+                    return src
+                except OSError as e:
+                    internal_error(
+                        "Found a sourceless lambda",
+                        obj.__qualname__,
+                    )
+                    return obj.__qualname__
+
+            if obj.__name__.startswith("<"):
+                internal_error("Got an unrecognised", obj.__module__, obj.__name__)
+                return f"{obj.__module__}:{obj.__name__}"
+            s = Symbol.of_object(obj)
+            self.code_dependencies.add(s)
+            return str(s)
+
+        return None
+
+    @property
+    def digest(self) -> str:
+        return self.hasher.hexdigest()
+
+
+def value_digest(obj) -> str:
+    h = HashingPickler()
+    h.dump(obj)
+    return h.digest

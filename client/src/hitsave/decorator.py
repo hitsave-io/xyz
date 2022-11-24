@@ -1,19 +1,18 @@
 from dataclasses import asdict, dataclass, field
 import inspect
 from typing import Any, Callable, Generic, List, Optional, Set, TypeVar, overload
-from hitsave.deephash import deephash
+from hitsave.console import user_info
 from hitsave.codegraph import Symbol, get_binding
 from functools import update_wrapper
 from hitsave.session import Session
 from hitsave.types import CodeChanged, Eval, EvalKey, StoreMiss
-import logging
 import time
 from hitsave.evalstore import EvalStore
 from typing_extensions import ParamSpec
 
+from hitsave.console import logger, internal_error
 from hitsave.util import datetime_now  # needed for ≤3.9
 
-logger = logging.getLogger("hitsave")
 
 # https://peps.python.org/pep-0612
 P = ParamSpec("P")
@@ -31,7 +30,8 @@ class Arg:
 
     @classmethod
     def create(cls, sig: inspect.Signature, bas: inspect.BoundArguments) -> List["Arg"]:
-        assert bas.signature == sig
+        if bas.signature != sig:
+            raise ValueError(f"Bad signature for {bas}")
         o: List[Arg] = []
         for param in sig.parameters.values():
             is_default = param.name not in bas.arguments
@@ -66,50 +66,60 @@ class SavedFunction(Generic[P, R]):
     _fn_hashes_reported: Set[str] = field(default_factory=set)
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
-        self.invocation_count += 1
-        session = Session.current()
-        sig = inspect.signature(self.func)
-        ba = sig.bind(*args, **kwargs)
-        args_hash = deephash(ba.arguments)
-        pretty_args = Arg.create(sig, ba)
-        fn_key = Symbol.of_object(self.func)
-        deps = session.fn_deps(fn_key)
-        fn_hash = session.fn_hash(fn_key)
-        key = EvalKey(fn_key=fn_key, fn_hash=fn_hash, args_hash=args_hash)
-        evalstore = EvalStore.current()
-        result = evalstore.poll_eval(key, deps=deps)
-        if isinstance(result, StoreMiss):
-            if isinstance(result, CodeChanged):
-                if fn_hash not in self._fn_hashes_reported:
-                    logger.info(
-                        f"Dependencies changed for {fn_key.pp()}:\n{result.reason}"
-                    )
-                    self._fn_hashes_reported.add(fn_hash)
+        try:
+            self.invocation_count += 1
+            session = Session.current()
+            sig = inspect.signature(self.func)
+            ba = sig.bind(*args, **kwargs)
+            args_hash = session.deephash(ba.arguments)
+            pretty_args = Arg.create(sig, ba)
+            fn_key = Symbol.of_object(self.func)
+            deps = session.fn_deps(fn_key)
+            fn_hash = session.fn_hash(fn_key)
+            key = EvalKey(fn_key=fn_key, fn_hash=fn_hash, args_hash=args_hash)
+            evalstore = EvalStore.current()
+            result = evalstore.poll_eval(key, deps=deps)
+            if isinstance(result, StoreMiss):
+                if isinstance(result, CodeChanged):
+                    if fn_hash not in self._fn_hashes_reported:
+                        user_info(
+                            f"Dependencies changed for",
+                            fn_key,
+                            "\n" + result.reason,
+                            highlight=False,
+                        )
+                        self._fn_hashes_reported.add(fn_hash)
+                else:
+                    logger.debug(f"No stored value for {fn_key}: {result.reason}")
+                start_time = datetime_now()
+                start_process_time = time.process_time_ns()
+                evalstore.start_eval(
+                    key,
+                    is_experiment=self.is_experiment,
+                    args=pretty_args,
+                    deps=deps,
+                    start_time=start_time,
+                )
+                # [todo] catch, log and rethrow errors raised by inner func.
+                result = self.func(*args, **kwargs)
+                end_process_time = time.process_time_ns()
+                elapsed_process_time = end_process_time - start_process_time
+                evalstore.resolve_eval(
+                    key, elapsed_process_time=elapsed_process_time, result=result
+                )
+                logger.debug(f"Computed value for {fn_key}.")
+                return result
             else:
-                logger.debug(f"No stored value for {fn_key.pp()}: {result.reason}")
-            start_time = datetime_now()
-            start_process_time = time.process_time_ns()
-            evalstore.start_eval(
-                key,
-                is_experiment=self.is_experiment,
-                args=pretty_args,
-                deps=deps,
-                start_time=start_time,
+                if self.invocation_count == 1:
+                    user_info(f"Reusing {result.origin} cache for", fn_key)
+                else:
+                    logger.debug(f"Found cached value for {fn_key}.")
+                return result.value
+        except Exception as e:
+            internal_error(
+                "Unhandled exception, falling back to decorator-less behaviour.\n", e
             )
-            result = self.func(*args, **kwargs)
-            end_process_time = time.process_time_ns()
-            elapsed_process_time = end_process_time - start_process_time
-            evalstore.resolve_eval(
-                key, elapsed_process_time=elapsed_process_time, result=result
-            )
-            logger.debug(f"Computed value for {fn_key.pp()}.")
-            return result
-        else:
-            if self.invocation_count == 1:
-                logger.info(f"Reusing {result.origin} cache for {fn_key.pp()}.")
-            else:
-                logger.debug(f"Found cached value for {fn_key.pp()}")
-            return result.value
+            return self.func(*args, **kwargs)
 
 
 @overload

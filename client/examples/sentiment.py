@@ -90,7 +90,7 @@ def load_dataset(split: Split) -> List[Tuple[int, str]]:
             (int(rating) - 1, title + ": " + body)
             for rating, title, body in csv.reader(f, delimiter=",")
         ]
-        return items[:1000]
+        return items[:100000]
 
 
 load_dataset("test")[:10]
@@ -128,7 +128,9 @@ vocab = make_vocab()
 # -----------------
 #
 
-text_pipeline = lambda x: vocab(tokenizer(x))
+
+def text_pipeline(x):
+    return vocab(tokenizer(x))
 
 
 def collate_batch(batch):
@@ -147,7 +149,6 @@ def collate_batch(batch):
 BATCH_SIZE = 64  # batch size for training
 
 
-@memo
 def create_dataloader(split: Split):
     dataset = to_map_style_dataset(load_dataset(split))
     return DataLoader(
@@ -180,7 +181,7 @@ class TextClassificationModel(nn.Module):
         return self.fc(embedded)
 
 
-EPOCHS = 1
+EPOCHS = 4
 LR = 5  # learning rate
 num_class = 2
 vocab_size = len(vocab)
@@ -273,8 +274,9 @@ def test():
 
     print("Checking the results of test dataset.")
     results = evaluate(test_dataloader, model)
-    print("test accuracy {:8.3f}".format(results["acc"]))
     return results
 
 
-test()
+if __name__ == "__main__":
+    results = test()
+    print("test accuracy {:8.3f}".format(results["acc"]))

@@ -3,15 +3,8 @@ import logging
 from hitsave.visualize import visualize
 import hitsave.visualize as vis
 from hitsave.blobstore import BlobStore
-from hitsave.deephash import to_bytes
 import tempfile
 from PIL.Image import Image
-
-
-@to_bytes.register(Image)
-def _to_bytes_image(x: Image):
-    return x.tobytes(encoder_name="raw")
-
 
 @visualize.register(Image)
 def _viz_pil_image(x: Image):

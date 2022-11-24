@@ -5,13 +5,16 @@ from hypothesis import given, assume
 import pytest
 import json
 import pprint
-from hitsave import deepeq, deephash, reduce, reconstruct, traverse
+from hitsave.codegraph import value_digest, HashingPickler
+from hitsave.deep import reduce, reconstruct, traverse
 import itertools
 import math
 import cmath
+from hitsave.session import Session
 import hypothesis.strategies as hs
 import datetime
 from .strat import atoms, objects
+from .deepeq import deepeq
 
 examples = [
     "hello",
@@ -46,7 +49,7 @@ examples = [
 
 
 def test_deephash_snapshot(snapshot):
-    hs = [deephash(x) for x in examples]
+    hs = [value_digest(x) for x in examples]
     snapshot.assert_match(pprint.pformat(hs), "example_hashes.txt")
     hset = set(hs)
     assert len(hset) == len(hs), "Hash collision detected"
@@ -54,7 +57,9 @@ def test_deephash_snapshot(snapshot):
 
 def test_hash_deterministic():
     for x in examples:
-        assert deephash(x) == deephash(x)
+        a = value_digest(x)
+        b = value_digest(x)
+        assert a == b
 
 
 def test_examples_traverse():
@@ -64,7 +69,7 @@ def test_examples_traverse():
 
 
 def test_noconflicts():
-    hs = [(x, deephash(x)) for x in examples]
+    hs = [(x, value_digest(x)) for x in examples]
     for (x1, h1), (x2, h2) in itertools.combinations(hs, 2):
         assert h1 != h2, f"{x1} and {x2} produced same hash {h1}."
 
@@ -113,7 +118,7 @@ def test_deepeq_compounds(a):
 @given(atoms(), atoms())
 def test_atoms_prop(a1, a2):
     assume(not deepeq(a1, a2))
-    d1, d2 = map(deephash, (a1, a2))
+    d1, d2 = map(value_digest, (a1, a2))
     assert d1 != d2
 
 
@@ -127,3 +132,10 @@ def test_traverse_ld():
 def test_traverse_id(a):
     b = traverse(a)
     assert deepeq(a, b), f"{repr(a)} ≠ {repr(b)}"
+
+
+"""
+[TODO]:
+- [ ] dependencies are found if they are only referenced in lambdas or other namespaces
+
+"""

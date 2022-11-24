@@ -15,11 +15,11 @@ from pathlib import Path, PurePath
 import pathlib
 from stat import S_IREAD, S_IRGRP, S_IROTH
 import logging
+from hitsave.console import user_info
 from hitsave.session import Session
-
 from hitsave.util import chunked_read, human_size
+from hitsave.console import logger
 
-logger = logging.getLogger("hitsave")
 BLOCK_SIZE = 2**20
 
 
@@ -64,7 +64,7 @@ class FileSnapshot:
     def download(self):
         """Download the file from the cloud to the local file cache."""
         if BlobStore.current().pull_blob(self.digest):
-            logger.info(f"Downloaded {self.name}.")
+            user_info(f"Downloaded {self.name}.")
 
     def open(self) -> IO[bytes]:
         """Open the snapshot in read mode. (writing to a snapshot is not allowed.)"""
@@ -82,7 +82,7 @@ class FileSnapshot:
         if not path.parent.exists():
             raise ValueError(f"Path {path.parent} does not exist.")
         if path.is_dir():
-            logger.info(
+            user_info(
                 f"restore_at: {path} is a directory so appending the basename of the file {self.name}."
             )
             path = path / self.name
@@ -107,8 +107,8 @@ class FileSnapshot:
                         f"File {path} already exists, replacing with a symlink to {self.local_cache_path}.",
                         f"To suppress this warning, explicitly pass overwrite=True to restore().",
                     )
-                else:
-                    assert overwrite is True
+                elif overwrite is not True:
+                    raise TypeError("overwrite must be True, False or None")
                 path.unlink()
 
         self.download()
@@ -170,7 +170,7 @@ class FileSnapshot:
     def upload(self):
         try:
             if BlobStore.current().push_blob(self.digest):
-                logger.info(f"Uploaded {self.name}.")
+                user_info(f"Uploaded {self.name}.")
         except ConnectionError as e:
             logger.error(f"Error uploading {self.name}: {e.message}")
 
@@ -202,7 +202,7 @@ class DirectorySnapshot:
         """Restores the directory at the given path. Returns the path to the root of the snapshotted directory. (which is the same as the path argument)."""
         if path.exists():
             if overwrite:
-                logger.info(
+                user_info(
                     f"{path} already exists, files that are also present in the directory snapshot will be overwritten, other files will be left alone."
                 )
         for file in self.files:
@@ -218,7 +218,7 @@ class DirectorySnapshot:
             try:
                 file.restore(overwrite=overwrite, project_path=path)
             except FileExistsError as e:
-                logger.info(f"File {filepath} already exists, skipping.")
+                user_info(f"File {filepath} already exists, skipping.")
         return path
 
     def restore_safe(self) -> Path:
@@ -227,7 +227,7 @@ class DirectorySnapshot:
             Config.current().local_cache_dir / "directory_snaps" / self.digest[:10]
         )
         if path.exists():
-            logger.info(f"Directory snapshot already present {path}.")
+            user_info(f"Directory snapshot already present {path}.")
             # [todo] check that the blobs have not been removed.
             return path
         path.mkdir(exist_ok=True, parents=True)
@@ -241,7 +241,7 @@ class DirectorySnapshot:
                 "Can't restore directory without specific path. Try using restore_safe."
             )
         abspath = workspace_path / self.relpath
-        logger.info(f"Restoring directory snapshot at {abspath}.")
+        user_info(f"Restoring directory snapshot at {abspath}.")
         self.restore_at(abspath, overwrite=overwrite)
         return abspath
 
@@ -253,7 +253,7 @@ class DirectorySnapshot:
         if path.is_relative_to(workspace_dir):
             relpath = path.relative_to(workspace_dir)
         else:
-            logger.info(
+            user_info(
                 f"Directory {path} is outside workspace directory {workspace_dir}. Not storing a relpath."
             )
             relpath = None
@@ -271,7 +271,7 @@ class DirectorySnapshot:
                     yield FileSnapshot.snap(child_path, workspace_dir=path)
 
         files = sorted(rec(path), key=lambda x: x.relpath or 0)
-        logger.info(f"Directory snapshot created for {len(files)} files.")
+        user_info(f"Directory snapshot created for {len(files)} files.")
         h = blake3()
         for file in files:
             h.update(file.digest.encode())

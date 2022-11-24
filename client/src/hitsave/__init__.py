@@ -1,11 +1,11 @@
 import atexit
 
 from .decorator import memo, experiment
-from .util import decorate_ansi, eprint, is_interactive_terminal
 from .cli import app as main_cli
 from .config import Config, __version__
 from .filesnap import FileSnapshot, DirectorySnapshot
 from .blobstore import restore
+from .console import console, is_interactive_terminal
 
 __all__ = [
     "memo",
@@ -18,12 +18,12 @@ __all__ = [
 ]
 
 try:
-    import hitsave.torch
+    import hitsave.support_torch
 except ModuleNotFoundError:
     pass
 
 try:
-    import hitsave.PIL_support
+    import hitsave.support_pil
 except ModuleNotFoundError:
     pass
 
@@ -42,12 +42,9 @@ def exit_message():
         return
     time_saved = "10 minutes"  # [todo]
     if time_saved:
-        eprint(f"You saved {time_saved} of compute time with hitsave.")
-    eprint(
-        "Get 5GB of free cloud cache:",
-        "visit "
-        + decorate_ansi("https://hitsave.io/signup", underline=True, fg="blue")
-        + " or run "
-        + decorate_ansi("hitsave keygen", fg="blue"),
-        sep="\n",
-    )
+        console.print(
+            f"You saved {time_saved} of compute time with hitsave.",
+            "Get 5GB of free cloud cache:",
+            "visit https://hitsave.io/signup or run [green]hitsave keygen[/]",
+            sep="\n",
+        )

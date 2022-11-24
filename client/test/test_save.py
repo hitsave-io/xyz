@@ -2,6 +2,8 @@ from hitsave import memo
 import numpy as np
 import logging
 from hitsave.decorator import SavedFunction
+from hitsave.codegraph import HashingPickler
+import pprint
 
 
 @memo
@@ -58,8 +60,26 @@ def test_biggies():
         print(len(gg(x)))
 
 
+def test_hashing_pickler_deps():
+    o = {
+        "ident": lambda x: x,
+        "k": lambda x, y: x,
+        "other": test_biggies,
+        "g": range,
+    }
+    hp = HashingPickler()
+    hp.dump(o)
+    ds = hp.code_dependencies
+    # pprint.pp(ds)
+    # [note] the two lambdas are dropped as code dependencies and are just hashed as source strings.
+    # [todo] future versions of HashingPickler will distinguish these.
+    assert len(ds) == 2
+
+
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    test_hashing_pickler_deps()
+
+    test_savesave()
 
     test_giantlist()
 

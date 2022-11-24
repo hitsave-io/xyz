@@ -6,7 +6,8 @@ from hypothesis import given, assume
 import pytest
 import json
 import pprint
-from hitsave import deepeq, deephash, reduce, reconstruct, traverse
+from .deepeq import deepeq
+from hitsave.deep import reduce, reconstruct, traverse
 import itertools
 import math
 import cmath

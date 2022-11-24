@@ -1,3 +1,4 @@
+from typing import Any
 from hitsave.deep import walk as wap
 import hypothesis.strategies as hs
 from hypothesis import given
@@ -85,7 +86,7 @@ def test_module_imports(snapshot):
 
 def test_graph_snap(snapshot):
     gg = CodeGraph()
-    ds = list(gg.get_dependencies_obj(f))
+    ds: Any = list(gg.get_dependencies_obj(f))
     interns, externs = partition(
         lambda d: isinstance(get_binding(d), ExternalBinding), ds
     )

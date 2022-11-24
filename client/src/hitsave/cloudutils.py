@@ -10,7 +10,7 @@ from urllib3.exceptions import NewConnectionError
 
 from hitsave.visualize import visualize_rec
 
-logger = logging.getLogger("hitsave")
+from hitsave.console import logger
 
 """
 The HitSave wire format is a utf-8 encoded JSON object followed by raw bytes stream.
