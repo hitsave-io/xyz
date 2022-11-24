@@ -51,11 +51,9 @@ HitSave can be configured to cache your function executions to the cloud. Read t
 
 ### Granular code versioning
 
-
-- If your code changes, the cache becomes invalidated.
-- Track your generated files.
-- We supply a collection of streaming datasets through `hitsave.datasets`.
-- So much more!!!!!!
+HitSave uses a cache invalidation algorithm that caches both your code and your
+data. This algorithm traverses the full tree of code dependencies to ensure 
+soundness. So if your code changes, the cache invalidates. 
 
 ### Experiment management
 
@@ -66,8 +64,3 @@ machine learning project where we're attempting to make a neural network underst
 chess endgames. Here's what the dashboard looks like:
 
 ![HitSave experiment tracking dashboard](../../web/src/images/screenshots/experiment-tracking.png)
-
-### How it Works
-
-[Explain the idea of verisoning code by digesting the function and its argument
-and recursively doing this through all the dependencies.]
