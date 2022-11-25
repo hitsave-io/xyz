@@ -46,7 +46,9 @@ def register_reducer(type):
 
 
 def register_opaque(type):
+    global opaque
     """Register a type as not being reducible."""
+    opaque.add(type)
     dispatch_table[type] = None  # type: ignore
 
 
