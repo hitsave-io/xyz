@@ -2,9 +2,9 @@ from dataclasses import fields, is_dataclass
 from enum import Enum
 from functools import partial, singledispatch
 from itertools import islice
-from json import JSONEncoder
 from hitsave.console import logger
-
+from typing import List, Dict, Any
+from dataclasses import dataclass
 
 """ This file contains the 'visualisation encoding' of python values.
 These are used to make visualisations that our experiment explorer can show.
@@ -12,9 +12,9 @@ The encoding is lossy, and should only be used for showing pretty things to the 
 
 As well as the basic primitive types, we support the following
 - images
-- plotly plots [todo]
+- plotly plots
 - matplotlib [todo]
-- SVG [todo]
+- SVG
 
 
 If we don't know how to encode an object, we simply return a string.
@@ -31,13 +31,12 @@ Challenges
 
 [todo] test on giant binaries, giant numpys etc, make sure it doesn't make an unboundedly large json.
 
-
-
 """
 
 
 class Kind(Enum):
     object = 0
+    """ Normal python object. """
     html = 1
     """ Render this as some html. """
     image = 2
@@ -50,22 +49,29 @@ class Kind(Enum):
     # [todo] file
 
 
-def html(tag: str, attrs: dict, children: list):
+@dataclass
+class Html:
     """Makes a thing that will be visualised as an html element.
 
     You can use this to make simple custom visualisations for your data.
     `visualize` will be called recursively on the 'children' objects.
     """
-    return {
-        "__kind__": Kind.html.name,
-        "tag": tag,
-        "attrs": attrs,
-        "children": children,
-    }
+
+    tag: str
+    attrs: Dict[str, Any]
+    children: List[Any]
+
+    def __visualize__(self):
+        return {
+            "__kind__": Kind.html.name,
+            "tag": self.tag,
+            "attrs": self.attrs,
+            "children": self.children,
+        }
 
 
 @singledispatch
-def visualize(item):
+def visualize(item, rec):
     """Convert an item to a visualisable json-like object.
 
     You do not need to use this recursively
@@ -81,7 +87,7 @@ def visualize(item):
         o = {"__class__": item.__class__.__qualname__}
         for field in fields(item):
             # another possibility is asdict, but that is recursive
-            o[field.name] = getattr(item, field.name)
+            o[field.name] = rec(getattr(item, field.name))
         return o
     # [todo] named tuples
     logger.debug(f"Don't know how to visualise {type(item)}")
@@ -92,41 +98,29 @@ def visualize_rec(item, max_depth=None):
     if max_depth == 0:
         return opaque(item)
     r = partial(visualize_rec, max_depth=max_depth and max_depth - 1)
-    x = visualize(item)
-    if isinstance(x, dict):
-        return {k: r(v) for k, v in x.items()}
-    elif isinstance(x, (list, tuple)):
-        return list(map(r, x))
-    else:
-        return x
-
-
-class VisualizeEncoder(JSONEncoder):
-    def default(self, x):
-        v = visualize(x)
-        return super().default(v)
-
-
-def ident(x):
+    x = visualize(item, r)
     return x
 
 
-def init(x):
+def ident(x, rec):
+    return x
+
+
+def init(x, rec=None):
     return {"__class__": type(x).__name__}
 
 
-def opaque(x):
+def opaque(x, rec=None):
     t = type(x)
     s = repr(x)
+    if len(s) > 256:
+        s = s[:256] + "..."
     return {"__class__": t.__name__, "__kind__": Kind.opaque.name, "repr": s}
 
 
 visualize.register(int)(ident)
 visualize.register(float)(ident)
 visualize.register(bool)(ident)
-visualize.register(list)(ident)
-visualize.register(tuple)(ident)
-visualize.register(dict)(ident)
 # [todo] maybe if it's too long then truncate?
 visualize.register(str)(ident)
 visualize.register(bytes)(init)
@@ -134,61 +128,58 @@ visualize.register(type(None))(ident)
 
 
 @visualize.register(type(...))
-def _vis_ellipsis(x):
+def _vis_ellipsis(x, rec):
     return "..."
 
 
 @visualize.register(complex)
-def _viz_complex(x: complex):
+def _viz_complex(x: complex, rec):
     return {**init(x), "real": x.real, "imag": x.imag}
 
 
 @visualize.register(Enum)
-def _viz_enum(x: Enum):
+def _viz_enum(x: Enum, rec):
     o = init(x)
     o["name"] = x.name
-    o["value"] = x.value
+    o["value"] = rec(x.value)
     return o
+
+
+@visualize.register(type)
+def _viz_type(x: type, rec):
+    return getattr(x, "__name__", repr(x))
 
 
 MAX_VISUALIZE_SIZE = 100
 
 
+@visualize.register(tuple)
 @visualize.register(list)
-def _viz_list(x: list):
+def _viz_list(x: list, rec):
     if len(x) > MAX_VISUALIZE_SIZE:
-        t = x[:MAX_VISUALIZE_SIZE]
+        values = [rec(v) for v in x[:MAX_VISUALIZE_SIZE]]
         """ [todo] need a better way to do this. eg we want to report the number of elements and the type of each element.
         It's all about asking what the user would expect to see and what they would be reasonably ok with not seeing.
         The user also needs to be able to override visualisation behaviour. Eg maybe they want to see the list of elements as a cool graph.
 
         By default the visualisation should be quite compact.
         """
-        t.append({"__truncated__": len(x) - MAX_VISUALIZE_SIZE})
-        return t
+        return {**init(x), "truncated": len(x), "values": values}
     else:
-        return x
+        return {**init(x), "truncated": False, "values": list(map(rec, x))}
 
 
 @visualize.register(dict)
-def _viz_dict(x: dict):
+def _viz_dict(x: dict, rec):
     if len(x) > MAX_VISUALIZE_SIZE:
-        o = {k: x[k] for k in islice(list(x.keys()), 0, MAX_VISUALIZE_SIZE)}
-        o["__truncated__"] = len(x) - MAX_VISUALIZE_SIZE
-        return o
+        o = {k: rec(x[k]) for k in islice(list(x.keys()), 0, MAX_VISUALIZE_SIZE)}
+        return {**init(x), "values": o, "truncated": len(x)}
     else:
-        return x
-
-
-"""
-sketch for images:
-
-when the type is PIL.Image or a hitsave.Image:
-- save the file as a jpeg or png or whatever as a blob.
-- save as {"__kind__" : "image", "__class__" : "PIL.Image", digest: "aaaaa", mimetype : "jpeg" or whatever}
-- api.hitsave.io has a `/images` endpoint
-
- """
+        return {
+            **init(x),
+            "values": {k: rec(v) for k, v in x.items()},
+            "truncated": False,
+        }
 
 
 try:
@@ -196,7 +187,7 @@ try:
     import plotly.graph_objects as go
 
     @visualize.register(go.Figure)
-    def _viz_plotly(fig: go.Figure):
+    def _viz_plotly(fig: go.Figure, rec):
         return {
             **init(fig),
             "__kind__": Kind.plotly.name,
@@ -210,9 +201,9 @@ try:
     import numpy as np
 
     @visualize.register(np.ndarray)
-    def _viz_nparray(x: np.ndarray):
+    def _viz_nparray(x: np.ndarray, rec):
         # [todo] make fancy
-        return repr(x)
+        return repr(x)[:256]
 
 except ModuleNotFoundError:
     pass

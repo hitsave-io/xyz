@@ -1,8 +1,9 @@
 import { LoaderArgs } from "@remix-run/node";
 import { useLoaderData, Outlet } from "@remix-run/react";
 
-import { getUser, redirectLogin } from "~/session.server";
+import { getUser, redirectLogin, User } from "~/session.server";
 import { AppShell } from "~/components/AppShell";
+import { ContextMenuKind, useUiState } from "~/state/experiments";
 
 export const loader = async ({ request }: LoaderArgs) => {
   const user = await getUser(request);
@@ -10,10 +11,18 @@ export const loader = async ({ request }: LoaderArgs) => {
 };
 
 export default function Dashboard() {
-  const user = useLoaderData<typeof loader>();
+  const user = useLoaderData<typeof loader>() as User;
+  const setContextMenu = useUiState((store) => store.setContextMenu);
 
   return (
-    <AppShell user={user}>
+    <AppShell
+      user={user}
+      onClickTitle={() =>
+        setContextMenu({
+          __kind__: ContextMenuKind.Experiment,
+        })
+      }
+    >
       <Outlet />
     </AppShell>
   );

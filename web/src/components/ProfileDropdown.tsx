@@ -24,17 +24,14 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user }) => {
   ];
 
   return (
-    <Menu as="div" className="relative ml-3">
-      <div>
-        <Menu.Button className="flex max-w-xs items-center rounded-full bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-          <span className="sr-only">Open user menu</span>
-          <img
-            className="h-8 w-8 rounded-full"
-            src={user.gh_avatar_url}
-            alt=""
-          />
-        </Menu.Button>
-      </div>
+    <Menu as="div" className="w-full flex max-w-ws items-center justify-center">
+      <Menu.Button className="rounded-full text-sm ring-1 ring-white focus:ring-1 focus:ring-brand">
+        <img
+          className="h-7 w-7 rounded-full"
+          src={user.gh_avatar_url}
+          alt={user.gh_login}
+        />
+      </Menu.Button>
       <Transition
         as={Fragment}
         enter="transition ease-out duration-100"
@@ -44,7 +41,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user }) => {
         leaveFrom="transform opacity-100 scale-100"
         leaveTo="transform opacity-0 scale-95"
       >
-        <Menu.Items className="absolute right-0 z-20 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+        <Menu.Items className="absolute left-2 bottom-16 z-20 mt-2 w-48 origin-bottom-left rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
           {userNavigation.map((item) => (
             <Menu.Item key={item.name.toString()}>
               {({ active }) => (

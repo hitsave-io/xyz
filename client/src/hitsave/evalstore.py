@@ -291,7 +291,7 @@ class CloudEvalStore:
             tape.seek(0)
             digest, content_length = get_digest_and_length(tape)
             tape.seek(0)
-            args = visualize_rec(e.get("args", None))
+            args = [visualize_rec(x) for x in e.get("args", None)]
             metadata = dict(
                 fn_key=str(key.fn_key),
                 fn_hash=key.fn_hash,

@@ -1,18 +1,14 @@
 import * as React from "react";
-import { Link } from "@remix-run/react";
 import { Dialog, Transition } from "@headlessui/react";
 import {
-  Bars3BottomLeftIcon,
+  Bars3Icon,
   BeakerIcon,
-  BellIcon,
   FolderIcon,
   UsersIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
 import clsx from "clsx";
 
-import hitsaveLogo from "~/images/hitsave_logo.svg";
 import { ProfileDropdown } from "~/components/ProfileDropdown";
 import { User } from "~/session.server";
 
@@ -20,10 +16,15 @@ const { Fragment, useState } = React;
 
 interface AppShellProps {
   user: User;
+  onClickTitle?: React.MouseEventHandler;
   children?: React.ReactNode;
 }
 
-export const AppShell: React.FC<AppShellProps> = ({ user, children }) => {
+export const AppShell: React.FC<AppShellProps> = ({
+  user,
+  onClickTitle = () => {},
+  children,
+}) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigation = [
     {
@@ -31,20 +32,17 @@ export const AppShell: React.FC<AppShellProps> = ({ user, children }) => {
       href: "/dashboard/projects",
       icon: FolderIcon,
       current: false,
-      comingSoon: true,
     },
     {
       name: "Experiments",
       href: "/dashboard/experiments",
       icon: BeakerIcon,
-      current: false,
     },
     {
       name: "Team",
       href: "/dashboard/team",
       icon: UsersIcon,
       current: false,
-      comingSoon: true,
     },
   ];
 
@@ -102,9 +100,6 @@ export const AppShell: React.FC<AppShellProps> = ({ user, children }) => {
                     </button>
                   </div>
                 </Transition.Child>
-                <div className="flex flex-shrink-0 items-center px-4">
-                  <img className="h-6 w-auto" src={hitsaveLogo} alt="HitSave" />
-                </div>
                 <div className="mt-5 h-0 flex-1 overflow-y-auto">
                   <nav className="space-y-1 px-2">
                     {navigation.map((item) => (
@@ -128,18 +123,21 @@ export const AppShell: React.FC<AppShellProps> = ({ user, children }) => {
                           aria-hidden="true"
                         />
                         {item.name}
-                        {item.comingSoon && (
-                          <p className="ml-3 block whitespace-nowrap rounded-lg bg-slate-50 py-0.5 px-2 text-xs leading-6 text-slate-400">
-                            Coming Soon
-                          </p>
-                        )}
                       </a>
                     ))}
+                    <div className="relative">
+                      <div
+                        className="absolute inset-x-6 inset-y-2 flex items-center"
+                        aria-hidden="true"
+                      >
+                        <div className="w-full border-t border-gray-300" />
+                      </div>
+                    </div>
                   </nav>
                 </div>
               </Dialog.Panel>
             </Transition.Child>
-            <div className="w-14 flex-shrink-0" aria-hidden="true">
+            <div className="w-12 flex-shrink-0" aria-hidden="true">
               {/* Dummy element to force sidebar to shrink to fit close icon */}
             </div>
           </div>
@@ -147,75 +145,55 @@ export const AppShell: React.FC<AppShellProps> = ({ user, children }) => {
       </Transition.Root>
 
       {/* Static sidebar for desktop */}
-      <div className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col">
-        {/* Sidebar component, swap this element with another sidebar if you like */}
-        <div className="flex flex-grow flex-col overflow-y-auto border-r border-gray-200 bg-white pt-5">
-          <div className="flex flex-shrink-0 items-center px-4">
-            <Link to="/">
-              <img className="h-6 w-auto" src={hitsaveLogo} alt="HitSave" />
-            </Link>
-          </div>
-          <div className="mt-5 flex flex-grow flex-col">
-            <nav className="flex-1 space-y-1 px-2 pb-4">
+      <div className="hidden md:fixed md:inset-y-0 md:flex md:w-12 md:flex-col">
+        {/* Sidebar component */}
+        <div className="flex flex-grow flex-col overflow-y-auto bg-midnight pt-2 pb-2">
+          <div className="flex flex-grow flex-col">
+            <nav className="flex-1 space-y-1 pb-4">
               {navigation.map((item) => (
                 <a
                   key={item.name}
                   href={item.href}
                   className={clsx(
                     item.current && "bg-gray-100 text-gray-900",
-                    !item.current &&
-                      "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
-                    "group flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                    !item.current && "text-white hover:bg-brand",
+                    "group flex items-center justify-center w-12 h-12 text-sm font-medium"
                   )}
                 >
                   <item.icon
-                    className={clsx(
-                      item.current && "text-gray-500",
-                      !item.current &&
-                        "text-gray-400 group-hover:text-gray-500",
-                      "mr-3 flex-shrink-0 h-6 w-6"
-                    )}
+                    className="flex-shrink-0 h-6 w-6 text-white"
                     aria-hidden="true"
                   />
-                  {item.name}
-                  {item.comingSoon && (
-                    <p className="ml-3 block whitespace-nowrap rounded-lg bg-slate-50 py-0.5 px-2 text-xs leading-6 text-slate-400">
-                      Coming Soon
-                    </p>
-                  )}
                 </a>
               ))}
             </nav>
-          </div>
-        </div>
-      </div>
-      <div className="flex flex-1 flex-col md:pl-64 max-h-full">
-        <div className="flex h-16 flex-shrink-0 bg-white shadow">
-          <button
-            type="button"
-            className="border-r border-gray-200 px-4 text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500 md:hidden"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <span className="sr-only">Open sidebar</span>
-            <Bars3BottomLeftIcon className="h-6 w-6" aria-hidden="true" />
-          </button>
-          <div className="relative flex flex-1 justify-between px-4">
             <div className="flex flex-1"></div>
-            <div className="ml-4 flex items-center md:ml-6">
-              <button
-                type="button"
-                className="rounded-full bg-white p-1 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-              >
-                <span className="sr-only">View notifications</span>
-                <BellIcon className="h-6 w-6" aria-hidden="true" />
-              </button>
-
+            <div className="flex items-center">
               <ProfileDropdown user={user} />
             </div>
           </div>
         </div>
+      </div>
 
-        <main className="flex-1 min-h-0 overflow-y-scroll">{children}</main>
+      {/* Title bar */}
+      <div className="flex flex-1 flex-col md:pl-12 h-full">
+        <div
+          className="flex items-center px-0 md:px-3 h-16 flex-shrink-0 bg-white border-b border-solid border-gray-100"
+          onClick={onClickTitle}
+        >
+          <button
+            type="button"
+            className="px-4 h-full text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500 md:hidden"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <span className="sr-only">Open sidebar</span>
+            <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+          </button>
+          <h1 className="text-2xl font-semibold text-gray-900">Experiments</h1>
+        </div>
+
+        {/* Main content */}
+        <main className="flex-1 overflow-y-hidden">{children}</main>
       </div>
     </div>
   );

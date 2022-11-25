@@ -8,9 +8,7 @@ from hitsave.util import chunked_read, human_size
 import requests
 from urllib3.exceptions import NewConnectionError
 
-from hitsave.visualize import visualize_rec
-
-from hitsave.console import logger
+logger = logging.getLogger("hitsave")
 
 """
 The HitSave wire format is a utf-8 encoded JSON object followed by raw bytes stream.
