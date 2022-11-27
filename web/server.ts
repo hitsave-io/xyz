@@ -3,7 +3,6 @@ import express from "express";
 import compression from "compression";
 import morgan from "morgan";
 import { createRequestHandler } from "@remix-run/express";
-import Fingerprint from "express-fingerprint";
 import { registerPageload } from "./src/analytics";
 
 const app = express();

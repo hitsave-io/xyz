@@ -4,6 +4,8 @@ import { parseCookie } from "../utils/cookie";
 
 // Express middleware for logging certain request data to the database.
 export const registerPageload: RequestHandler = async (req, _res, next) => {
+  console.log(req);
+
   const route = req.path;
 
   // we only want to record pageloads, not every request (which would include
@@ -22,6 +24,8 @@ export const registerPageload: RequestHandler = async (req, _res, next) => {
     (req.headers["x-forwarded-for"] || "")[0] ||
     req.socket?.remoteAddress ||
     req.ip;
+
+  console.log("req ip address: ", ip);
 
   const [_results, _metadata] = await db.query(
     `INSERT INTO pageloads (route, user_agent, referer, ip, auth)
