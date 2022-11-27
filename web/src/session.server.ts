@@ -1,15 +1,6 @@
 import jwt_decode from "jwt-decode";
+import { parseCookie } from "~/utils/cookie";
 import { API } from "~/api";
-
-const parseCookie = (cookie: string): { [key: string]: string } => {
-  return cookie
-    .split(";")
-    .map((v) => v.split("="))
-    .reduce<{ [key: string]: string }>((acc, v) => {
-      acc[decodeURIComponent(v[0].trim())] = decodeURIComponent(v[1].trim());
-      return acc;
-    }, {});
-};
 
 export function redirectLogin(redirectUrl?: string) {
   const redirectParam = redirectUrl ? `?redirect=${redirectUrl}` : "";

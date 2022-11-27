@@ -15,8 +15,6 @@ import { Footer } from "~/components/Footer";
 import { SecondaryFeatures } from "~/components/landing/SecondaryFeatures";
 import { CallToAction } from "~/components/landing/CallToAction";
 
-import { db, registerPageload } from "~/db";
-
 export function links() {
   return [{ rel: "stylesheet", href: styles }];
 }
@@ -60,8 +58,6 @@ export const action = async ({ request }: ActionArgs) => {
     }),
   });
 
-  console.log(res.status);
-
   if (res.status == 200) {
     return json({
       message:
@@ -79,8 +75,6 @@ export const action = async ({ request }: ActionArgs) => {
 };
 
 export const loader = async ({ request }: LoaderArgs) => {
-  registerPageload(request);
-
   // Although they may have an unexpired JWT, this JWT might for some reason
   // still be invalid. We will leave this to the API itself to validate. This is
   // just a hint.

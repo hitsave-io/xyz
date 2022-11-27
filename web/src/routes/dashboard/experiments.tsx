@@ -37,7 +37,6 @@ so I switched back to using moment. There is also time-ago but whatever.
 */
 
 import moment from "moment";
-import { registerPageload } from "~/db";
 
 function ppTimeAgo(isostring: string) {
   // luxon: return DateTime.fromISO(experiment.start_time).toRelative()
@@ -53,8 +52,6 @@ function ppDuration(durationNanoseconds: number) {
 }
 
 export const loader = async ({ request }: LoaderArgs) => {
-  registerPageload(request);
-
   const jwt = getSession(request);
   if (!jwt) {
     return redirectLogin(request.url);

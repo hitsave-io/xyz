@@ -1,13 +1,10 @@
 import { useEffect } from "react";
 import { LoaderArgs, MetaFunction, redirect } from "@remix-run/node";
 import { useLoaderData, useSearchParams } from "@remix-run/react";
-import { registerPageload } from "~/db";
 
 import { API } from "~/api";
 
 export const loader = async ({ request }: LoaderArgs) => {
-  registerPageload(request);
-
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const redirectUrl = url.searchParams.get("redirect") ?? "/dashboard";
@@ -50,7 +47,6 @@ export const loader = async ({ request }: LoaderArgs) => {
 
 export default function LoginPage() {
   const jwt = useLoaderData<typeof loader>();
-  console.log(jwt);
   const [searchParams] = useSearchParams();
   const clientLoopbackUrl = searchParams?.get("client_loopback");
 

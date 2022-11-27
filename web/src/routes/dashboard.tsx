@@ -3,11 +3,8 @@ import { useLoaderData, Outlet } from "@remix-run/react";
 
 import { getUser, redirectLogin } from "~/session.server";
 import { AppShell } from "~/components/AppShell";
-import { registerPageload } from "~/db";
 
 export const loader = async ({ request }: LoaderArgs) => {
-  registerPageload(request);
-
   const user = await getUser(request);
   return user ?? redirectLogin(request.url);
 };
