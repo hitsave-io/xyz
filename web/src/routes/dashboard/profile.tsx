@@ -3,8 +3,11 @@ import { useLoaderData } from "@remix-run/react";
 import { PaperClipIcon } from "@heroicons/react/20/solid";
 
 import { getUser, redirectLogin } from "~/session.server";
+import { registerPageload } from "~/db";
 
 export const loader = async ({ request }: LoaderArgs) => {
+  registerPageload(request);
+
   const user = await getUser(request);
   return user ?? redirectLogin(request.url);
 };
