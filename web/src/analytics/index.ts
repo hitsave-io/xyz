@@ -1,5 +1,4 @@
 import { RequestHandler } from "express";
-import geoip from "geoip-lite";
 
 import { db } from "../db";
 import { parseCookie } from "../utils/cookie";
@@ -26,19 +25,11 @@ export const registerPageload: RequestHandler = async (req, _res, next) => {
   }
   let ip = forwardedFor || req.socket?.remoteAddress || req.ip;
 
-  const geo = geoip.lookup(ip);
-  const country = geo?.country || null;
-  const region = geo?.region || null;
-
-  // Slice the city to 32 chars, just in case it's really long for some reason.
-  // We are using a VARCHAR(32) in Postgres, so it will crash otherwise.
-  const city = geo?.city.slice(0, 32) || null;
-
   const [_results, _metadata] = await db.query(
-    `INSERT INTO pageloads (route, user_agent, referer, ip, country, region, city, auth)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO pageloads (route, user_agent, referer, ip, auth)
+    VALUES (?, ?, ?, ?, ?)`,
     {
-      replacements: [route, useragent, referer, ip, country, region, city, jwt],
+      replacements: [route, useragent, referer, ip, jwt],
     }
   );
 
