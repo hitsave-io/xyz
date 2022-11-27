@@ -81,6 +81,11 @@ services:
       HITSAVE_API_URL: http://api:8080
       HITSAVE_WEB_URL: http://hitsave-local.io
       GH_CLIENT_ID: b7d5bad7787df04921e7
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: hitsave
       NODE_ENV: development
 
   nginx:
