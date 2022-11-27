@@ -87,6 +87,8 @@ services:
       POSTGRES_PORT: 5432
       POSTGRES_DB: hitsave
       NODE_ENV: development
+    secrets:
+      - postgres_password
 
   nginx:
     depends_on:
