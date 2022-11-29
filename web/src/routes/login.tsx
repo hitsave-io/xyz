@@ -28,6 +28,7 @@ export const loader = async ({ request }: LoaderArgs) => {
       "Set-Cookie": `jwt=${jwt}; HttpOnly; Max-Age=${
         60 * 60 * 24 * 30
       }; domain=${process.env.HITSAVE_WEB_HOST}`,
+      "Access-Control-Allow-Origin": "127.0.0.1",
     };
 
     if (!clientLoopbackUrl) {
