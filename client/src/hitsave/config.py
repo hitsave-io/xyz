@@ -4,17 +4,17 @@ import tempfile
 import os
 import os.path
 import sys
-import logging
 from pathlib import Path
 from typing import Literal, Optional, Type, TypeVar, Any, List, Dict, Iterable
 from hitsave.util import Current, as_optional, is_optional, validate
+from hitsave.util.config_file import interpret_var_str, read_keys_from_config_file
 import importlib.metadata
-import configparser
 from hitsave.console import logger, user_info
 from subprocess import PIPE, check_output, CalledProcessError
 import io
 import os
 import subprocess
+from hitsave.util import cache
 from contextlib import redirect_stderr
 
 __version__ = importlib.metadata.version("hitsave")
@@ -109,6 +109,7 @@ def find_cache_directory() -> Path:
 
 def find_global_config_directory() -> Path:
     """Returns a path to the place on the user's system where they want to store configs.
+
     Trying to do this as canonically as possible."""
     p = Path(os.environ.get("XDG_CONFIG_HOME", "~/.config"))
     if sys.platform == "darwin":
@@ -128,41 +129,25 @@ def find_global_config_directory() -> Path:
     return p
 
 
+def global_config_path():
+    # [todo]  default config_dir defined in multiple places.
+    return (
+        Path(os.environ.get("HITSAVE_CONFIG_DIR", find_global_config_directory()))
+        / "hitsave.conf"
+    )
+
+
 def valid_api_key(k: str) -> bool:
     """Checks whether the string is a valid API key."""
     # https://stackoverflow.com/a/48730645/352201
     return re.match(r"^[\w-]+\Z", k) is not None
 
 
-T = TypeVar("T")
-
-
-def interpret_var_str(t: Type[T], value: str) -> T:
-    """Given a string attained from an environment variable, make a best-effort attempt to parse it to an instance of the given type."""
-    # [todo] this must be in argparse or something
-    if t == str:
-        return value  # type: ignore
-    if t == int:
-        return int(value)  # type: ignore
-    if t == bool:
-        return value not in ["False", "false", "0", "no"]  # type: ignore
-    if t == Path:
-        return Path(value)  # type: ignore
-    X = as_optional(t)
-    if X is not None:
-        if value in ["None", "null", "undefined"]:
-            return None  # type: ignore
-        else:
-            return interpret_var_str(X, value)
-
-    raise NotImplementedError(f"Don't know how to interpret {t}")
-
-
 CONSTS = {
     "default": {
+        "web_url": "https://hitsave.io",
         "cloud_url": "https://api.hitsave.io",
         "github_client_id": "a569cafe591e507b13ca",
-        "web_url": "https://hitsave.io",
     },
     "local": {
         "web_url": "http://127.0.0.1:3000",
@@ -174,17 +159,41 @@ CONSTS = {
 # [todo] the above should live in an .ini file or similar that varies in source control.
 
 
+@cache
+def get_default_constants():
+    constants: dict = CONSTS["default"]
+    # [todo] we can probably deduce whether we are a deployment build and disallow dev constants.
+    env = os.environ.get("HITSAVE_ENV", None) or read_keys_from_config_file(
+        global_config_path(), "env"
+    )
+    if env is not None:
+        if env not in CONSTS:
+            logger.error(f"Unknown environment type '{env}' set.")
+        else:
+            logger.warning(
+                f"Using the '{env}' development environment. Unset this with [green]hitsave config unset env[/green]"
+            )
+            constants.update(CONSTS[env])
+    return constants
+
+
+def get_default_constant(key):
+    return lambda: get_default_constants()[key]
+
+
 @dataclass
 class Config(Current):
     """This dataclass contains all of the configuration needed to use hitsave."""
 
-    cloud_url: str
+    cloud_url: str = field(default_factory=get_default_constant("cloud_url"))
     """ URL for hitsave cloud API server. """
 
-    github_client_id: str
+    github_client_id: str = field(
+        default_factory=get_default_constant("github_client_id")
+    )
     """ This is the github client id used to authenticate the app. """
 
-    web_url: str
+    web_url: str = field(default_factory=get_default_constant("web_url"))
     """ URL for the HitSave website. """
 
     local_cache_dir: Path = field(default_factory=find_cache_directory)
@@ -288,23 +297,11 @@ class Config(Current):
     @classmethod
     def default(cls):
         """Creates the config, including environment variables."""
-        constants: dict = CONSTS["default"]
-        # [todo] we can probably deduce whether we are a deployment build and disallow dev constants.
-        env = os.environ.get("HITSAVE_ENV", None) or cls.read_key_from_config_file(
-            cls.global_config_path(), "env"
-        )
-        if env is not None:
-            if env not in CONSTS:
-                logger.error(f"Unknown environment type '{env}' set.")
-            else:
-                logger.warning(
-                    f"Using the '{env}' development environment. Unset this with [green]hitsave config unset env[/green]"
-                )
-                constants.update(CONSTS[env])
-        cfg = cls(**constants)
 
-        from_global_file = cls.read_keys_from_config_file(
-            cls.global_config_path(), cls.__dataclass_fields__.keys()
+        cfg = cls()
+
+        from_global_file = read_keys_from_config_file(
+            global_config_path(), {field.name: field.type for field in fields(cls)}
         )
 
         cfg = replace(
@@ -317,56 +314,6 @@ class Config(Current):
     @property
     def project_config_path(self):
         return self.workspace_dir / "hitsave.conf"
-
-    @classmethod
-    def global_config_path(cls):
-        # [todo]  default config_dir defined in multiple places.
-        return (
-            Path(os.environ.get("HITSAVE_CONFIG_DIR", find_global_config_directory()))
-            / "hitsave.conf"
-        )
-
-    @classmethod
-    def read_key_from_config_file(cls, path: Path, key: str) -> Any:
-        d = cls.read_keys_from_config_file(path, [key])
-        return d.get(key, None)
-
-    @classmethod
-    def read_keys_from_config_file(
-        cls, path: Path, keys: Iterable[Any]
-    ) -> Dict[str, Any]:
-        cfg = configparser.ConfigParser()
-        cfg.read(path)
-        o = {}
-        for key in keys:
-            v = cfg.get(cfg.default_section, key, fallback=None)
-            if v is None:
-                continue
-            field = cls.__dataclass_fields__.get(key, None)
-            if field is not None and not validate(field.type, v):
-                logging.error(
-                    f"Bad config value {key}, expected {field.type} but was {type(v)}"
-                )
-                continue
-            o[key] = v
-        return o
-
-    @classmethod
-    def set_config_file(cls, path: Path, **kvs):
-        cfg = configparser.ConfigParser()
-        cfg.read(path)
-        for k, v in kvs.items():
-            if v is None:
-                cfg.remove_option(cfg.default_section, k)
-            else:
-                field = cls.__dataclass_fields__.get(k, None)
-                if field is not None:
-                    if not validate(field.type, v):
-                        v = interpret_var_str(field.type, v)
-                cfg.set(cfg.default_section, k, v)
-        user_info(f"Writing {len(kvs)} values to {path}.")
-        with open(path, "w") as fd:
-            cfg.write(fd)
 
 
 def no_local() -> bool:

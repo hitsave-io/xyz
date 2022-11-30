@@ -34,6 +34,9 @@ We define the following terms:
     - enums
     - classes with a state dict
 
+- Include pytorch datatypes.
+- numpy datatypes
+
 - Include pathological types that shouldn't really make it in to a hitsave record.
   These should throw things.
     - logging.Logger.
