@@ -18,8 +18,10 @@ jobs:
       - name: Install Hatch
         run: pipx install hatch
       - name: Run tests
+        working-directory: "./client"
         run: hatch run test:test
       - name: Build documentation
+        working-directory: "./client"
         run: hatch run docs:build
       - name: Upload docs artifact
         uses: actions/upload-pages-artifact@v1
