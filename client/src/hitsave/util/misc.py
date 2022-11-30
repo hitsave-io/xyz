@@ -26,7 +26,6 @@ else:
     cache = functools.lru_cache(maxsize=None)
 
 
-
 def human_size(bytes: int, units=[" bytes", "KB", "MB", "GB", "TB", "PB", "EB"]):
     """Returns a human readable string representation of bytes.
 

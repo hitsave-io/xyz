@@ -361,7 +361,7 @@ class BlobStore(Current):
             # [todo] fancy progress bar goes here.
             info = self.local.add_blob(tape)
             if info.digest != digest:
-                internal_error( f"Corrupted cloud blob {digest[:10]}")
+                internal_error(f"Corrupted cloud blob {digest[:10]}")
             logger.debug(f"Pulled blob {digest}")
         # [todo] update blobs table.
         return True

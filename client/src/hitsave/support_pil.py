@@ -6,6 +6,7 @@ from hitsave.blobstore import BlobStore
 import tempfile
 from PIL.Image import Image
 
+
 @visualize.register(Image)
 def _viz_pil_image(x: Image):
     blobstore = BlobStore.current()

@@ -344,7 +344,7 @@ class EvalStore(Current):
     def default(cls):
         return EvalStore()
 
-    def poll_eval(self, key : EvalKey, **kwargs) -> Union[PollEvalResult, StoreMiss]:
+    def poll_eval(self, key: EvalKey, **kwargs) -> Union[PollEvalResult, StoreMiss]:
         cfg = Config.current()
         if cfg.no_local and cfg.no_cloud:
             return StoreMiss("Cloud and local stores are disabled.")
