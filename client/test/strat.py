@@ -1,7 +1,8 @@
 from decimal import Decimal
+from fractions import Fraction
 from numbers import Number
 import sys
-from typing import Any
+from typing import Any, List, Type
 from hypothesis import given, assume
 import pytest
 import json
@@ -11,6 +12,8 @@ from hitsave.deep import reduce, reconstruct, traverse
 import itertools
 import math
 import cmath
+import numpy as np
+import hypothesis.extra.numpy as hsnp
 import hypothesis.strategies as hs
 import datetime
 
@@ -26,6 +29,7 @@ We define the following terms:
 - A python object is __composite__ when its data contains references to other python objects.
 - A python object is __atomic__ when it is not composite. Strings, ints, bools, and Numpy arrays are atomic.
 - A python object is __builtin__ when you could make it without defining your own types or importing stuff.
+- All objects have a type. A __type__ is an object which subtypes `type`.
 
 ## [todo]
 
@@ -41,6 +45,39 @@ We define the following terms:
   These should throw things.
     - logging.Logger.
  """
+
+supported_types: List[Any] = [
+    type,
+    object,
+    # primitive
+    bytes,
+    dict,
+    # composite
+    list,
+    bool,
+    tuple,
+    set,
+    # numbers
+    int,
+    float,
+    complex,
+    Fraction,
+    Decimal,
+    # datteime
+    datetime.datetime,
+    datetime.date,
+    datetime.time,
+    datetime.tzinfo,
+    datetime.timedelta,
+    datetime.timezone,
+    # numpy
+    # np.dtype,
+    # np.ndarray,
+]
+
+
+def types() -> hs.SearchStrategy[Type]:
+    return hs.sampled_from(supported_types)
 
 
 def numbers(allow_nan=True) -> hs.SearchStrategy[Number]:
@@ -69,10 +106,24 @@ def atoms(allow_nan=True) -> hs.SearchStrategy[Any]:
             hs.booleans(),
             hs.from_type(str),
             hs.just(None),
-            # hs.from_type(type),
-            # pytorch tensors
+            hs.just(...),
+            types(),
+            # pytorch tensors [todo]
             # numpy arrays
+            # hs.from_type(np.dtype),
+            # hs.from_type(np.ndarray),
             # pandas dataframes
+        ]
+    )
+
+
+def hashables(allow_nan=True):
+    return hs.one_of(
+        [
+            hs.booleans(),
+            hs.just(None),
+            hs.from_type(str),
+            numbers(allow_nan=False),
         ]
     )
 
@@ -81,12 +132,12 @@ def objects():
     """Generates all python objects that hitsave supports."""
     return hs.one_of(
         [
-            hs.sets(atoms(allow_nan=False)),
+            hs.sets(hashables()),
             hs.recursive(
                 atoms(),
                 lambda x: hs.one_of(
                     [
-                        hs.dictionaries(atoms(allow_nan=False), x),
+                        hs.dictionaries(hashables(), x),
                         hs.lists(x),
                     ]
                 ),

@@ -57,7 +57,7 @@ def get_config(path: Path, keys_and_types: Dict[str, Type]) -> Dict[str, Any]:
 def get_config(path: Path, keys, type=Any) -> Any:  # type: ignore
     if isinstance(keys, dict):
         return read_keys_from_config_file(path, keys)
-    elif isinstance(keys, Iterable):
+    elif isinstance(keys, list):
         return read_keys_from_config_file(path, keys)
     else:
         if not isinstance(keys, str):

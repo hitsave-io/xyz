@@ -15,6 +15,7 @@ import hypothesis.strategies as hs
 import datetime
 from .strat import atoms, objects
 from .deepeq import deepeq
+import numpy as np
 
 examples = [
     "hello",
@@ -34,6 +35,7 @@ examples = [
     -float("inf"),
     [],
     [0, 1, 2],
+    (0,),
     ["0"],
     {},
     {"x": 4, "y": 4},
@@ -45,13 +47,26 @@ examples = [
     Decimal("sNaN"),
     {datetime.date(2000, 1, 1): {}, 0: {}},
     {7.0, Decimal("Infinity")},
+    # primitive types
+    int,
+    float,
+    list,
+    str,
+    bytes,
+    # numpy
+    np.int32,
+    np.array([]),
+    np.array([[]]),
+    np.array(4),
+    np.zeros((0, 4)),
+    np.zeros((0, 5)),
 ]
 
 
 def test_deephash_snapshot(snapshot):
-    hs = [value_digest(x) for x in examples]
+    hs = [(repr(x), value_digest(x)) for x in examples]
     snapshot.assert_match(pprint.pformat(hs), "example_hashes.txt")
-    hset = set(hs)
+    hset = set(x[1] for x in hs)
     assert len(hset) == len(hs), "Hash collision detected"
 
 

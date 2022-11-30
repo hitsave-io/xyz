@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Literal, Optional, Type, TypeVar, Any, List, Dict, Iterable
 from hitsave.util import Current, as_optional, is_optional, validate
-from hitsave.util.config_file import interpret_var_str, read_keys_from_config_file
+from hitsave.util.config_file import interpret_var_str, get_config
 import importlib.metadata
 from hitsave.console import logger, user_info
 from subprocess import PIPE, check_output, CalledProcessError
@@ -163,10 +163,9 @@ CONSTS = {
 def get_default_constants():
     constants: dict = CONSTS["default"]
     # [todo] we can probably deduce whether we are a deployment build and disallow dev constants.
-    env = os.environ.get("HITSAVE_ENV", None) or read_keys_from_config_file(
-        global_config_path(), "env"
-    )
+    env = os.environ.get("HITSAVE_ENV", None) or get_config(global_config_path(), "env")
     if env is not None:
+        assert isinstance(env, str)
         if env not in CONSTS:
             logger.error(f"Unknown environment type '{env}' set.")
         else:
@@ -300,7 +299,7 @@ class Config(Current):
 
         cfg = cls()
 
-        from_global_file = read_keys_from_config_file(
+        from_global_file = get_config(
             global_config_path(), {field.name: field.type for field in fields(cls)}
         )
 

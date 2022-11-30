@@ -84,6 +84,7 @@ def internal_error(*args, **kwargs):
     # [todo] telemetry goes here
     # [todo] in prod builds don't bother reporting to user?
     # [todo] in debug builds, throw here.
+    # raise Exception(*args)
 
 
 def debug(*args, **kwargs):

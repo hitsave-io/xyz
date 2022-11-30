@@ -56,7 +56,18 @@ Related work:
 """
 from collections import ChainMap
 import copyreg
-from typing import Any, Callable, Iterator, List, Literal, Tuple, Type, Optional, Union
+from typing import (
+    Any,
+    Callable,
+    Iterable,
+    Iterator,
+    List,
+    Literal,
+    Tuple,
+    Type,
+    Optional,
+    Union,
+)
 from functools import wraps
 from pickle import DEFAULT_PROTOCOL
 from dataclasses import dataclass, field, fields, is_dataclass, replace
@@ -97,7 +108,7 @@ def dict_reductor(d: dict) -> Tuple:
 
 @register_reducer(tuple)
 def tuple_reductor(t: tuple) -> Tuple:
-    return (tuple, t)
+    return (tuple, (), None, t)
 
 
 def _sortkey(x):
@@ -158,13 +169,18 @@ class ReductionValue:
 
     def walk(self, f: Callable[[Any, Any], Any]) -> "ReductionValue":
         """Apply f(v, k) to each child object `v` with index or key `k`."""
-        if self.state and not isinstance(self.state, dict):
-            raise NotImplementedError(f"cannot map slots yet.")
         args = tuple(f(v, i) for i, v in enumerate(self.args))
+        if self.state:
+            if isinstance(self.state, dict):
+                state = {k: f(v, k) for k, v in self.state.items()}
+            else:
+                state = f(self.state, None)
+        else:
+            state = self.state
         return replace(
             self,
             args=args,
-            state=self.state and {k: f(v, k) for k, v in self.state.items()},  # type: ignore
+            state=state,
             listiter=self.listiter and [f(v, i) for i, v in enumerate(self.listiter)],
             dictiter=self.dictiter and {k: f(v, k) for k, v in self.dictiter.items()},
         )
@@ -196,10 +212,7 @@ class ReductionValue:
                 for k in sorted(self.state.keys(), key=_sortkey):
                     yield (("state", k), self.state[k])
             else:
-                # [todo] if something is performance-sensitive enough to use slots
-                # it should probably have a custom hashing and pickling algorithm.
-                # and we shouldn't reach here. So always give a warning.
-                raise NotImplementedError(f"cannot iter slots yet.")
+                yield (("state", None), self.state)
         if self.listiter:
             for i, item in enumerate(self.listiter):
                 yield (("listiter", i), item)
@@ -227,6 +240,9 @@ def reduce(obj) -> Optional[ReductionValue]:
 
     def core(obj) -> Any:
         global dispatch
+        if isinstance(obj, type):
+            # all types are opaque.
+            return None
         cls = type(obj)
         if cls in dispatch:
             reductor = dispatch.get(cls)
@@ -269,6 +285,8 @@ def reconstruct(rv: ReductionValue):
     # short circuits
     if rv.func == list and rv.listiter is not None:
         return list(rv.listiter)
+    elif rv.func == tuple and rv.listiter is not None:
+        return tuple(rv.listiter)
     elif rv.func == dict and rv.dictiter is not None:
         return dict(rv.dictiter)
     # main method
