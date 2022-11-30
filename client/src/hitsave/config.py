@@ -10,7 +10,7 @@ from typing import Literal, Optional, Type, TypeVar, Any, List, Dict, Iterable
 from hitsave.util import Current, as_optional, is_optional, get_git_root, validate
 import importlib.metadata
 import configparser
-from hitsave.console import logger
+from hitsave.console import logger, user_info
 
 __version__ = importlib.metadata.version("hitsave")
 
@@ -334,7 +334,7 @@ class Config(Current):
                     if not validate(field.type, v):
                         v = interpret_var_str(field.type, v)
                 cfg.set(cfg.default_section, k, v)
-        log_info(f"Writing {len(kvs)} values to {path}.")
+        user_info(f"Writing {len(kvs)} values to {path}.")
         with open(path, "w") as fd:
             cfg.write(fd)
 

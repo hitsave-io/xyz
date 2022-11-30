@@ -212,9 +212,6 @@ class LocalEvalStore:
             conn.executemany("""DROP TABLE ?;""", tables)
             user_info(f"Dropped tables {tables}")
 
-    def __len__(self):
-        return len(self._store)  # type: ignore
-
     # [todo] import_eval for when you download an eval from cloud. maybe all evals should be pulled at once.
 
 

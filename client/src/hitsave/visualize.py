@@ -150,7 +150,7 @@ def _viz_type(x: type, rec):
     return getattr(x, "__name__", repr(x))
 
 
-MAX_VISUALIZE_SIZE = 100
+MAX_VISUALIZE_SIZE = 10
 
 
 @visualize.register(tuple)

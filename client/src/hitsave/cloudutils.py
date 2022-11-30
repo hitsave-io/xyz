@@ -22,13 +22,9 @@ The HitSave wire format is a utf-8 encoded JSON object followed by raw bytes str
 
 def create_header(meta: dict) -> bytes:
     """Creates a header for the HitSave wire format."""
-    with io.BytesIO() as tape:
-        meta_json = json.dumps(meta).encode("utf-8")
-        json_len = len(meta_json).to_bytes(4, byteorder="big", signed=False)
-        tape.write(json_len)
-        tape.write(meta_json)
-        tape.seek(0)
-        return tape.read()
+    meta_json = json.dumps(meta).encode("utf-8")
+    json_len = len(meta_json).to_bytes(4, byteorder="big", signed=False)
+    return json_len + meta_json
 
 
 def encode_hitsavemsg(meta: dict, payload: IO[bytes]) -> Iterator[bytes]:

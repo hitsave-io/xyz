@@ -95,11 +95,11 @@ def keygen(label: Optional[str] = None):
 
 @app.command()
 def clear_local():
-    """Deletes the local eval store (not cached blobs)."""
-    store = EvalStore().local
+    """Deletes the local eval store and blob store."""
+    estore = EvalStore().local
     p = Config.current().local_db_path
-    console.print(f"Deleting {len(store)} entries in {p}")
-    store.clear()
+    console.print(f"Deleting local evaluations {p}")
+    estore.clear()
 
 
 @app.command()
