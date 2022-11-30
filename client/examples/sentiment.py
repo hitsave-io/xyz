@@ -77,7 +77,7 @@ digests = {
 }
 
 
-@memo
+@experiment
 def load_dataset(split: Split) -> List[Tuple[int, str]]:
     """Given a split, produces a list of rating, review pairs.
 
@@ -90,7 +90,7 @@ def load_dataset(split: Split) -> List[Tuple[int, str]]:
             (int(rating) - 1, title + ": " + body)
             for rating, title, body in csv.reader(f, delimiter=",")
         ]
-        return items[:100000]
+        return items[:10008]
 
 
 load_dataset("test")[:10]
@@ -181,7 +181,7 @@ class TextClassificationModel(nn.Module):
         return self.fc(embedded)
 
 
-EPOCHS = 4
+EPOCHS = 5
 LR = 5  # learning rate
 num_class = 2
 vocab_size = len(vocab)

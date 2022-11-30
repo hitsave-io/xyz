@@ -82,7 +82,6 @@ async def loopback_login() -> str:
     base_url = "https://github.com/login/oauth/authorize"
     sign_in_url = f"{base_url}?{query_params}"
     # [todo] check user isn't already logged in
-
     fut = asyncio.get_running_loop().create_future()
 
     async def redirected(request: web.BaseRequest):
@@ -97,9 +96,9 @@ async def loopback_login() -> str:
     runner = web.ServerRunner(server)
     # [todo] add a 10s timeout
     await runner.setup()
-    site = web.TCPSite(runner, "localhost", redirect_port)
+    site = web.TCPSite(runner, "127.0.0.1", redirect_port)
     await site.start()
-    console.print("Opening GitHub OAuth login...")
+    console.print("Opening GitHub OAuth login...", sign_in_url)
     webbrowser.open_new(sign_in_url)
 
     result = await fut
