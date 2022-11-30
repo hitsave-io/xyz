@@ -7,12 +7,42 @@ import sys
 import logging
 from pathlib import Path
 from typing import Literal, Optional, Type, TypeVar, Any, List, Dict, Iterable
-from hitsave.util import Current, as_optional, is_optional, get_git_root, validate
+from hitsave.util import Current, as_optional, is_optional, validate
 import importlib.metadata
 import configparser
 from hitsave.console import logger, user_info
+from subprocess import PIPE, check_output, CalledProcessError
+import io
+import os
+import subprocess
+from contextlib import redirect_stderr
 
 __version__ = importlib.metadata.version("hitsave")
+
+
+def get_git_root(cwd: Optional[Path] = None) -> Optional[Path]:
+    """
+    Gets the git root for the current working directory.
+
+    source: https://github.com/maxnoe/python-gitpath/blob/86973f112b976a87e2ffa734fa2e43cc76dfe90d/gitpath/__init__.py
+    (MIT licenced)
+    """
+    try:
+        args = ["git", "rev-parse", "--show-toplevel"]
+        logger.debug(f"Running {' '.join(args)} in {cwd or os.getcwd()}")
+        r = subprocess.run(
+            args,
+            stdout=PIPE,
+            stderr=PIPE,
+            cwd=cwd,
+            check=True,
+        )
+        if r.stdout == b"":
+            return None
+        return Path(r.stdout.decode().strip())
+    except CalledProcessError as e:
+        logger.debug("Not in a git repository:", e)
+        return None
 
 
 def find_workspace_folder() -> Path:

@@ -26,20 +26,6 @@ else:
     cache = functools.lru_cache(maxsize=None)
 
 
-def get_git_root():
-    """
-    Gets the git root for the current working directory.
-
-    source: https://github.com/maxnoe/python-gitpath/blob/86973f112b976a87e2ffa734fa2e43cc76dfe90d/gitpath/__init__.py
-    (MIT licenced)
-    """
-    try:
-        base = check_output(["git", "rev-parse", "--show-toplevel"])
-        return base.decode().strip()
-    # [todo] stop the error from being printed to the terminal. contextlib?
-    except CalledProcessError:
-        return None
-
 
 def human_size(bytes: int, units=[" bytes", "KB", "MB", "GB", "TB", "PB", "EB"]):
     """Returns a human readable string representation of bytes.
