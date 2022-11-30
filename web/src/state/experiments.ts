@@ -265,10 +265,7 @@ function fromExperimentList(exps: Experiment[]): UiState {
 
   for (const exp of exps) {
     if (!symbols.hasOwnProperty(exp.fn_key)) {
-      symbols[exp.fn_key] = newSymbol(
-        exp.fn_key,
-        exps.filter((e) => e.fn_key === exp.fn_key).map((e) => e.fn_hash)
-      );
+      symbols[exp.fn_key] = newSymbol(exp.fn_key, [exp.fn_hash]);
     }
 
     const symbol = symbols[exp.fn_key];
@@ -277,6 +274,8 @@ function fromExperimentList(exps: Experiment[]): UiState {
     if (!symbolVersion) {
       symbolVersion = newSymbolVersion(exp);
       symbol.versions.push(symbolVersion);
+    } else {
+      symbolVersion.experiments.push(exp);
     }
   }
 
