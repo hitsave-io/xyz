@@ -34,20 +34,27 @@ hitsave = "hitsave:main_cli"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.hatch.envs.default]
-dependencies = [
-  "pytest", "pytest-cov", "hypothesis", "pytest-snapshot"
-]
 [tool.hatch.envs.docs]
 dependencies = [
   "sphinx", "myst-parser", "sphinx-book-theme"
 ]
-[tool.hatch.envs.default.scripts]
+[tool.hatch.envs.docs.scripts]
+build = "cd docs && make html"
+
+[tool.hatch.envs.test.scripts]
 cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=hitsave --cov=tests {args}"
-no-cov = "cov --no-cov {args}"
+test = "cov --no-cov {args}"
+snap = "test --snapshot-update"
+
+[tool.hatch.envs.test]
+dependencies = [
+  "pytest", "pytest-cov", "hypothesis", "pytest-snapshot",
+  "numpy", "pandas", "pillow",
+  "torch; python_version < '3.11'"
+]
 
 [[tool.hatch.envs.test.matrix]]
-python = ["38", "39", "310", "311"]
+python = ["38", "39", "310"]
 
 [tool.hatch.version]
 path = "src/hitsave/__about__.py"
