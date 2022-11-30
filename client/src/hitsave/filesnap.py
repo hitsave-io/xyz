@@ -172,7 +172,7 @@ class FileSnapshot:
             if BlobStore.current().push_blob(self.digest):
                 user_info(f"Uploaded {self.name}.")
         except ConnectionError as e:
-            logger.error(f"Error uploading {self.name}: {e.message}")
+            logger.error(f"Error uploading {self.name}: {e}")
 
 
 @dataclass
