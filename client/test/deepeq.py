@@ -2,7 +2,8 @@ from decimal import Decimal
 from functools import singledispatch
 import math
 import cmath
-from hitsave.deep import reduce
+from .deep import reduce
+import numpy as np
 
 """
 Deep equality checking.
@@ -56,6 +57,15 @@ def deepeq(a1, a2):
 
 deepeq.register(list, children_eq(deepeq))
 deepeq.register(dict, children_eq(deepeq))
+
+
+@deepeq.register(np.ndarray)
+def _np_eq(x, y):
+    if x.shape != y.shape:
+        return False
+    if x.size == 0:
+        return True
+    return x == y
 
 
 @deepeq.register(float)

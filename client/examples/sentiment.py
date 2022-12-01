@@ -200,7 +200,7 @@ def train_epoch(dataloader, model, optimizer, epoch):
         predicted_label = model(text, offsets)
         loss = criterion(predicted_label, label)
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)  # type: ignore
         optimizer.step()
         total_acc += (predicted_label.argmax(1) == label).sum().item()
         total_count += label.size(0)

@@ -41,7 +41,8 @@ The plan for this module is to also deal with telemetry, reporting errors to the
 
 """
 from contextlib import nullcontext
-from typing import Optional, Tuple, TypeVar, Union
+import difflib
+from typing import List, Optional, Tuple, TypeVar, Union
 from rich.console import Console
 from rich.logging import RichHandler
 import rich.progress
@@ -84,6 +85,7 @@ def internal_error(*args, **kwargs):
     # [todo] telemetry goes here
     # [todo] in prod builds don't bother reporting to user?
     # [todo] in debug builds, throw here.
+    # raise Exception(*args)
 
 
 def debug(*args, **kwargs):
@@ -145,3 +147,21 @@ def tape_progress(
             else:
                 debug(message)
         return nullcontext(file)
+
+
+def pp_diff(s1: str, s2: str) -> List[str]:
+    """Takes a pair of strings with newlines and diffs them in a pretty way.
+
+    Returns a string that should start on a newline.
+    """
+    # [todo] should use a rich panel or whatever.
+    xs = list(difflib.ndiff(s1.splitlines(keepends=True), s2.splitlines(keepends=True)))
+
+    def m(x: str):
+        if x.startswith("+"):
+            return decorate(x, "green")
+        if x.startswith("-"):
+            return decorate(x, "red")
+        return x
+
+    return "".join(map(m, xs)).splitlines(keepends=False)

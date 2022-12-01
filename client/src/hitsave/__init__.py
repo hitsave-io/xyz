@@ -5,7 +5,7 @@ from .cli import app as main_cli
 from .config import Config, __version__
 from .filesnap import FileSnapshot, DirectorySnapshot
 from .blobstore import restore
-from .console import console, is_interactive_terminal
+from .console import console as ccc, is_interactive_terminal
 
 __all__ = [
     "memo",
@@ -42,7 +42,7 @@ def exit_message():
         return
     time_saved = "10 minutes"  # [todo]
     if time_saved:
-        console.print(
+        ccc.print(
             f"You saved {time_saved} of compute time with hitsave.",
             "Get 5GB of free cloud cache:",
             "visit https://hitsave.io/signup or run [green]hitsave keygen[/]",

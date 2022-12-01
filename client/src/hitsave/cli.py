@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 import typer
 from dataclasses import fields, asdict
 import asyncio
@@ -11,12 +11,13 @@ from hitsave.authenticate import (
     get_jwt,
     loopback_login,
 )
-from hitsave.console import console, logger
-from hitsave.config import Config
+from hitsave.console import console, decorate, logger, user_info
+from hitsave.config import Config, global_config_path
 from hitsave.evalstore import EvalStore
 from hitsave.blobstore import BlobStore
 from hitsave.session import Session
 from hitsave.filesnap import DirectorySnapshot, FileSnapshot
+from hitsave.util.config_file import get_config, interpret_var_str, set_config
 from rich.prompt import Confirm
 
 from hitsave.console import is_interactive_terminal
@@ -94,15 +95,6 @@ def keygen(label: Optional[str] = None):
 
 
 @app.command()
-def clear_local():
-    """Deletes the local eval store and blob store."""
-    estore = EvalStore().local
-    p = Config.current().local_db_path
-    console.print(f"Deleting local evaluations {p}")
-    estore.clear()
-
-
-@app.command()
 def snapshot(path: Path = typer.Argument(..., exists=True)):
     """Upload the given file or directory to the cloud, returning a digest that can be used to reference data in code."""
     if path.is_file():
@@ -132,7 +124,7 @@ config_state = {"scope": "global"}
 
 def get_config_path():
     return (
-        Config.global_config_path()
+        global_config_path()
         if config_state["scope"] == "global"
         else Config.current().project_config_path
     )
@@ -142,21 +134,33 @@ def get_config_path():
 def set(
     key: str,
     value: str,
-    is_global: bool = typer.Option(False, "--global"),
-    is_project: bool = typer.Option(False, "--project"),
 ):
     """Add a key/value pair to the HitSave config."""
-    Config.set_config_file(get_config_path(), **{key: value})
+    field = Config.__dataclass_fields__.get(key, None)
+    type = field.type if field else str
+    item = interpret_var_str(type, value)
+    p = get_config_path()
+    set_config(p, **{key: item})
+    user_info(
+        "Setting",
+        decorate(key, "yellow"),
+        ":",
+        decorate(type.__name__, "cyan"),
+        "←",
+        repr(item),
+        "in",
+        p,
+    )
 
 
 @config_subcommand.command()
 def unset(
     key: str,
-    is_global: bool = typer.Option(False, "--global"),
-    is_project: bool = typer.Option(False, "--project"),
 ):
     """Unset an option in the HitSave config."""
-    Config.set_config_file(get_config_path(), **{key: None})
+    p = get_config_path()
+    set_config(p, **{key: None})
+    user_info("Unsetting", decorate(key, "yellow"), "in", p)
 
 
 @config_subcommand.command()
@@ -164,7 +168,7 @@ def get(
     key: str,
 ):
     """Read an option from the HitSave config."""
-    v = Config.read_key_from_config_file(get_config_path(), key)
+    v = get_config(get_config_path(), key)
     if v is None:
         print(f"option {key} is not set")
     else:
@@ -190,6 +194,27 @@ def config_main(
         config_state["scope"] = "global"
     elif is_project:
         config_state["scope"] = "project"
+
+
+@app.command()
+def clear_local():
+    """Obliterates all local cache and blobs."""
+    es = EvalStore.current()
+    bs = BlobStore.current()
+    user_info(
+        "[red]Deleting everything from your local cache.[/]",
+        f"\nevals: {len(es.local)}, blobs: {len(bs.local)}",
+        # "\nAny file snapshot symlinks will need to be restored.",
+    )
+    c = Confirm.ask("Delete local cache?")
+    if c:
+        user_info(f"Dropping {len(es.local)} evals.")
+        es.clear_local()
+        bs = BlobStore.current()
+        bs.clear_local()
+        bs.prune_local()
+    else:
+        user_info("Clear aborted.")
 
 
 if __name__ == "__main__":

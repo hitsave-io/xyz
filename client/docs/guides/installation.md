@@ -4,7 +4,7 @@
 
 To install HitSave in your project, run
 
-```terminal
+```sh
 $ pip install hitsave
 ```
 
@@ -38,7 +38,7 @@ them into your source code repository.
 
 To generate an API key from your terminal, run
 
-```terminal
+```sh
 $ hitsave keygen
 ```
 
