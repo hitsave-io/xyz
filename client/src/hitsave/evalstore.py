@@ -65,6 +65,15 @@ class LocalEvalStore:
             )
         logger.debug(f"Initialised local database.")
 
+    def len_evals(self):
+        with localdb() as conn:
+            r = conn.execute("SELECT COUNT(*) FROM evals;")
+            return r.fetchone()[0]
+
+    def __len__(self):
+        """Returns number of evals in the table"""
+        return self.len_evals()
+
     def poll_eval(
         self, key: EvalKey, deps: Dict[Symbol, Binding]
     ) -> Union[PollEvalResult, StoreMiss]:
@@ -201,16 +210,11 @@ class LocalEvalStore:
         raise NotImplementedError()
 
     def clear(self):
-        tables = [("evals",), ("bindings",)]
+        tables = ["evals", "bindings"]
         with localdb() as conn:
-            conn.executemany(
-                """
-              DELETE FROM ?;
-            """,
-                tables,
-            )
-            conn.executemany("""DROP TABLE ?;""", tables)
-            user_info(f"Dropped tables {tables}")
+            for table in tables:
+                conn.execute(f"DROP TABLE {table};")
+                logger.debug("Dropped local ", table)
 
     # [todo] import_eval for when you download an eval from cloud. maybe all evals should be pulled at once.
 
@@ -383,4 +387,5 @@ class EvalStore(Current):
         if not Config.current().no_cloud:
             self.cloud.reject_eval(key, **kwargs)
 
-    # [todo] clear
+    def clear_local(self, *args, **kwargs):
+        return self.local.clear(*args, **kwargs)

@@ -95,15 +95,6 @@ def keygen(label: Optional[str] = None):
 
 
 @app.command()
-def clear_local():
-    """Deletes the local eval store and blob store."""
-    estore = EvalStore().local
-    p = Config.current().local_db_path
-    console.print(f"Deleting local evaluations {p}")
-    estore.clear()
-
-
-@app.command()
 def snapshot(path: Path = typer.Argument(..., exists=True)):
     """Upload the given file or directory to the cloud, returning a digest that can be used to reference data in code."""
     if path.is_file():
@@ -143,8 +134,6 @@ def get_config_path():
 def set(
     key: str,
     value: str,
-    is_global: bool = typer.Option(False, "--global"),
-    is_project: bool = typer.Option(False, "--project"),
 ):
     """Add a key/value pair to the HitSave config."""
     field = Config.__dataclass_fields__.get(key, None)
@@ -167,8 +156,6 @@ def set(
 @config_subcommand.command()
 def unset(
     key: str,
-    is_global: bool = typer.Option(False, "--global"),
-    is_project: bool = typer.Option(False, "--project"),
 ):
     """Unset an option in the HitSave config."""
     p = get_config_path()
@@ -207,6 +194,27 @@ def config_main(
         config_state["scope"] = "global"
     elif is_project:
         config_state["scope"] = "project"
+
+
+@app.command()
+def clear_local():
+    """Obliterates all local cache and blobs."""
+    es = EvalStore.current()
+    bs = BlobStore.current()
+    user_info(
+        "[red]Deleting everything from your local cache.[/]",
+        f"\nevals: {len(es.local)}, blobs: {len(bs.local)}",
+        # "\nAny file snapshot symlinks will need to be restored.",
+    )
+    c = Confirm.ask("Delete local cache?")
+    if c:
+        user_info(f"Dropping {len(es.local)} evals.")
+        es.clear_local()
+        bs = BlobStore.current()
+        bs.clear_local()
+        bs.prune_local()
+    else:
+        user_info("Clear aborted.")
 
 
 if __name__ == "__main__":

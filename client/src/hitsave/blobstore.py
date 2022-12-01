@@ -57,6 +57,14 @@ class LocalBlobStore:
     def __init__(self):
         self.local_cache_dir = Config.current().local_cache_dir
 
+    def iter_blobs(self):
+        """Iterate all of the digests of the blobs that exist on disk."""
+        p = self.local_cache_dir / "blobs"
+        for bp in p.iterdir():
+            if bp.is_file():
+                digest = bp.name
+                yield digest
+
     def local_file_cache_path(self, digest: str):
         """Gets the place where the blob would be stored. Note that this doesn't guarantee existence."""
         p = self.local_cache_dir
@@ -68,9 +76,13 @@ class LocalBlobStore:
 
     def delete_blob(self, digest):
         """Deletes the given blob from the local cache.
-        Note that some directories etc may symlink to this blob, so we should do this with care.
+
+        Note that some directories etc may symlink to this blob, so you should do this with care.
         """
-        raise NotImplementedError()
+        p = self.local_file_cache_path(digest)
+        if p.exists():
+            p.unlink()
+            logger.debug(f"Deleted local blob {digest}")
 
     def open_blob(self, digest: str, **kwargs) -> IO:
         """Opens the blob. You are responsible for closing it.
@@ -80,6 +92,11 @@ class LocalBlobStore:
         if not self.has_blob(digest):
             raise FileNotFoundError(f"No blob {digest}")
         return open(self.local_file_cache_path(digest), mode="rb", **kwargs)
+
+    def __len__(self):
+        with localdb() as conn:
+            c = conn.execute("SELECT COUNT(*) FROM blobs;")
+            return c.fetchone()[0]
 
     def add_blob(
         self,
@@ -398,6 +415,32 @@ class BlobStore(Current):
         """Pulls the blob with the given digest and returns a path to it."""
         self.pull_blob(digest)
         return self.local.local_file_cache_path(digest)
+
+    def clear_local(self):
+        """Removes all entries from the blobs table."""
+        with localdb() as conn:
+            conn.execute("DROP TABLE blobs;")
+            logger.debug("Dropped local blobs table.")
+
+    def prune_local(self):
+        """Removes all local blobs that are not present in the blobs table."""
+        ok_digests = set()
+        with localdb() as conn:
+            cur = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='blobs';"
+            )
+            t = cur.fetchone()
+            if t:
+                cur = conn.execute("SELECT digest FROM blobs;")
+                ok_digests = set(d for (d,) in cur)
+        delete_me = set()
+        for digest in self.local.iter_blobs():
+            if digest not in ok_digests:
+                delete_me.add(digest)
+        user_info("Permantly deleting", len(delete_me), "blobs...")
+        for digest in delete_me:
+            self.local.delete_blob(digest)
+        user_info("Deleted.")
 
 
 def restore(digest: str) -> Path:
