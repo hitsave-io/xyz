@@ -2,6 +2,7 @@
 name = "hitsave"
 authors = [
   { name="E.W.Ayers", email="contact@edayers.com" },
+  { name="George Seabridge", email="seabo@hitsave.io" },
 ]
 description = "Holistic data caching system."
 readme = "README.md"
@@ -65,3 +66,15 @@ parallel = true
 omit = [
   "src/hitsave/__about__.py"
 ]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "/.github",
+  "/docs",
+  "/test",
+  "/examples",
+  "/.hypothesis",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hitsave"]
