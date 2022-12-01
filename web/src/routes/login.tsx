@@ -1,8 +1,13 @@
 import { useEffect } from "react";
-import { LoaderArgs, MetaFunction, redirect } from "@remix-run/node";
+import { HeadersFunction, LoaderArgs, redirect } from "@remix-run/node";
 import { useLoaderData, useSearchParams } from "@remix-run/react";
+import { cors } from "remix-utils";
 
 import { API } from "~/api";
+
+// If you don't add this, it seems that the headers we added in `loader` just
+// get dropped, or overwritten somewhere in a merge operation.
+export const headers: HeadersFunction = ({ loaderHeaders }) => loaderHeaders;
 
 export const loader = async ({ request }: LoaderArgs) => {
   const url = new URL(request.url);
@@ -14,6 +19,7 @@ export const loader = async ({ request }: LoaderArgs) => {
   // to the temporary localhost server running in Python, to inform that the sign in was
   // successful.
   const clientLoopbackUrl = url.searchParams.get("client_loopback");
+  console.log("client loopback url is: ", clientLoopbackUrl);
 
   // Instruct the HitSave API to attempt to retrieve the user's login details with the
   // provided `code`.
@@ -40,7 +46,12 @@ export const loader = async ({ request }: LoaderArgs) => {
     // If we get here, then the login was initiated by the Python client. We would like to
     // display a success message, and send a message to the local Python mini-server from
     // the browser.
-    return new Response(jwt, { headers });
+    const response = new Response(jwt, { headers });
+    const responseWithCors = await cors(request, response, {
+      origin: true,
+    });
+    console.log("about to return this response: ", responseWithCors);
+    return responseWithCors;
   } else {
     throw new Error("Unable to log you in.");
   }

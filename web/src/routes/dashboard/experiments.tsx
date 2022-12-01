@@ -25,6 +25,10 @@ export const loader = async ({ request }: LoaderArgs) => {
   }
 };
 
+function safeSort<T>(comparator: (a: T, b: T) => number, arr: T[]): T[] {
+  return [...arr].sort(comparator);
+}
+
 export default function Experiments() {
   const experiments = useLoaderData<typeof loader>() as Experiment[];
   const fromExps = useUiState((store) => store.fromExps);
@@ -48,21 +52,22 @@ export default function Experiments() {
         };
       });
     })
-    .flat()
-    .sort((a, b) => {
-      if (a.name === b.name) {
-        return a.version.digest.localeCompare(b.version.digest);
-      } else {
-        return a.name.localeCompare(b.name);
-      }
-    });
+    .flat();
+
+  const sortedSymbolVersions = safeSort((a, b) => {
+    if (a.name === b.name) {
+      return a.version.digest.localeCompare(b.version.digest);
+    } else {
+      return a.name.localeCompare(b.name);
+    }
+  }, symbolVersions);
 
   return (
     <div className="flex h-full">
       <div className="flex flex-col flex-1 px-3 overflow-hidden">
         <div className="-mx-3 h-full inline-block align-middle overflow-auto">
           <div className="inline-block min-w-full">
-            {symbolVersions
+            {sortedSymbolVersions
               .filter((sv) => allSelected.includes(sv.version.digest))
               .map((symbol) => (
                 <Table
