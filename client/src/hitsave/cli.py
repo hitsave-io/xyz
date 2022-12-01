@@ -27,11 +27,17 @@ app = typer.Typer()
 
 
 @app.command()
-def login():
+def login(
+    no_autoopen: bool = typer.Option(
+        False,
+        "--no-autoopen",
+    ),
+):
     """Log in or sign up to the HitSave cloud service.
 
     This will present a link to you which can be used to register hitsave using your github account."""
-    asyncio.run(loopback_login())
+    autoopen = not no_autoopen
+    asyncio.run(loopback_login(autoopen=autoopen))
 
 
 async def keygen_async():
