@@ -87,20 +87,12 @@ async def loopback_login(*, autoopen=True) -> str:
     async def redirected(request: web.BaseRequest):
         """Handler for the mini webserver"""
         # print(request, request.url, request.method)
-        headers = {
-            "Access-Control-Allow-Origin": cfg.web_url,
-            "Access-Control-Allow-Methods": "GET, OPTIONS",
-            "Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept",
-        }
-
         ps = dict(request.url.query)
-        if request.method == "OPTIONS":
-            return web.Response(headers=headers)
-        else:
-            assert "jwt" in ps, "Github redirect did not include a `jwt` param."
-            # [todo] validate it's a JWT
+        assert "jwt" in ps, "Github redirect did not include a `jwt` param."
+        # [todo] validate it's a JWT
+        if not fut.done():
             fut.set_result(ps)
-            return web.Response(text="Done", headers=headers)
+        return web.Response(text="Done")
 
     # ref: https://docs.aiohttp.org/en/stable/web_lowlevel.html
     server = web.Server(redirected)

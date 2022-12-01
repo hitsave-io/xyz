@@ -61,7 +61,17 @@ export default function LoginPage() {
   useEffect(() => {
     if (clientLoopbackUrl) {
       const url = new URL(`${clientLoopbackUrl}?jwt=${jwt}`);
-      fetch(url, { method: "get" });
+
+      // We are redirecting because:
+      //
+      // - we would like to just do a fetch request from the client JS, to the
+      //   local miniserver
+      // - but this fails to work well in Safari, because of CORS header mayhem
+      // - for now, we are just forcing it to hit that endpoint by redirecting
+      // - but we only get the webpage served locally from Python, rather than
+      //   a nice Remix one, on the user's screen
+      // - todo: fix this to do the CORS properly, ideally.
+      window.location.replace(url);
     }
   });
 
