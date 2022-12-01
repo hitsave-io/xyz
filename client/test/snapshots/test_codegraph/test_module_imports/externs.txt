@@ -16,5 +16,4 @@
  'pprint': '__builtin__',
  'symtable': '__builtin__',
  'symtable_of_module_name': 'hitsave',
- 'torch': 'torch',
- 'wap': 'hitsave'}
+ 'torch': 'torch'}

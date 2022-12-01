@@ -6,7 +6,7 @@ import pytest
 import json
 import pprint
 from hitsave.codegraph import value_digest, HashingPickler
-from hitsave.deep import reduce, reconstruct, traverse
+from .deep import reduce, reconstruct, traverse
 import itertools
 import math
 import cmath

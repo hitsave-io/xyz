@@ -8,7 +8,7 @@ import pytest
 import json
 import pprint
 from .deepeq import deepeq
-from hitsave.deep import reduce, reconstruct, traverse
+from .deep import reduce, reconstruct, traverse
 import itertools
 import math
 import cmath

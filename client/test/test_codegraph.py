@@ -1,5 +1,5 @@
 from typing import Any
-from hitsave.deep import walk as wap
+from test.deep import walk as wap
 import hypothesis.strategies as hs
 from hypothesis import given
 import symtable
@@ -96,6 +96,7 @@ def test_graph_snap(snapshot):
 
 def test_symtable(snapshot):
     st = symtable_of_module_name(THIS_MODULE)
+    assert st is not None
     s = st.lookup("outer")
     snapshot.assert_match(pp_symbol(s), "test_symtable.txt")
 
