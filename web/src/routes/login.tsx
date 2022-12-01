@@ -45,12 +45,7 @@ export const loader = async ({ request }: LoaderArgs) => {
     // If we get here, then the login was initiated by the Python client. We would like to
     // display a success message, and send a message to the local Python mini-server from
     // the browser.
-    const response = new Response(jwt, { headers });
-    const responseWithCors = await cors(request, response, {
-      origin: true,
-    });
-    console.log("about to return this response: ", responseWithCors);
-    return responseWithCors;
+    return new Response(jwt, { headers });
   } else {
     throw new Error("Unable to log you in.");
   }
