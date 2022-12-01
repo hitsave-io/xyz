@@ -48,22 +48,6 @@ def localdb():
     return Session.current().local_db
 
 
-class UselessBlobStore:
-    kind: str
-
-    def __init__(self, kind):
-        self.kind = kind
-
-    def has_blob(self, digest):
-        return False
-
-    def open_blob(self, digest) -> IO[bytes]:
-        raise FileNotFoundError(f"{self.kind} store is deactivated.")
-
-    def add_blob(self, tape, *args, **kwargs):
-        return None
-
-
 class LocalBlobStore:
     """Everything to do with storing blobs locally.
 

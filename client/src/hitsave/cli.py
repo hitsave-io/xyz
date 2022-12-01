@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 import typer
 from dataclasses import fields, asdict
 import asyncio
@@ -11,12 +11,13 @@ from hitsave.authenticate import (
     get_jwt,
     loopback_login,
 )
-from hitsave.console import console, logger
-from hitsave.config import Config
+from hitsave.console import console, decorate, logger, user_info
+from hitsave.config import Config, global_config_path
 from hitsave.evalstore import EvalStore
 from hitsave.blobstore import BlobStore
 from hitsave.session import Session
 from hitsave.filesnap import DirectorySnapshot, FileSnapshot
+from hitsave.util.config_file import get_config, interpret_var_str, set_config
 from rich.prompt import Confirm
 
 from hitsave.console import is_interactive_terminal
@@ -132,7 +133,7 @@ config_state = {"scope": "global"}
 
 def get_config_path():
     return (
-        Config.global_config_path()
+        global_config_path()
         if config_state["scope"] == "global"
         else Config.current().project_config_path
     )
@@ -146,7 +147,21 @@ def set(
     is_project: bool = typer.Option(False, "--project"),
 ):
     """Add a key/value pair to the HitSave config."""
-    Config.set_config_file(get_config_path(), **{key: value})
+    field = Config.__dataclass_fields__.get(key, None)
+    type = field.type if field else str
+    item = interpret_var_str(type, value)
+    p = get_config_path()
+    set_config(p, **{key: item})
+    user_info(
+        "Setting",
+        decorate(key, "yellow"),
+        ":",
+        decorate(type.__name__, "cyan"),
+        "←",
+        repr(item),
+        "in",
+        p,
+    )
 
 
 @config_subcommand.command()
@@ -156,7 +171,9 @@ def unset(
     is_project: bool = typer.Option(False, "--project"),
 ):
     """Unset an option in the HitSave config."""
-    Config.set_config_file(get_config_path(), **{key: None})
+    p = get_config_path()
+    set_config(p, **{key: None})
+    user_info("Unsetting", decorate(key, "yellow"), "in", p)
 
 
 @config_subcommand.command()
@@ -164,7 +181,7 @@ def get(
     key: str,
 ):
     """Read an option from the HitSave config."""
-    v = Config.read_key_from_config_file(get_config_path(), key)
+    v = get_config(get_config_path(), key)
     if v is None:
         print(f"option {key} is not set")
     else:

@@ -94,8 +94,7 @@ def read_keys_from_config_file(
     return o
 
 
-@classmethod
-def set_config_file(path: Path, **kvs):
+def set_config(path: Path, **kvs):
     cfg = configparser.ConfigParser()
     cfg.read(path)
     for k, v in kvs.items():

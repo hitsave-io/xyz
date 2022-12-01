@@ -92,6 +92,8 @@ class TypedJsonDecoder(json.JSONDecoder):
 def validate(t: Type, item) -> bool:
     """Validates that the given item is of the given type."""
     # [todo] type assertion `bool ↝ item is t`
+    if t == Any:
+        return True
     o = as_optional(t)
     if o is not None:
         if t is None:
