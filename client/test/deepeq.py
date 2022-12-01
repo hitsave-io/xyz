@@ -2,7 +2,7 @@ from decimal import Decimal
 from functools import singledispatch
 import math
 import cmath
-from test.deep import reduce
+from .deep import reduce
 import numpy as np
 
 """

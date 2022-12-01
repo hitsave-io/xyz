@@ -23,14 +23,19 @@ For the purposes of computing dependencies, we distinguish between bindings as f
 
 """
 from abc import ABC, abstractmethod
+from collections import ChainMap
+import copyreg
 from dataclasses import dataclass, field
+import difflib
 from enum import Enum
 import importlib
 from importlib.machinery import ModuleSpec
+import io
 from blake3 import blake3
 from pickle import Pickler
 import importlib.util
 import importlib.metadata
+import tempfile
 import builtins
 import inspect
 from pathlib import Path
@@ -42,6 +47,7 @@ import pprint
 import os.path
 from types import ModuleType
 from typing import (
+    IO,
     Any,
     Callable,
     Dict,
@@ -58,7 +64,7 @@ from functools import cached_property
 from hitsave.graph import DirectedGraph
 from hitsave.config import Config, __version__
 from hitsave.util import cache, digest_dictionary, digest_string
-from hitsave.console import logger, console, internal_error, user_warning
+from hitsave.console import logger, console, internal_error, pp_diff, user_warning
 from hitsave.symbol import (
     Symbol,
     get_module_spec,
@@ -538,16 +544,56 @@ def register_opaque(t: type):
     return t
 
 
+digest_dispatch_table = {}
+
+
+def register_digest_reductor(type):
+    def core(f):
+        digest_dispatch_table[type] = f
+        return f
+
+    return core
+
+
+def _sortkey(x):
+    # [note]: can't use hash because it is not stable.
+    return (type(x).__name__, repr(x))
+
+
 class HashingPickler(Pickler):
     hasher: blake3
     code_dependencies: Set[Symbol]
+    outfile: Optional[IO[bytes]]
 
     def write(self, b: bytes) -> None:
+        # [todo] out-of-band
         self.hasher.update(b)
+        if self.outfile is not None:
+            self.outfile.write(b)
 
-    def __init__(self, protocol=None, **kwargs):
+    def reducer_override(self, obj):
+        if isinstance(obj, set):
+            """[todo] there is a bug in the c-optimised python pickler code, where
+            it will call the primitive dispath (for things like set, dict, int) before
+            calling `reducer_override` wheras the python implementation will call ``reducer_override`` first.
+            I suspect this is an optimisation, but the python and C implementations should really be the same.
+            """
+            # special dispensation for sets:
+            # their elements need to be iterated in a canonical order.
+            try:
+                items = sorted(obj)
+            except Exception as e:
+                logger.debug(f"Sorting error:\n{e}")
+                items = list(obj)
+            return (set, (), None, items)
+
+        return NotImplemented
+
+    def __init__(self, protocol=None, outfile=None, **kwargs):
         self.hasher = blake3()
         self.code_dependencies = set()
+        self.outfile = outfile
+        self.dispatch_table = ChainMap(digest_dispatch_table, copyreg.dispatch_table)
         super().__init__(self, protocol=protocol, **kwargs)
 
     def persistent_id(self, obj):
@@ -589,7 +635,35 @@ class HashingPickler(Pickler):
         return self.hasher.hexdigest()
 
 
-def value_digest(obj) -> str:
-    h = HashingPickler()
+def value_digest(obj, outfile=None) -> str:
+    """Compute the local digest of a given python object.
+
+    Code-dependencies are discarded.
+
+    Args:
+      outfile: is a file_like writable object that writes the stream that is hashed. This is useful for debugging.
+               Consider using ``debug_value_digest``.
+    """
+    h = HashingPickler(outfile=outfile)
     h.dump(obj)
     return h.digest
+
+
+def debug_value_digest(obj) -> Tuple[str, str]:
+    import pickletools
+
+    with io.BytesIO() as f1:
+        with io.StringIO() as f2:
+            d1 = value_digest(obj, outfile=f1)
+            f1.seek(0)
+            pickletools.dis(f1, out=f2)
+            return d1, f2.getvalue()
+
+
+def print_digest_diff(obj1, obj2):
+    d1, v1 = debug_value_digest(obj1)
+    d2, v2 = debug_value_digest(obj2)
+    if d1 == d2:
+        console.print("Equal digest.")
+    xs = pp_diff(v1, v2)
+    console.print("\n".join(xs))

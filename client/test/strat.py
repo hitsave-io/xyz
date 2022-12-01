@@ -7,8 +7,6 @@ from hypothesis import given, assume
 import pytest
 import json
 import pprint
-from .deepeq import deepeq
-from .deep import reduce, reconstruct, traverse
 import itertools
 import math
 import cmath

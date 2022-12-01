@@ -19,7 +19,7 @@ from typing import (
     TypedDict,
     Union,
 )
-from hitsave.console import decorate
+from hitsave.console import decorate, pp_diff
 from hitsave.util import dict_diff, ofdict
 import json
 from datetime import datetime
@@ -135,20 +135,7 @@ class CodeChanged(StoreMiss):
                     if (v1, v2) in CodeChanged._ALREADY_SEEN:
                         continue
                     CodeChanged._ALREADY_SEEN.add((v1, v2))
-                    xs = list(
-                        difflib.ndiff(
-                            v1.splitlines(keepends=True), v2.splitlines(keepends=True)
-                        )
-                    )
-
-                    def m(x: str):
-                        if x.startswith("+"):
-                            return decorate(x, "green")
-                        if x.startswith("-"):
-                            return decorate(x, "red")
-                        return x
-
-                    lines += "".join(map(m, xs)).split("\n")
+                    lines += pp_diff(v1, v2)
             return "\n".join(lines)
 
         else:
