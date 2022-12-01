@@ -1,7 +1,7 @@
 # HitSave
 
 Holistic caching for python.
-Find out more at https://hitsave.io
+Find out more at https://hitsave.io.
 
 # Quickstart
 
