@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { HeadersFunction, LoaderArgs, redirect } from "@remix-run/node";
 import { useLoaderData, useSearchParams } from "@remix-run/react";
-import { cors } from "remix-utils";
 
 import { API } from "~/api";
 
