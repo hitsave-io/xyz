@@ -1,6 +1,8 @@
 # HitSave
 
-Holistic caching for python.
+Effortless data.
+
+Optimize your team's workflow with cloud memoization, experiment tracking and effortless data versioning.
 Find out more at https://hitsave.io.
 
 # Quickstart
@@ -20,7 +22,7 @@ def dependency(y):
 
 @memo
 def long_running_function(x):
-  print f"Running {x}!"
+  print(f"Running {x}!")
   return x + 2 + dependency(x)
 
 long_running_function(3)
