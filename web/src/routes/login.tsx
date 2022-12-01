@@ -18,7 +18,6 @@ export const loader = async ({ request }: LoaderArgs) => {
   // to the temporary localhost server running in Python, to inform that the sign in was
   // successful.
   const clientLoopbackUrl = url.searchParams.get("client_loopback");
-  console.log("client loopback url is: ", clientLoopbackUrl);
 
   // Instruct the HitSave API to attempt to retrieve the user's login details with the
   // provided `code`.
@@ -34,6 +33,9 @@ export const loader = async ({ request }: LoaderArgs) => {
         60 * 60 * 24 * 30
       }; domain=${process.env.HITSAVE_WEB_HOST}`,
       "Access-Control-Allow-Origin": "http://127.0.0.1",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers":
+        "Origin, X-Requested-With, Content-Type, Accept",
     };
 
     if (!clientLoopbackUrl) {
