@@ -156,7 +156,6 @@ class CloudBlobStore:
         Raises:
             ConnectionError: We are not connected to the cloud.
         """
-        # [todo] is requests compressing uploads?
         if digest is None or content_length is None:
             tape.seek(0)
             digest, content_length = get_digest_and_length(tape)
@@ -196,7 +195,6 @@ class CloudBlobStore:
         if not self.has_blob(digest):
             raise FileNotFoundError(f"No blob found {digest}")
         logger.debug(f"Downloading file {digest}.")
-        # [todo] progress bar, header should contain content length.
         r = request("GET", f"/blob/{digest}")
         content_length = r.headers.get("Content-Length", None)
         if content_length is not None:
@@ -287,7 +285,6 @@ class BlobStore(Current):
         self, tape: IO[bytes], digest=None, content_length=None, label=None
     ) -> BlobInfo:
         """Creates a new binary blob from the given readable, seekable ``tape`` IO stream."""
-        # [todo] can add any json metadata to blob
         if no_local():
             return self.cloud.add_blob(
                 tape, digest=digest, content_length=content_length, label=label
@@ -359,7 +356,7 @@ class BlobStore(Current):
             )
             return False
         with self.cloud.open_blob(digest) as tape:
-            # [todo] fancy progress bar goes here.
+            # [todo] progress bar goes here.
             info = self.local.add_blob(tape)
             if info.digest != digest:
                 internal_error(f"Corrupted cloud blob {digest[:10]}")
@@ -378,7 +375,7 @@ class BlobStore(Current):
         if self.cloud.has_blob(digest):
             return False
         with self.local.open_blob(digest) as tape:
-            # [todo] fancy progress bar logging goes here.
+            # [todo] progress bar logging goes here.
             info = self.cloud.add_blob(tape)
             if digest != info.digest:
                 internal_error(f"Corrupted local blob {digest[:10]}")

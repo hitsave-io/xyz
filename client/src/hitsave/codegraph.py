@@ -607,12 +607,6 @@ class HashingPickler(Pickler):
             if obj.__name__ == "<lambda>":
                 try:
                     src = inspect.getsource(obj)
-                    # [todo]: here, rather than just returning the source code to hash,
-                    # we should attempt to find the parent symbol_table namespace
-                    # and add the symbol for that as a code dependency. The code graph explorer will then pick
-                    # up any dependencies internal to the lambda function.
-                    # With regards to naming the lambda function (not the symbol, the python object), the HitSave way is that the lambda's string source is exactly the name.
-                    # hence returning the source for hashing here is the right thing to do.
                     return src
                 except OSError as e:
                     internal_error(

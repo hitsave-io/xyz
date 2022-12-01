@@ -14,8 +14,6 @@ class Session(Current):
     local_db: sqlite3.Connection
     codegraph: CodeGraph
     id: uuid.UUID
-    # [todo] also background uploader event loop etc.
-    # [todo] also connection state (eg socket, rpc etc) with cloud.
 
     def __init__(self):
         cfg = Config.current()

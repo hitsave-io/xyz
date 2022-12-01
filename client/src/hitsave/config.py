@@ -149,11 +149,6 @@ CONSTS = {
         "cloud_url": "https://api.hitsave.io",
         "github_client_id": "a569cafe591e507b13ca",
     },
-    "local": {
-        "web_url": "http://127.0.0.1:3000",
-        "cloud_url": "http://127.0.0.1:8080",
-        "github_client_id": "b7d5bad7787df04921e7",
-    },
 }
 """ Constants that are different in development environments. """
 # [todo] the above should live in an .ini file or similar that varies in source control.

@@ -4,11 +4,6 @@ from collections import deque
 V = TypeVar("V")
 E = TypeVar("E")
 
-""" Quick implementation of directed graphs.
-Originally I used networkx but I don't want any dependencies.
- """
-
-
 class DirectedGraph(Generic[V, E]):
     adj: Dict[V, Dict[V, E]]
 

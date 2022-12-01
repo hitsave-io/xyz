@@ -81,12 +81,6 @@ def user_info(*args, **kwargs):
 
 def internal_error(*args, **kwargs):
     console.log(pre_tag, "INTERNAL ERROR", *args, **kwargs)
-    # [todo] don't repeat yourself.
-    # [todo] telemetry goes here
-    # [todo] in prod builds don't bother reporting to user?
-    # [todo] in debug builds, throw here.
-    # raise Exception(*args)
-
 
 def debug(*args, **kwargs):
     logger.debug(*args, **kwargs)
@@ -154,7 +148,6 @@ def pp_diff(s1: str, s2: str) -> List[str]:
 
     Returns a string that should start on a newline.
     """
-    # [todo] should use a rich panel or whatever.
     xs = list(difflib.ndiff(s1.splitlines(keepends=True), s2.splitlines(keepends=True)))
 
     def m(x: str):

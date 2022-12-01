@@ -66,7 +66,6 @@ async def loopback_login(*, autoopen=True) -> str:
         )
     cfg = Config.current()
     # [todo] if there is already a valid jwt, don't bother logging in here.
-    # attempt to use the jwt for something, if there is an error (401) then you prompt a login.
 
     redirect_port = 9449  # [todo] check not claimed.
     miniserver_url = urllib.parse.quote(f"http://127.0.0.1:{redirect_port}")
@@ -78,7 +77,7 @@ async def loopback_login(*, autoopen=True) -> str:
     # query_params = urllib.parse.urlencode(query_params)
     query_params = "&".join(
         [f"{k}={q}" for k, q in query_params.items()]
-    )  # [note] this gives slightly nicer messages.
+    )  # [note] this gives slightly nicer messages over using url_parse
     base_url = "https://github.com/login/oauth/authorize"
     sign_in_url = f"{base_url}?{query_params}"
     # [todo] check user isn't already logged in
@@ -108,7 +107,6 @@ async def loopback_login(*, autoopen=True) -> str:
         console.print("Visit this url to log in:\n", sign_in_url)
 
     result = await fut
-    # [todo] are these stoppers needed?
     await site.stop()
     await runner.cleanup()
     await server.shutdown()

@@ -178,7 +178,6 @@ class Symbol:
 
         This does not cause the module to be loaded.
         """
-        # [note] this loads the module but _does not execute it_ and doesn't add to sys.modules.
         module_name = self.module_name
         if module_name in sys.modules:
             return sys.modules[module_name]
