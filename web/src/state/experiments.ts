@@ -265,7 +265,7 @@ function fromExperimentList(exps: Experiment[]): UiState {
 
   for (const exp of exps) {
     if (!symbols.hasOwnProperty(exp.fn_key)) {
-      symbols[exp.fn_key] = newSymbol(exp.fn_key, [exp.fn_hash]);
+      symbols[exp.fn_key] = newSymbol(exp.fn_key);
     }
 
     const symbol = symbols[exp.fn_key];
@@ -279,6 +279,13 @@ function fromExperimentList(exps: Experiment[]): UiState {
     }
   }
 
+  // iterate the symbols, and set selectedVersions to all by default
+  for (const symbolName in symbols) {
+    const symbol = symbols[symbolName];
+    const allVersions = [...new Set(symbol.versions.map((v) => v.digest))];
+    symbol.selectedVersions = allVersions;
+  }
+
   return {
     // When creating a new UI state from an experiment list, all symbols
     // should be selected by default.
@@ -288,10 +295,10 @@ function fromExperimentList(exps: Experiment[]): UiState {
   };
 }
 
-function newSymbol(name: string, versions: string[]): Symbol {
+function newSymbol(name: string): Symbol {
   return {
     name,
-    selectedVersions: versions,
+    selectedVersions: [],
     versions: [],
   };
 }
