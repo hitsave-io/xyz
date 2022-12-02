@@ -11,6 +11,7 @@ from hitsave.authenticate import (
     get_jwt,
     loopback_login,
 )
+from hitsave.cloudutils import print_api_key_status, print_jwt_status
 from hitsave.console import console, decorate, logger, user_info
 from hitsave.config import Config, global_config_path
 from hitsave.evalstore import EvalStore
@@ -222,6 +223,13 @@ def clear_local():
     else:
         user_info("Clear aborted.")
 
+
+@app.command()
+def status():
+    """Prints details of hitsave's connection"""
+    jc = print_jwt_status()
+    print_api_key_status()
+    # [todo] info about local cache for the given project.
 
 if __name__ == "__main__":
     app()

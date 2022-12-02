@@ -348,13 +348,16 @@ class EvalStore(Current):
     def default(cls):
         return EvalStore()
 
-    def poll_eval(self, key: EvalKey, **kwargs) -> Union[PollEvalResult, StoreMiss]:
+    def poll_eval(
+        self, key: EvalKey, local_only=False, **kwargs
+    ) -> Union[PollEvalResult, StoreMiss]:
         cfg = Config.current()
-        if cfg.no_local and cfg.no_cloud:
+        local_only = local_only or cfg.no_cloud
+        if cfg.no_local and local_only:
             return StoreMiss("Cloud and local stores are disabled.")
         if cfg.no_local:
             return self.cloud.poll_eval(key, **kwargs)
-        if cfg.no_cloud:
+        if local_only:
             return self.local.poll_eval(key, **kwargs)
 
         r_local = self.local.poll_eval(key, **kwargs)
@@ -369,22 +372,22 @@ class EvalStore(Current):
             # [todo] poll cloud anyway but don't download
             return r_local
 
-    def start_eval(self, key, **kwargs) -> None:
+    def start_eval(self, key, *, local_only=False, **kwargs) -> None:
         if not Config.current().no_local:
             self.local.start_eval(key, **kwargs)
-        if not Config.current().no_cloud:
+        if local_only or not Config.current().no_cloud:
             self.cloud.start_eval(key, **kwargs)
 
-    def resolve_eval(self, key, **kwargs) -> None:
+    def resolve_eval(self, key, *, local_only=False, **kwargs) -> None:
         if not Config.current().no_local:
             self.local.resolve_eval(key, **kwargs)
-        if not Config.current().no_cloud:
+        if local_only or not Config.current().no_cloud:
             self.cloud.resolve_eval(key, **kwargs)
 
-    def reject_eval(self, key, **kwargs) -> None:
+    def reject_eval(self, key, *, local_only=False, **kwargs) -> None:
         if not Config.current().no_local:
             self.local.reject_eval(key, **kwargs)
-        if not Config.current().no_cloud:
+        if local_only or not Config.current().no_cloud:
             self.cloud.reject_eval(key, **kwargs)
 
     def clear_local(self, *args, **kwargs):

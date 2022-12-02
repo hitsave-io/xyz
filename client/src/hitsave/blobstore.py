@@ -139,7 +139,19 @@ class CloudBlobStore:
         If disconnected raises a ConnectionError.
         """
         r = request("HEAD", f"/blob/{digest}")
-        return r.status_code == 200
+        return r.status_code // 100 == 2
+
+    def get_content_length(self, digest: str) -> Optional[int]:
+        r = request("HEAD", f"/blob/{digest}")
+        if r.status_code == 404:
+            return None
+        # HEAD should never return a body
+        # https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/HEAD
+        assert r.status_code == 204
+        if "Content-Length" not in r.headers:
+            return None
+        else:
+            return int(r.headers["Content-Length"])
 
     def add_blob(
         self,
@@ -434,7 +446,7 @@ class BlobStore(Current):
         for digest in self.local.iter_blobs():
             if digest not in ok_digests:
                 delete_me.add(digest)
-        user_info("Permantly deleting", len(delete_me), "blobs...")
+        user_info("Deleting", len(delete_me), "local blobs...")
         for digest in delete_me:
             self.local.delete_blob(digest)
         user_info("Deleted.")

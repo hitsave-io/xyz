@@ -1,12 +1,14 @@
 from io import BufferedReader
 import io
-from typing import IO, Any, Iterable, Iterator, Literal
+from pathlib import Path
+from typing import IO, Any, Dict, Iterable, Iterator, Literal, Optional
 import logging
 import json
 from hitsave.config import Config
 from hitsave.util import chunked_read, human_size
 import requests
 from urllib3.exceptions import NewConnectionError
+from rich import print
 
 logger = logging.getLogger("hitsave")
 
@@ -50,11 +52,77 @@ class AuthenticationError(Exception):
     That is, the JWT or API key is nonexistent or not valid."""
 
 
+def jwt_path() -> Path:
+    return Config.current().local_cache_dir / "hitsave-session.jwt"
+
+
+def save_jwt(jwt: str):
+    p = jwt_path()
+    if p.exists():
+        logger.debug(f"File {p} already exists, overwriting.")
+    else:
+        logger.debug(f"Writing authentication JWT to {p}.")
+    with open(p, "wt") as file:
+        file.write(jwt)
+
+
+def get_jwt() -> Optional[str]:
+    """Gets the cached JWT. If it doesn't exist, returns none."""
+    p = jwt_path()
+    if not p.exists():
+        logger.debug(f"File {p} does not exist.")
+        return None
+    with open(p, "rt") as file:
+        logger.debug(f"Reading JWT from {p}.")
+        return file.read()
+
+
+def erase_jwt():
+    p = jwt_path()
+    p.unlink()
+
+
 already_reported_connection_error = False
 """ This is true to only report a bad connection as a warning once. """
 
 
-def request(method: str, path, **kwargs) -> requests.Response:
+def print_jwt_status() -> bool:
+    """Returns true if we are authenticated with a JWT auth."""
+    jwt = get_jwt()
+    if jwt is None:
+        print("Not logged in.")
+        return False
+    headers = {"Authorization": f"Bearer {jwt}"}
+    response = request("GET", "/user", headers=headers)
+    if response.status_code == 200:
+        print("Logged in.")
+        return True
+    if response.status_code == 401:
+        erase_jwt()
+        print("Login session expired.")
+        return False
+    response.raise_for_status()
+    raise NotImplementedError(response)
+
+
+def print_api_key_status() -> None:
+    api_key = Config.current().api_key
+    if api_key is None:
+        print("No API key found.")
+        return
+    response = request("GET", "/user")
+    if response.status_code == 200:
+        print("API key valid.")
+    elif response.status_code == 401:
+        print("API key not valid.")
+    else:
+        response.raise_for_status()
+        print("Unknown response", response.status_code, response.text)
+
+
+def request(
+    method: str, path, headers: Dict[str, str] = {}, **kwargs
+) -> requests.Response:
     """Sends an HTTP request to the hitsave api, we provide the right authentication headers.
 
     Uses the same signature as ``requests.request``.
@@ -65,15 +133,13 @@ def request(method: str, path, **kwargs) -> requests.Response:
     Raises a ConnectionError if we can't connect to the cloud.
     """
     global already_reported_connection_error
-    api_key = Config.current().api_key
-    if api_key is None:
-        raise AuthenticationError(
-            "No API key found. Please create an API key with `hitsave keygen`"
-        )
-    headers: Any = {
-        "Authorization": Config.current().api_key,
-    }
-    headers.update(kwargs.get("headers", {}))
+    if "Authorization" not in headers:
+        api_key = Config.current().api_key
+        if api_key is None:
+            raise AuthenticationError(
+                "No API key found. Please create an API key with `hitsave keygen`"
+            )
+        headers = {"Authorization": api_key, **headers}
     cloud_url = Config.current().cloud_url
     try:
         r = requests.request(method, cloud_url + path, **kwargs, headers=headers)

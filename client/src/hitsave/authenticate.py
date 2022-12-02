@@ -4,6 +4,7 @@ import webbrowser
 from aiohttp import web
 import aiohttp
 from hitsave.config import Config
+from hitsave.cloudutils import save_jwt, get_jwt, AuthenticationError
 from hitsave.console import console, is_interactive_terminal, logger
 import urllib.parse
 from pathlib import Path
@@ -13,40 +14,6 @@ from pathlib import Path
 Todo:
     * consider removing async code, there is nothing that needs to be concurrent here.
 """
-
-
-def jwt_path() -> Path:
-    return Config.current().local_cache_dir / "hitsave-session.jwt"
-
-
-class AuthenticationError(RuntimeError):
-    pass
-
-
-def save_jwt(jwt: str):
-    p = jwt_path()
-    if p.exists():
-        logger.debug(f"File {p} already exists, overwriting.")
-    else:
-        logger.debug(f"Writing authentication JWT to {p}.")
-    with open(p, "wt") as file:
-        file.write(jwt)
-
-
-def get_jwt() -> Optional[str]:
-    """Gets the cached JWT. If it doesn't exist, returns none."""
-    p = jwt_path()
-    if not p.exists():
-        logger.debug(f"File {p} does not exist.")
-        return None
-    with open(p, "rt") as file:
-        logger.debug(f"Reading JWT from {p}.")
-        return file.read()
-
-
-def erase_jwt():
-    p = jwt_path()
-    p.unlink()
 
 
 async def loopback_login(*, autoopen=True) -> str:

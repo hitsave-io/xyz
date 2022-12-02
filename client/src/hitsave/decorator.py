@@ -78,7 +78,7 @@ class SavedFunction(Generic[P, R]):
             fn_hash = session.fn_hash(fn_key)
             key = EvalKey(fn_key=fn_key, fn_hash=fn_hash, args_hash=args_hash)
             evalstore = EvalStore.current()
-            result = evalstore.poll_eval(key, deps=deps)
+            result = evalstore.poll_eval(key, deps=deps, local_only=self.local_only)
             if isinstance(result, StoreMiss):
                 if isinstance(result, CodeChanged):
                     if fn_hash not in self._fn_hashes_reported:
@@ -99,19 +99,23 @@ class SavedFunction(Generic[P, R]):
                     args=pretty_args,
                     deps=deps,
                     start_time=start_time,
+                    local_only=self.local_only,
                 )
                 # [todo] catch, log and rethrow errors raised by inner func.
                 result = self.func(*args, **kwargs)
                 end_process_time = time.process_time_ns()
                 elapsed_process_time = end_process_time - start_process_time
                 evalstore.resolve_eval(
-                    key, elapsed_process_time=elapsed_process_time, result=result
+                    key,
+                    elapsed_process_time=elapsed_process_time,
+                    result=result,
+                    local_only=self.local_only,
                 )
                 logger.debug(f"Computed value for {fn_key}.")
                 return result
             else:
                 if self.invocation_count == 1:
-                    user_info(f"Reusing {result.origin} cache for", fn_key)
+                    user_info(f"Found cache for", fn_key)
                 else:
                     logger.debug(f"Found cached value for {fn_key}.")
                 return result.value

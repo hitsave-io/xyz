@@ -90,7 +90,7 @@ def load_dataset(split: Split) -> List[Tuple[int, str]]:
             (int(rating) - 1, title + ": " + body)
             for rating, title, body in csv.reader(f, delimiter=",")
         ]
-        return items[:10008]
+        return items[:10010]
 
 
 load_dataset("test")[:10]
@@ -283,9 +283,11 @@ def test(
 
 
 if __name__ == "__main__":
-    results = test(
-        lr=5,
-        epochs=13,
-        batch_size=256,
-    )
-    print("test accuracy {:8.3f}".format(results["acc"]))
+    vs = []
+    for epochs in [5, 10, 20]:
+        for lr in [5, 1]:
+            for batch_size in [64, 128, 256]:
+                vs.append(dict(batch_size=batch_size, lr=lr, epochs=epochs))
+    for v in vs:
+        results = test(**v)
+        print(v, "test accuracy {:8.3f}".format(results["acc"]))
