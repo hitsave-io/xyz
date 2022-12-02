@@ -77,7 +77,7 @@ digests = {
 }
 
 
-@experiment
+@memo
 def load_dataset(split: Split) -> List[Tuple[int, str]]:
     """Given a split, produces a list of rating, review pairs.
 
@@ -146,13 +146,10 @@ def collate_batch(batch):
     return label_list.to(device), text_list.to(device), offsets.to(device)
 
 
-BATCH_SIZE = 64  # batch size for training
-
-
-def create_dataloader(split: Split):
+def create_dataloader(split: Split, batch_size):
     dataset = to_map_style_dataset(load_dataset(split))
     return DataLoader(
-        dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch
+        dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_batch
     )
 
 
@@ -181,11 +178,8 @@ class TextClassificationModel(nn.Module):
         return self.fc(embedded)
 
 
-EPOCHS = 5
-LR = 5  # learning rate
 num_class = 2
 vocab_size = len(vocab)
-emsize = 64
 criterion = torch.nn.CrossEntropyLoss()
 
 
@@ -230,17 +224,23 @@ def evaluate(dataloader, model):
     return {"acc": total_acc / total_count, "avg_loss": total_loss / total_count}
 
 
-@experiment
-def train_model():
+@memo
+def train_model(
+    *,
+    lr,
+    epochs,
+    emsize,
+    batch_size,
+):
     model = TextClassificationModel(vocab_size, emsize, num_class).to(device)
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=LR)
+    optimizer = torch.optim.SGD(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.1)
     total_accu = None
-    train_dataloader = create_dataloader("train")
-    test_dataloader = create_dataloader("test")
+    train_dataloader = create_dataloader("train", batch_size)
+    test_dataloader = create_dataloader("test", batch_size)
 
-    for epoch in range(1, EPOCHS + 1):
+    for epoch in range(1, epochs + 1):
         epoch_start_time = time.time()
         train_epoch(train_dataloader, model, optimizer, epoch)
         ev = evaluate(
@@ -268,9 +268,14 @@ def train_model():
 
 
 @experiment
-def test():
-    model = train_model()
-    test_dataloader = create_dataloader("test")
+def test(
+    lr=5,
+    epochs=10,
+    emsize=64,
+    batch_size=64,
+):
+    model = train_model(lr=lr, epochs=epochs, emsize=emsize, batch_size=batch_size)
+    test_dataloader = create_dataloader("test", batch_size)
 
     print("Checking the results of test dataset.")
     results = evaluate(test_dataloader, model)
@@ -278,5 +283,9 @@ def test():
 
 
 if __name__ == "__main__":
-    results = test()
+    results = test(
+        lr=5,
+        epochs=13,
+        batch_size=256,
+    )
     print("test accuracy {:8.3f}".format(results["acc"]))
