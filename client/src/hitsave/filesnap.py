@@ -26,7 +26,7 @@ BLOCK_SIZE = 2**20
 @dataclass
 class FileSnapshot:
     """This represents the state of a file on the host machine at a particular point in time.
-    `@save`d methods can return these to make it clear that a function's result is stored in a file.
+    ``@save``d methods can return these to make it clear that a function's result is stored in a file.
     You can then read this file directly
     """
 
@@ -58,7 +58,7 @@ class FileSnapshot:
 
     @property
     def suffix(self):
-        """The suffix extension of the file. Eg `hello.txt` has the suffix `.txt`."""
+        """The suffix extension of the file. Eg ``hello.txt`` has the suffix ``.txt``."""
         return Path(self.name).suffix
 
     def download(self):
@@ -177,10 +177,9 @@ class FileSnapshot:
 
 @dataclass
 class DirectorySnapshot:
-    """Similar to FileSnapshot, but snaps an entire directory.
+    """Similar to FileSnapshot, but snaps an entire directory."""
 
-    [todo]: archiving mode where it saves a directory as a .zip, .tar.gz or similar.
-    """
+    # [todo]: archiving mode where it saves a directory as a .zip, .tar.gz or similar.
 
     original_path: Path
     """ Path on users machine when the snapshot was taken. """

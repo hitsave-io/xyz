@@ -64,7 +64,8 @@ After calling `write_hello("A")` a second time, the contents of `hello.txt` on d
 # WARN: file ~/demo/hello.txt already exists, replacing with a symlink ...
 ```
 
-And `hello.txt` has been restored to contain `"A"`. `restore()` will warn you if you are about to overwrite an existing file, you can turn off the warning by passing `overwrite = True` as an argument. Restore returns a path to the newly restored file.
+After calling `restore()`, `hello.txt` has been restored to contain `"A"`. Rather than directly copying the file, `hello.txt` is made a symlink to the content-addressed file on local disk.
+`restore()` will warn you if you are about to overwrite an existing file, you can turn off the warning by passing `overwrite = True` as an argument. Restore returns a path to the newly restored file.
 If you want to read the file without needing it to be in the exact location of the original file, you can run `restore_safe()` which will return a `Path` to the read-only cached snapshot file.
 
 ## Managing Snapshots
@@ -117,7 +118,7 @@ def load_dataset():
 Now, no matter where you run `load_dataset`, HitSave will download and restore the directory, or reuse the existing downloaded directory if `load_dataset` has already been run on this computer.
 This is useful if you are processing data in an ephemeral docker container.
 You can always be sure that the exact version of the data you need will be available.
-You can avoid uneccessary redownloads by configuring the HitSave cache to be on a persistent volume.
+You can avoid unnecessary redownloads by configuring the HitSave cache to be on a persistent volume.
 
 
 

@@ -16,6 +16,7 @@
    :caption: API reference
 
    module/decorators
+   module/files
 ```
 
 ## Introduction to HitSave
@@ -45,7 +46,7 @@ HitSave can be configured to cache your function executions to the cloud. Read t
 
 ### Granular code versioning
 
-HitSave uses a cache invalidation algorithm that caches both your code and your
+HitSave uses a cache invalidation algorithm that observes both your code and your
 data. This algorithm traverses the full tree of code dependencies to ensure
 soundness. So if your code changes, the cache invalidates.
 

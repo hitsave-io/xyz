@@ -285,7 +285,7 @@ class Config(Current):
         if self.no_local:
             # [todo] no_local is really only for development purposes.
             logger.warning(
-                "NO_LOCAL is enabled. This means that results and blobs will not be cached locally which can use uneccessary bandwidth."
+                "NO_LOCAL is enabled. This means that results and blobs will not be cached locally which can use unnecessary bandwidth."
             )
 
     @classmethod

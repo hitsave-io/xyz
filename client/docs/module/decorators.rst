@@ -2,5 +2,4 @@ Function decorators
 ===================
 
 .. automodule:: hitsave
-   :members:
-   :undoc-members:
+   :members: memo, experiment

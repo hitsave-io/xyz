@@ -36,7 +36,7 @@ long-running functions, and avoid manually saving intermediate results to
 persistent disk storage.
 
 For example, imagine you are ingesting a large dataset
-through an ETL pipeline. Instead of using Python's native file API to save
+through an [ETL](https://en.wikipedia.org/wiki/Extract,_transform,_load) pipeline. Instead of using Python's native file API to save
 the state of your dataset to your local machine at each step, you can
 instead use `@memo` to persist the dataset to a managed local cache, as
 well as automatically syncing this to the cloud where it can be accessed
@@ -49,14 +49,11 @@ Because HitSave is on the cloud, this works even if earlier steps were run on di
 
 ### [`@experiment`](hitsave.experiment)
 
-An interesting side-effect of HitSave's caching mechanics is that we can
-provide experiment management for free.
+An interesting side-effect of HitSave's caching mechanics is that it means it can also be used to manage experiments, similar to tools such as MLFlow.
 
 HitSave provides a second core decorator called [`@experiment`](hitsave.experiment).
-The dirty little secret of `@experiment` is that it's really just `@memo`
-under the hood! All we do in addition is add a boolean flag to the
-memoized function evaluation to indicate that it's a result of interest
-which should never be automatically wiped from your cache.
+`@experiment` behaves exactly the same as `@memo`, but sets a flag telling HitSave that
+the result is of interest and should never be automatically wiped from the cache.
 
 We've built a dashboard in the web interface where you can inspect
 all your experiments and see visualized arguments and return values in
