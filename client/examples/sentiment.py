@@ -41,12 +41,11 @@ Before we start, make sure that you have installed HitSave by following the [ins
 
 #%%
 
-from enum import Enum
-from typing import List, Literal, Tuple
+from typing import Iterator, List, Literal, Tuple
 import torch
+from itertools import islice
 import time
 import csv
-from tqdm import tqdm
 from torch.utils.data import DataLoader, TensorDataset, Dataset, random_split
 from torchtext.data.utils import get_tokenizer
 from torchtext.vocab import build_vocab_from_iterator, Vocab
@@ -77,23 +76,23 @@ digests = {
 }
 
 
-@memo
-def load_dataset(split: Split) -> List[Tuple[int, str]]:
+def load_dataset(split: Split) -> Iterator[Tuple[int, str]]:
     """Given a split, produces a list of rating, review pairs.
 
     Label 0 is a bad review (1-2 stars), label 1 is a good review (4-5 stars).
     """
     digest = digests[split]
+    # This line downloads the needed CSV file from the HitSave data catalogue.
+    # This download is cached in your home's cache directory.
+    # You can clear your cache with `hitsave clear-local`
     path = restore(digest)
     with open(path, "rt") as f:
-        items = [
-            (int(rating) - 1, title + ": " + body)
-            for rating, title, body in csv.reader(f, delimiter=",")
-        ]
-        return items[:10010]
+        # note: we limit the number of items to keep the demo fast on cpus.
+        # if you have a GPU, delete the limit!
+        items = islice(csv.reader(f, delimiter=","), 100000)
+        for rating, title, body in items:
+            yield (int(rating) - 1, title + ": " + body)
 
-
-load_dataset("test")[:10]
 
 #%%
 # You can learn more about saving and restoring files to the HitSave cloud in `Working with Files <../guides/files.html>`_.
@@ -102,22 +101,23 @@ load_dataset("test")[:10]
 # -----------------------
 #
 # We need to convert our text reviews into streams of integers that can be fed to the model.
-# You can learn more about this in the PyTorch tutorial that this example is based off
+# You can learn more about this in the PyTorch tutorial that this example is based off.
 # We will use the same model that PyTorch recommend in `their tutorial <https://pytorch.org/tutorials/beginner/text_sentiment_ngrams_tutorial.html>`_.
-# Creating a vocabulary is time-consuming, but we can use `@memo` to memoise it.
+# Creating a vocabulary can be time-consuming, but we can use `@memo` to memoise it so that you don't need to recompute it every time.
 
 tokenizer = get_tokenizer("basic_english")
 
 
 @memo
 def make_vocab() -> Vocab:
-
+    print("Building vocab")
+    items = islice(load_dataset("train"), 10000)
     vocab = build_vocab_from_iterator(
-        (tokenizer(text) for _, text in tqdm(load_dataset("train"))),
+        (tokenizer(text) for _, text in items),
         specials=["<unk>"],
     )
     vocab.set_default_index(vocab["<unk>"])
-
+    print(f"Build vocab of {len(vocab)} items.")
     return vocab
 
 
@@ -146,8 +146,7 @@ def collate_batch(batch):
     return label_list.to(device), text_list.to(device), offsets.to(device)
 
 
-def create_dataloader(split: Split, batch_size):
-    dataset = to_map_style_dataset(load_dataset(split))
+def create_dataloader(dataset: Dataset, batch_size: int):
     return DataLoader(
         dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_batch
     )
@@ -157,7 +156,7 @@ def create_dataloader(split: Split, batch_size):
 # Defining the model
 # -----------------
 #
-# Now we define our model.
+# Now we define our model and the training logic. This is the same as in the torchtext tutorial.
 
 
 class TextClassificationModel(nn.Module):
@@ -183,7 +182,9 @@ vocab_size = len(vocab)
 criterion = torch.nn.CrossEntropyLoss()
 
 
-def train_epoch(dataloader, model, optimizer, epoch):
+def train_epoch(
+    dataloader: DataLoader, model: TextClassificationModel, optimizer, epoch: int
+):
     model.train()
     total_acc, total_count = 0, 0
     log_interval = 500
@@ -224,6 +225,12 @@ def evaluate(dataloader, model):
     return {"acc": total_acc / total_count, "avg_loss": total_loss / total_count}
 
 
+#%%
+# Now we write the core training loop. We have added the `@memo` decorator to the
+# top of `train_model`, this means that if we call `train_model` with the same arguments and the same code-dependencies, rather than
+# re-run the training loop, we simply return the trained model from the cloud cache.
+
+
 @memo
 def train_model(
     *,
@@ -237,15 +244,17 @@ def train_model(
     optimizer = torch.optim.SGD(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.1)
     total_accu = None
-    train_dataloader = create_dataloader("train", batch_size)
-    test_dataloader = create_dataloader("test", batch_size)
+    train_dataset = to_map_style_dataset(load_dataset("train"))
+    train_dataset, val_dataset = random_split(
+        train_dataset, [0.95, 0.05], generator=torch.Generator().manual_seed(42)
+    )
+    train_dataloader = create_dataloader(train_dataset, batch_size)
+    val_dataloader = create_dataloader(val_dataset, batch_size)
 
     for epoch in range(1, epochs + 1):
         epoch_start_time = time.time()
         train_epoch(train_dataloader, model, optimizer, epoch)
-        ev = evaluate(
-            test_dataloader, model
-        )  # [todo] this is naughty, use a validation split
+        ev = evaluate(val_dataloader, model)
         accu_val = ev["acc"]
         if total_accu is not None and total_accu > accu_val:
             scheduler.step()
@@ -264,30 +273,41 @@ def train_model(
 
 
 #%%
-# Now we put it all together
+# Now we put it all together in an `@experiment` decorator.
+# The `@experiment` decorator memoises the function similarly to `@memo`, but
+# the cloud-cache will not clear out old values and you
+# can view the results of previous evaluations at https://hitsave.io/dashboard.
 
 
 @experiment
 def test(
-    lr=5,
+    lr=5.0,
     epochs=10,
     emsize=64,
     batch_size=64,
 ):
     model = train_model(lr=lr, epochs=epochs, emsize=emsize, batch_size=batch_size)
-    test_dataloader = create_dataloader("test", batch_size)
+    test_dataloader = create_dataloader(
+        to_map_style_dataset(load_dataset("test")), batch_size
+    )
 
     print("Checking the results of test dataset.")
     results = evaluate(test_dataloader, model)
     return results
 
 
+#%%
+# Give this code a run and head to hitsave.io to see the results!
+# Have a go at changing parameters and code, watch how HitSave only recomputes
+# the code that depends on your changes!
+
+
 if __name__ == "__main__":
-    vs = []
-    for epochs in [5, 10, 20]:
-        for lr in [5, 1]:
-            for batch_size in [64, 128, 256]:
-                vs.append(dict(batch_size=batch_size, lr=lr, epochs=epochs))
-    for v in vs:
-        results = test(**v)
-        print(v, "test accuracy {:8.3f}".format(results["acc"]))
+    # try editing these values and watch the dashboard fill with values.
+    results = test(batch_size=64, lr=5.0, epochs=5)
+    print("test accuracy {:8.3f}".format(results["acc"]))
+
+
+#%%
+# Ready to learn more?
+# Head over to `our discord <https://discord.gg/DfxGynVBcN>`_, let us know about your use case and we are happy to help!
