@@ -42,6 +42,7 @@ def create_fig(im):
     return fig
 
 
+thing_classes = MetadataCatalog.get("coco_2017_val").thing_classes
 cfg = get_cfg()
 # add project-specific config (e.g., TensorMask) here if you're not running a model in detectron2's core library
 cfg.merge_from_file(
@@ -77,7 +78,7 @@ def add_bbox(fig: go.Figure, instances):
                     x=x,
                     y=y,
                     score=instance.scores.item(),
-                    pred_class=instance.pred_classes.item(),
+                    category=thing_classes[instance.pred_classes.item()],
                 )
 
     df = pd.DataFrame(mk())
@@ -86,15 +87,19 @@ def add_bbox(fig: go.Figure, instances):
         x="x",
         y="y",
         line_group="id",
-        hover_data=["score", "pred_class"],
-        color="pred_class",
+        hover_data=["score", "category"],
+        color="category",
     )
     fig = go.Figure(data=fig.data + fig2.data, layout=fig.layout)  # type: ignore
     fig.update_layout(showlegend=False)
     return fig
 
 
-coco_path = Path(os.environ.get("DETECTRON2_DATASETS", "~/data")).expanduser() / "coco" / "test2017"
+coco_path = (
+    Path(os.environ.get("DETECTRON2_DATASETS", "~/data")).expanduser()
+    / "coco"
+    / "val2017"
+)
 
 
 @experiment
