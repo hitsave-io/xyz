@@ -110,9 +110,9 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
             </MobileNavLink>
             <MobileNavLink
               external
-              href="https://docs.hitsave.io/guides/tutorials.html"
+              href="https://docs.hitsave.io/examples/sentiment.html"
             >
-              Tutorials
+              Examples
             </MobileNavLink>
             <MobileNavLink external href="https://docs.hitsave.io/">
               Docs
@@ -160,9 +160,9 @@ export const Header: React.FC<HeaderProps> = ({ user, signInUrl }) => {
               </NavLink>
               <NavLink
                 external
-                href="https://docs.hitsave.io/guides/tutorials.html"
+                href="https://docs.hitsave.io/examples/sentiment.html"
               >
-                Tutorials
+                Examples
               </NavLink>
               <NavLink external href="https://docs.hitsave.io/">
                 Docs
