@@ -37,7 +37,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.envs.docs]
 dependencies = [
-  "sphinx", "myst-parser", "sphinx-book-theme", "sphinx-gallery"
+  "sphinx", "myst-parser", "sphinx-book-theme",
+  "sphinx-gallery", "pillow",
 ]
 [tool.hatch.envs.docs.scripts]
 build = "cd docs && make html"
