@@ -106,6 +106,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                       <a
                         key={item.name}
                         href={item.href}
+                        title={item.name}
                         className={clsx(
                           item.current && "bg-gray-100 text-gray-900",
                           !item.current &&
@@ -154,6 +155,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 <a
                   key={item.name}
                   href={item.href}
+                  title={item.name}
                   className={clsx(
                     item.current && "bg-gray-100 text-gray-900",
                     !item.current && "text-white hover:bg-brand",
