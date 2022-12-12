@@ -13,11 +13,7 @@ author = "hitsave.io"
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = [
-    "myst_parser",
-    "sphinx.ext.autodoc",
-    # "sphinx_gallery.gen_gallery"
-]
+extensions = ["myst_parser", "sphinx.ext.autodoc", "sphinx_gallery.gen_gallery"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # Sphinx gallery

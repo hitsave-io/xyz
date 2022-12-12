@@ -17,6 +17,13 @@
 
    module/decorators
    module/files
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Examples
+
+   auto_examples/sentiment
+
 ```
 
 ## Introduction to HitSave

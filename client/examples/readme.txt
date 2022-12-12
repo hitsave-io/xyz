@@ -1,4 +1,4 @@
-This is my gallery
-==================
+HitSave Example Gallery
+=======================
 
-Below is a gallery of examples.
+Check out these examples to learn more about HitSave.

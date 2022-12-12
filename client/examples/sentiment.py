@@ -58,10 +58,11 @@ from hitsave import experiment, FileSnapshot, memo, restore
 
 #%%
 # Loading the data.
-# -----------------
+# ---------------------
 # .. _drive: https://drive.google.com/drive/folders/0Bz8a_Dbh9Qhbfll6bVpmNUtUcFdjYmF2SEpmZUZUcVNiMUw1TWN6RDV3a0JHT3kxLVhVR2M
 # .. _1509: https://arxiv.org/abs/1509.01626
 # .. _SNAP: https://cseweb.ucsd.edu/~jmcauley/pdfs/recsys13.pdf
+#
 # First we have to get our hands on the dataset.
 # We will use the Amazon Reviews for Sentiment Analysis dataset by `Xiang Zhang et al <1509_>`_,
 # extracted from the `Stanford Network Analysis Project <SNAP_>`_.
@@ -98,7 +99,7 @@ def load_dataset(split: Split) -> Iterator[Tuple[int, str]]:
 # You can learn more about saving and restoring files to the HitSave cloud in `Working with Files <../guides/files.html>`_.
 #
 # Creating the vocabulary
-# -----------------------
+# ---------------------------
 #
 # We need to convert our text reviews into streams of integers that can be fed to the model.
 # You can learn more about this in the PyTorch tutorial that this example is based off.
@@ -125,7 +126,7 @@ vocab = make_vocab()
 
 #%%
 # Create the dataloaders
-# -----------------
+# -------------------------------
 #
 
 
@@ -154,7 +155,7 @@ def create_dataloader(dataset: Dataset, batch_size: int):
 
 #%%
 # Defining the model
-# -----------------
+# -----------------------------
 #
 # Now we define our model and the training logic. This is the same as in the torchtext tutorial.
 
