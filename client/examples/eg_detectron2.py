@@ -28,12 +28,7 @@ import base64
 import plotly.express as px
 import plotly.graph_objects as go
 
-from hitsave import experiment, restore
-
-device = torch.device("cpu")
-
-p = restore("2cc6c0811f236739edcc09a2ada0e5d28f99c1aa6af734dc68a62412ad8c438e")
-im = Image.open(p)
+from hitsave import experiment
 
 
 def create_fig(im):
@@ -52,6 +47,8 @@ cfg = get_cfg()
 cfg.merge_from_file(
     model_zoo.get_config_file("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
 )
+if not torch.cuda.is_available():
+    cfg.MODEL.DEVICE = "cpu"
 cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # set threshold for this model
 # Find a model from detectron2's model zoo. You can use the https://dl.fbaipublicfiles... url as well
 cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(
@@ -97,7 +94,7 @@ def add_bbox(fig: go.Figure, instances):
     return fig
 
 
-coco_path = Path(os.environ.get("DETECTRON2_DATASETS", "~/data")) / "coco" / "test2017"
+coco_path = Path(os.environ.get("DETECTRON2_DATASETS", "~/data")).expanduser() / "coco" / "test2017"
 
 
 @experiment
