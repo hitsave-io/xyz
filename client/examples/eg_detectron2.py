@@ -9,7 +9,6 @@ Training RetinaNet on a custom dataset.
 from io import BytesIO
 from itertools import islice
 from pathlib import Path
-import detectron2
 import pandas as pd
 
 # import some common libraries
@@ -17,11 +16,12 @@ import numpy as np
 import os, json, cv2, random
 
 # import some common detectron2 utilities
-from detectron2 import model_zoo
+import detectron2
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
 from detectron2.utils.visualizer import Visualizer
 from detectron2.data import MetadataCatalog, DatasetCatalog
+from detectron2 import model_zoo
 import torch
 from PIL import Image
 import base64
@@ -63,9 +63,7 @@ predictor.model = predictor.model.to("cpu")
 
 @experiment
 def semseg(im: Image.Image):
-
     outputs = predictor(np.array(im)[:, :, ::-1])
-    print(outputs)
     return outputs
 
 
@@ -114,4 +112,3 @@ def show_detection(im):
 for p in islice(coco_path.iterdir(), 10):
     im = Image.open(p)
     fig = show_detection(im)
-    fig.show()
