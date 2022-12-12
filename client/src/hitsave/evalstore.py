@@ -318,6 +318,7 @@ class CloudEvalStore:
             # they should all result in the user being given some friendly advice about
             # how they can make sure their thing is uploaded.
             logger.error(err)
+        BlobStore.current().push_blob(info.digest)
 
     def reject_eval(self, key, **kwargs):
         logger.debug("Erroring evals not supported on server.")
