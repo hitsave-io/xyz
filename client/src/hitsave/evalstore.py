@@ -19,7 +19,6 @@ from hitsave.config import Config
 import logging
 from hitsave.cloudutils import (
     request,
-    encode_hitsavemsg,
     ConnectionError,
 )
 from contextlib import nullcontext
@@ -290,46 +289,35 @@ class CloudEvalStore:
         with tempfile.SpooledTemporaryFile() as tape:
             pickle.dump(result, tape)
             tape.seek(0)
-            digest, content_length = get_digest_and_length(tape)
-            tape.seek(0)
-            args = [visualize_rec(x) for x in e.get("args", None)]
-            metadata = dict(
-                fn_key=str(key.fn_key),
-                fn_hash=key.fn_hash,
-                args_hash=key.args_hash,
-                args=args,
-                content_hash=digest,
-                content_length=content_length,
-                is_experiment=e["is_experiment"],
-                start_time=datetime_to_string(e["start_time"]),
-                elapsed_process_time=elapsed_process_time,
-                result_json=visualize_rec(result),
-            )
+            info = BlobStore.current().add_blob(tape, label=str(key))
 
-            try:
-                with tape_progress(
-                    tape,
-                    content_length,
-                    description="Uploading",
-                    message=(
-                        "Uploading evaluation for",
-                        key.fn_key,
-                        f"to {Config.current().cloud_url}. Hit Ctrl+C to skip upload.",
-                    ),
-                ) as tape:
-                    payload = encode_hitsavemsg(metadata, tape)
-                    r = request("PUT", f"/eval/", data=payload)
-                    r.raise_for_status()
-            except ConnectionError:
-                # we are offline. we have already told the user this.
-                return False
-            except KeyboardInterrupt:
-                user_info("Keyboard interrupt detected, skipping upload.")
-            except Exception as err:
-                # [todo] manage errors
-                # they should all result in the user being given some friendly advice about
-                # how they can make sure their thing is uploaded.
-                logger.error(err)
+        args = [visualize_rec(x) for x in e.get("args", None)]
+        metadata = dict(
+            fn_key=str(key.fn_key),
+            fn_hash=key.fn_hash,
+            args_hash=key.args_hash,
+            args=args,
+            content_hash=info.digest,
+            content_length=info.content_length,
+            is_experiment=e["is_experiment"],
+            start_time=datetime_to_string(e["start_time"]),
+            elapsed_process_time=elapsed_process_time,
+            result_json=visualize_rec(result),
+        )
+
+        try:
+            r = request("PUT", f"/eval/", json=metadata)
+            r.raise_for_status()
+        except ConnectionError:
+            # we are offline. we have already told the user this.
+            return False
+        except KeyboardInterrupt:
+            user_info("Keyboard interrupt detected, skipping upload.")
+        except Exception as err:
+            # [todo] manage errors
+            # they should all result in the user being given some friendly advice about
+            # how they can make sure their thing is uploaded.
+            logger.error(err)
 
     def reject_eval(self, key, **kwargs):
         logger.debug("Erroring evals not supported on server.")
