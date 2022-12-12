@@ -19,7 +19,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user }) => {
       ),
       href: "/dashboard/profile",
     },
-    { name: "Settings", href: "#" },
+    // { name: "Settings", href: "#" },
     { name: "Sign out", href: "#" },
   ];
 

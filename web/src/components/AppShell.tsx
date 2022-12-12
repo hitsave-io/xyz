@@ -29,20 +29,26 @@ export const AppShell: React.FC<AppShellProps> = ({
   const navigation = [
     {
       name: "Projects",
-      href: "/dashboard/projects",
+      href: "#",
       icon: FolderIcon,
       current: false,
+      disabled: true,
+      comingSoon: true,
     },
     {
       name: "Experiments",
       href: "/dashboard/experiments",
       icon: BeakerIcon,
+      disabled: false,
+      comingSoon: false,
     },
     {
       name: "Team",
-      href: "/dashboard/team",
+      href: "#",
       icon: UsersIcon,
       current: false,
+      disabled: true,
+      comingSoon: true,
     },
   ];
 
@@ -108,8 +114,17 @@ export const AppShell: React.FC<AppShellProps> = ({
                         href={item.href}
                         title={item.name}
                         className={clsx(
-                          item.current && "bg-gray-100 text-gray-900",
+                          item.current &&
+                            !item.disabled &&
+                            "bg-gray-100 text-gray-900",
+                          item.current &&
+                            item.disabled &&
+                            "bg-gray-100 text-gray-600 cursor-not-allowed",
                           !item.current &&
+                            item.disabled &&
+                            "text-gray-400 hover:bg-gray-50",
+                          !item.current &&
+                            !item.disabled &&
                             "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
                           "group flex items-center px-2 py-2 text-base font-medium rounded-md"
                         )}
@@ -124,6 +139,11 @@ export const AppShell: React.FC<AppShellProps> = ({
                           aria-hidden="true"
                         />
                         {item.name}
+                        {item.comingSoon && (
+                          <span className="bg-gray-50 text-gray-400 rounded-full text-xxs ml-2 px-1 align-bottom">
+                            Coming Soon
+                          </span>
+                        )}
                       </a>
                     ))}
                     <div className="relative">
@@ -155,10 +175,16 @@ export const AppShell: React.FC<AppShellProps> = ({
                 <a
                   key={item.name}
                   href={item.href}
-                  title={item.name}
+                  title={item.name + (item.comingSoon ? " - Coming Soon" : "")}
                   className={clsx(
+                    item.disabled && "cursor-not-allowed",
                     item.current && "bg-gray-100 text-gray-900",
-                    !item.current && "text-white hover:bg-brand",
+                    !item.current &&
+                      !item.disabled &&
+                      "text-white hover:bg-brand",
+                    !item.current &&
+                      item.disabled &&
+                      "text-white hover:bg-gray-300",
                     "group flex items-center justify-center w-12 h-12 text-sm font-medium"
                   )}
                 >
