@@ -17,7 +17,7 @@ export const registerPageload: RequestHandler = async (req, _res, next) => {
   const cookie = req.headers["cookie"] || null;
   const referer = req.headers["referer"] || null;
   const useragent = req.headers["user-agent"];
-  const jwt = cookie ? parseCookie(cookie)["jwt"] : null;
+  const jwt = cookie ? parseCookie(cookie)["jwt"] : "";
 
   let forwardedFor = req.headers["x-forwarded-for"] || null;
   if (Array.isArray(forwardedFor)) {
