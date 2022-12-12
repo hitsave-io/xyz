@@ -13,11 +13,11 @@ def cereals():
 
 
 @experiment
-def filter_cereals(v):
+def filter_cereals(v: str):
     """Cereals manufactured by Nabisco"""
     return [row for row in cereals() if row["mfr"] == v]
 
 
 nc = filter_cereals("N")
-kc = filter_cereals("N")
-print(nc)
+kc = filter_cereals("K")
+print(nc, kc)
