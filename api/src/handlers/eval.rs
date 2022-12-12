@@ -1,4 +1,3 @@
-use crate::extractors::with_blob::WithBlob;
 use crate::middlewares::auth::Auth;
 use crate::models::eval::{Eval, EvalError};
 use crate::persisters::{eval::EvalInsert, Persist, Query};
@@ -43,11 +42,12 @@ async fn get_by_params(
 // TODO: get rid of the slash
 #[put("/")]
 async fn put(
-    insert: WithBlob<EvalInsert>,
+    insert: web::Json<EvalInsert>,
     auth: Auth,
     state: AppState,
 ) -> Result<String, error::Error> {
     let _api_key = auth.allow_only_api_key()?;
+    let insert = insert.into_inner();
 
     let res = insert.persist(Some(&auth), &state).await?;
 
