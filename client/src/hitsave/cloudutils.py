@@ -101,6 +101,10 @@ def print_jwt_status() -> bool:
         erase_jwt()
         print("Login session expired.")
         return False
+    if response.status_code == 403:
+        erase_jwt()
+        print("Invalid JWT. Deleting.")
+        return False
     response.raise_for_status()
     raise NotImplementedError(response)
 
