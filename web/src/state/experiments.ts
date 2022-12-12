@@ -179,67 +179,65 @@ interface UiStore {
 }
 
 export const useUiState = create<UiStore>()(
-  devtools(
-    persist((set) => ({
-      ui: blankState(),
-      fromExps: (exps) =>
-        set((prev) => ({ ...prev, ui: fromExperimentList(exps) })),
-      setContextMenu: (cxm) =>
-        set((prev) => ({
-          ...prev,
-          ui: { ...prev.ui, contextMenu: cxm },
-        })),
-      toggleSymbolVersion: (symbol: string, version: string) => {
-        set((prev) => ({
-          ...prev,
-          ui: {
-            ...prev.ui,
-            symbols: {
-              ...prev.ui.symbols,
-              [symbol]: {
-                ...prev.ui.symbols[symbol],
-                selectedVersions: toggleStringInArray(
-                  prev.ui.symbols[symbol].selectedVersions,
-                  version
-                ),
-              },
+  devtools((set) => ({
+    ui: blankState(),
+    fromExps: (exps) =>
+      set((prev) => ({ ...prev, ui: fromExperimentList(exps) })),
+    setContextMenu: (cxm) =>
+      set((prev) => ({
+        ...prev,
+        ui: { ...prev.ui, contextMenu: cxm },
+      })),
+    toggleSymbolVersion: (symbol: string, version: string) => {
+      set((prev) => ({
+        ...prev,
+        ui: {
+          ...prev.ui,
+          symbols: {
+            ...prev.ui.symbols,
+            [symbol]: {
+              ...prev.ui.symbols[symbol],
+              selectedVersions: toggleStringInArray(
+                prev.ui.symbols[symbol].selectedVersions,
+                version
+              ),
             },
           },
-        }));
-      },
-      toggleParam: (
-        symbolName: string,
-        version: SymbolVersion,
-        paramName: string
-      ) => {
-        set((prev) => ({
-          ...prev,
-          ui: {
-            ...prev.ui,
-            symbols: {
-              ...prev.ui.symbols,
-              [symbolName]: {
-                ...prev.ui.symbols[symbolName],
-                versions: prev.ui.symbols[symbolName].versions.map((v) => {
-                  if (v.digest === version.digest) {
-                    return {
-                      ...v,
-                      selectedParams: toggleStringInArray(
-                        v.selectedParams,
-                        paramName
-                      ),
-                    };
-                  } else {
-                    return v;
-                  }
-                }),
-              },
+        },
+      }));
+    },
+    toggleParam: (
+      symbolName: string,
+      version: SymbolVersion,
+      paramName: string
+    ) => {
+      set((prev) => ({
+        ...prev,
+        ui: {
+          ...prev.ui,
+          symbols: {
+            ...prev.ui.symbols,
+            [symbolName]: {
+              ...prev.ui.symbols[symbolName],
+              versions: prev.ui.symbols[symbolName].versions.map((v) => {
+                if (v.digest === version.digest) {
+                  return {
+                    ...v,
+                    selectedParams: toggleStringInArray(
+                      v.selectedParams,
+                      paramName
+                    ),
+                  };
+                } else {
+                  return v;
+                }
+              }),
             },
           },
-        }));
-      },
-    }))
-  )
+        },
+      }));
+    },
+  }))
 );
 
 // Used when toggling selection state with checkboxes.
