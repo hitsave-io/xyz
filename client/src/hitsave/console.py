@@ -80,7 +80,14 @@ def user_info(*args, **kwargs):
 
 
 def internal_error(*args, **kwargs):
-    console.log(pre_tag, "INTERNAL ERROR", *args, **kwargs)
+    console.log(pre_tag, "[red]INTERNAL ERROR[/]", *args, **kwargs)
+
+
+def internal_warning(*args, **kwargs):
+    # [todo] log level goes here.
+    # console.log(pre_tag, "INTERNAL WARNING", *args, )
+    return
+
 
 def debug(*args, **kwargs):
     logger.debug(*args, **kwargs)

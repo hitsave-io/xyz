@@ -202,6 +202,8 @@ class Symbol:
     @classmethod
     def of_object(cls, o):
         """Create a Symbol from a python object by trying to inspect what the Symbol and parent module are."""
+        if inspect.ismodule(o):
+            return cls(o.__name__)
         if not hasattr(o, "__qualname__") or not hasattr(o, "__module__"):
             raise ValueError(
                 f"Object {o} does not have a __qualname__ or __module__ attribute."
@@ -218,25 +220,34 @@ class Symbol:
         if st is None:
             internal_error(f"Failed to find symbol table for", self)
             return None
-        if "." in self.decl_name:
-            parts = self.decl_name.split(".")
-            for part in parts[:-1]:
-                s = st.lookup(part)
-                if s.is_namespace():
-                    st = s.get_namespace()
-            s = st.lookup(parts[-1])
-            return s
-            # [todo] test this
-        return st.lookup(self.decl_name)
+        try:
+            if "." in self.decl_name:
+                parts = self.decl_name.split(".")
+                for part in parts[:-1]:
+                    s = st.lookup(part)
+                    if s.is_namespace():
+                        st = s.get_namespace()
+                s = st.lookup(parts[-1])
+                return s
+                # [todo] test this
+            return st.lookup(self.decl_name)
+        except KeyError as e:
+            logger.debug(f"Failed to find symbol {str(self)}: {e}")
+            return None
 
     def is_namespace(self) -> bool:
         """Returns true if the symbol is a namespace, which means that there is some
         internal structure; eg a function, a class, a module."""
-        assert self.decl_name is not None
+        if self.decl_name is None:
+            # all modules are namespaces
+            return True
         sts = self.get_st_symbol()
         if sts is None:
             return False
         return sts.is_namespace()
+
+    def is_module(self):
+        return self.decl_name is None or inspect.ismodule(self.get_bound_object())
 
     def is_import(self) -> bool:
         """Returns true if the symbol was declared from an `import` statement."""

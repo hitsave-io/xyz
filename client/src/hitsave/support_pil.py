@@ -8,7 +8,7 @@ from PIL.Image import Image
 
 
 @visualize.register(Image)
-def _viz_pil_image(x: Image):
+def _viz_pil_image(x: Image, rec):
     blobstore = BlobStore.current()
 
     with tempfile.SpooledTemporaryFile() as tape:

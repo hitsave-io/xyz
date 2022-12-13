@@ -64,7 +64,15 @@ from functools import cached_property
 from hitsave.graph import DirectedGraph
 from hitsave.config import Config, __version__
 from hitsave.util import cache, digest_dictionary, digest_string
-from hitsave.console import logger, console, internal_error, pp_diff, user_warning
+from hitsave.console import (
+    debug,
+    internal_warning,
+    logger,
+    console,
+    internal_error,
+    pp_diff,
+    user_warning,
+)
 from hitsave.symbol import (
     Symbol,
     get_module_spec,
@@ -244,7 +252,7 @@ class CodeGraph:
             return
         self.dg.add_vertex(v)
         if isinstance(v, Symbol):
-            b = get_binding(v)
+            b = try_get_binding(v)
             for v2 in b.deps:
                 self.eat(v2)
                 self.dg.set_edge(v, v2, b)
@@ -366,6 +374,8 @@ def _get_namespace_binding(s: Symbol) -> Binding:
     """
     if not s.is_namespace():
         raise ValueError(f"Symbol {str(s)} is not a namespace in the symbol table.")
+    if s.is_module():
+        return ValueBinding.from_object(s.get_bound_object())
 
     sts = s.get_st_symbol()
     assert sts is not None
@@ -380,7 +390,7 @@ def _get_namespace_binding(s: Symbol) -> Binding:
         src = getsource(s)
         if src is None:
             internal_error(f"failed to find sourcecode for", s)
-            src = "???"
+            return UnresolvedBinding(deps=set(deps), kind=BindingKind.fun)
         return FnBinding(deps=set(deps), sourcetext=src)
     if isinstance(ns, st.Class):
         if s.decl_name is None:
@@ -400,7 +410,7 @@ def _get_namespace_binding(s: Symbol) -> Binding:
             methods=methods,
         )
 
-    internal_error(f"Don't know how to get deps of namespace", s)
+    internal_error(f"Don't know how to get deps of namespace", s, ns)
     return UnresolvedBinding()
 
 
@@ -419,20 +429,37 @@ def get_binding(s: Symbol) -> Binding:
     if p is not None:
         return p
 
+    o = s.get_bound_object()
+
     if s.is_import():
+        if inspect.ismodule(o):
+            n = getattr(o, "__name__", None)
+            if n is None:
+                internal_error("Module", o, "has no name.")
+                return UnresolvedBinding()
+            symb = Symbol(n)
+            return ImportedBinding(symb=symb)
         imports = get_module_imports(s.module_name)
         if s.decl_name not in imports:
-            internal_error("Failed to resolve the import for ", s.module_name)
+            internal_warning("Could not find", s.decl_name, "in AST for", s.module_name)
             return UnresolvedBinding()
         i = imports[s.decl_name]
         return ImportedBinding(symb=i)
 
-    if s.is_namespace():
+    if s.is_namespace() and not s.is_module():
         # a namespace means that s is a function, class or module and contains references to symbols.
         return _get_namespace_binding(s)
     else:  # not a namespace
-        o = s.get_bound_object()
         return ValueBinding.from_object(o)
+
+
+def try_get_binding(s: Symbol) -> Binding:
+    """get_binding wrapped in a try."""
+    try:
+        return get_binding(s)
+    except Exception as e:
+        internal_warning("Failed to resolve", s, " due to uncaught error\n", e)
+        return UnresolvedBinding()
 
 
 def get_digest(s: Symbol):
@@ -463,17 +490,24 @@ def get_module_imports(module_name: str) -> Dict[str, Symbol]:
                 r[asname] = mk_vertex(alias.name)
 
         def visit_ImportFrom(self, node: ast.ImportFrom):
-            if node.module is None:
-                internal_error("trouble traversing python AST", node)
+            if node.level > 0:
+                internal_warning(
+                    "Skipping relative import in", module_name, "\n ", ast.unparse(node)
+                )
                 return
-            module_name: str = node.module
+            if node.module is None:
+                internal_error(
+                    "trouble traversing python AST of", module_name, ast.unparse(node)
+                )
+                return
+            node_module: str = node.module
             for alias in node.names:
                 asname = alias.asname or alias.name
                 if asname in r:
                     user_warning(
-                        "Multiple imports of", asname, "detected in", module_name
+                        "Multiple imports of", asname, "detected in", node_module
                     )
-                r[asname] = mk_vertex(module_name, alias.name)
+                r[asname] = mk_vertex(node_module, alias.name)
 
     V().visit(t)
     return r
@@ -601,6 +635,11 @@ class HashingPickler(Pickler):
         # https://docs.python.org/3/library/pickle.html#persistence-of-external-objects
         if type(obj) in opaque_types:
             return "___OPAQUE___"
+
+        if inspect.ismodule(obj):
+            s = Symbol.of_object(obj)
+            self.code_dependencies.add(s)
+            return str(s)
 
         if hasattr(obj, "__module__") and hasattr(obj, "__qualname__"):
             # we have encountered a code-dependency.
