@@ -1,5 +1,19 @@
 """
-Training RetinaNet on a custom dataset.
+Inference using detectron2
+==========================
+
+In this example, we use detectron2 to create detections on the `MS COCO <https://cocodataset.org>`_ dataset.
+
+
+First, `install detectron2 <https://detectron2.readthedocs.io/en/latest/tutorials/install.html>`_.
+
+::
+        pip install plotly pandas
+
+        # set up the data
+        cd ~/data
+        curl -O http://images.cocodataset.org/zips/val2017.zip
+
 
 """
 
@@ -13,14 +27,12 @@ import pandas as pd
 
 # import some common libraries
 import numpy as np
-import os, json, cv2, random
+import os
 
 # import some common detectron2 utilities
-import detectron2
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
-from detectron2.utils.visualizer import Visualizer
-from detectron2.data import MetadataCatalog, DatasetCatalog
+from detectron2.data import MetadataCatalog
 from detectron2 import model_zoo
 import torch
 from PIL import Image
