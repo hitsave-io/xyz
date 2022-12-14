@@ -48,7 +48,7 @@ jobs:
           path: client/dist
       - name: Publish on PyPI
         if: github.ref == 'refs/heads/main'
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: e.w.ayers
           password: ${{ secrets.pypi_password }}
