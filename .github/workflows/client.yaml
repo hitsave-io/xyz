@@ -24,8 +24,8 @@ jobs:
         with:
           path: ${{env.CACHE_DIR}}
           key: ${{ runner.os }}-${{ github.run_id }} # Can use time based key as well
-        restore-keys: |
-          ${{ runner.os }}
+          restore-keys: |
+            ${{ runner.os }}
       - name: Install Hatch
         run: pipx install hatch
       - name: Run tests
