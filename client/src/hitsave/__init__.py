@@ -27,6 +27,7 @@ try:
 except ModuleNotFoundError:
     pass
 
+import hitsave.support_extra
 
 @atexit.register
 def exit_message():
