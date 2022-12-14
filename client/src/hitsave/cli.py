@@ -21,10 +21,30 @@ from hitsave.filesnap import DirectorySnapshot, FileSnapshot
 from hitsave.util.config_file import get_config, interpret_var_str, set_config
 from rich.prompt import Confirm
 
+from hitsave.__about__ import __version__ as version
 from hitsave.console import is_interactive_terminal
 
 app = typer.Typer()
 """ Entrypoint for CLI tool. """
+
+
+def version_callback(value: bool):
+    if value:
+        typer.echo(version)
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: bool = typer.Option(
+        None,
+        "--version",
+        callback=version_callback,
+        is_eager=True,
+        help="Show the version and exit.",
+    )
+):
+    return
 
 
 @app.command()
@@ -230,6 +250,7 @@ def status():
     jc = print_jwt_status()
     print_api_key_status()
     # [todo] info about local cache for the given project.
+
 
 if __name__ == "__main__":
     app()
