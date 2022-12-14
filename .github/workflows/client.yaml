@@ -10,22 +10,20 @@ on:
   pull_request:
     branches: ["main"]
 
-env:
-  CACHE_DIR: "~/.cache"
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Cache Hatch
-        id: cache-hatch
-        uses: actions/cache@v3
-        with:
-          path: ${{env.CACHE_DIR}}
-          key: ${{ runner.os }}-${{ github.run_id }} # Can use time based key as well
-          restore-keys: |
-            ${{ runner.os }}
+      # [todo] I have no idea where the cache for python packages is.
+      # - name: Cache Hatch
+      #   id: cache-hatch
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: ${{env.CACHE_DIR}}
+      #     key: ${{ runner.os }}-${{ github.run_id }} # Can use time based key as well
+      #     restore-keys: |
+      #       ${{ runner.os }}
       - name: Install Hatch
         run: pipx install hatch
       - name: Run tests
@@ -48,10 +46,11 @@ jobs:
           path: client/dist
       - name: Publish on PyPI
         if: github.ref == 'refs/heads/main'
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: e.w.ayers
-          password: ${{ secrets.pypi_password }}
+        run: hatch publish
+        working-directory: "./client"
+        env:
+          HATCH_INDEX_USER: e.w.ayers
+          HATCH_INDEX_AUTH: ${{ secrets.pypi_password }}
   deploy:
     runs-on: ubuntu-latest
     environment:
