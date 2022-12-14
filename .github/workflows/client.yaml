@@ -11,17 +11,21 @@ on:
     branches: ["main"]
 
 env:
-  HATCH_CACHE_DIR: "~/.cache/hatch"
+  CACHE_DIR: "~/.cache"
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - name: Cache Hatch
+        id: cache-hatch
+        uses: actions/cache@v3
         with:
-          python-version: "3.10"
-          cache: "pip" # caching pip dependencies
+          path: ${{env.CACHE_DIR}}
+          key: ${{ runner.os }}-${{ github.run_id }} # Can use time based key as well
+        restore-keys: |
+          ${{ runner.os }}
       - name: Install Hatch
         run: pipx install hatch
       - name: Run tests
@@ -44,7 +48,7 @@ jobs:
           path: client/dist
       - name: Publish on PyPI
         if: github.ref == 'refs/heads/main'
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@master
         with:
           user: e.w.ayers
           password: ${{ secrets.pypi_password }}
