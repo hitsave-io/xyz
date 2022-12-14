@@ -9,4 +9,9 @@ exec 1>stop-server.log 2>&1
 set -e
 
 cd /home/ec2-user/xyz/deploy
+
+# This should prevent the machine getting full of old docker garbage. Without
+# this, we get docker crashing every nth deploy.
+docker system prune
+
 docker compose -p xyz-prod down
