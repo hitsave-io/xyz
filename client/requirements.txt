@@ -1,0 +1,15 @@
+blake3 ~= 0.3.1
+typer ~= 0.6.1
+aiohttp ~= 3.8
+requests ~= 2.28
+typing_extensions
+python-dateutil
+rich
+pytest
+pytest-cov
+hypothesis
+pytest-snapshot
+numpy
+pandas
+pillow
+torch
