@@ -12,17 +12,16 @@ on:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
-    name: "Python ${{ matrix.python-version }}"
+    name: "Python"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
-          cache: "pip" # caching pip dependencies
+          python-version: "3.8"
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
       - name: Install Hatch
         run: pipx install hatch
       - name: Run tests
@@ -35,21 +34,22 @@ jobs:
         uses: actions/upload-pages-artifact@v1
         with:
           path: client/docs/_build/html
+
+  publish:
+      environment:
+        HATCH_INDEX_USER: e.w.ayers
+        HATCH_INDEX_AUTH: ${{ secrets.pypi_password }}
+      if: github.ref == 'refs/heads/main' && ${{ matrix.python-version }} == "3.10"
+      - uses: actions/checkout@v3
+      - name: Install Hatch
+        run: pipx install hatch
       - name: Build dist
         working-directory: "./client"
         run: hatch build
-      - name: Upload dist artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: dist
-          path: client/dist
       - name: Publish on PyPI
-        if: github.ref == 'refs/heads/main'
         run: hatch publish
         working-directory: "./client"
-        env:
-          HATCH_INDEX_USER: e.w.ayers
-          HATCH_INDEX_AUTH: ${{ secrets.pypi_password }}
+
   deploy:
     runs-on: ubuntu-latest
     environment:
