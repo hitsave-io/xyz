@@ -12,18 +12,17 @@ on:
 
 jobs:
   build:
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+    name: "Python ${{ matrix.python-version }}"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      # [todo] I have no idea where the cache for python packages is.
-      # - name: Cache Hatch
-      #   id: cache-hatch
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: ${{env.CACHE_DIR}}
-      #     key: ${{ runner.os }}-${{ github.run_id }} # Can use time based key as well
-      #     restore-keys: |
-      #       ${{ runner.os }}
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip" # caching pip dependencies
       - name: Install Hatch
         run: pipx install hatch
       - name: Run tests
