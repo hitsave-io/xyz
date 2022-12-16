@@ -116,6 +116,10 @@ class Symbol:
     module_name: str
     decl_name: Optional[str] = field(default=None)
 
+    def __post_init__(self):
+        assert isinstance(self.module_name, str)
+        assert (self.decl_name is None) or isinstance(self.decl_name, str)
+
     @cached_property
     def display_module_name(self):
         """This is the same as self.module_name, but with a special case
@@ -209,6 +213,7 @@ class Symbol:
                 f"Object {o} does not have a __qualname__ or __module__ attribute."
             )
         module = o.__module__
+        assert module is not None, f"Module for {o} not found."
         return cls(module, o.__qualname__)
 
     def get_st_symbol(self) -> Optional[st.Symbol]:
