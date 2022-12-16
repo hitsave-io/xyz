@@ -614,8 +614,8 @@ class HashingPickler(_Pickler):
     def save(self, obj, save_persistent_id=True):
         try:
             super().save(obj, save_persistent_id)  # type: ignore
-        except PicklingError as pe:
-            internal_error(pe)
+        except (PicklingError, TypeError) as pe:
+            internal_warning(pe)
             self.save_pers("___UNPICKLABLE___")  # type: ignore
 
     def reducer_override(self, obj):
@@ -657,6 +657,9 @@ class HashingPickler(_Pickler):
             return str(s)
 
         if hasattr(obj, "__module__") and hasattr(obj, "__qualname__"):
+            if obj.__module__ is None:
+                # this happens for some builtins, eg `_thread.RLock.aquire`
+                return "__UNKNOWN__"
             # we have encountered a code-dependency.
             if obj.__name__ == "<lambda>":
                 try:

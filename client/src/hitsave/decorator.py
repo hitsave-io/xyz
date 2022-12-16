@@ -58,6 +58,9 @@ class Arg:
 class SavedFunction(Generic[P, R]):
     func: Callable[P, R]
 
+    debug_mode: bool = field(default=False)
+    """ In debug mode, exceptions thrown in HitSave will not be swallowed. """
+
     is_experiment: bool = field(default=False)
     """ An experiment is a variant of a SavedFunction which will not be deleted by the cache cleaning code. """
 
@@ -65,60 +68,65 @@ class SavedFunction(Generic[P, R]):
     invocation_count: int = field(default=0)
     _fn_hashes_reported: Set[str] = field(default_factory=set)
 
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
-        try:
-            self.invocation_count += 1
-            session = Session.current()
-            sig = inspect.signature(self.func)
-            ba = sig.bind(*args, **kwargs)
-            args_hash = session.deephash(ba.arguments)
-            pretty_args = Arg.create(sig, ba)
-            fn_key = Symbol.of_object(self.func)
-            deps = session.fn_deps(fn_key)
-            fn_hash = session.fn_hash(fn_key)
-            key = EvalKey(fn_key=fn_key, fn_hash=fn_hash, args_hash=args_hash)
-            evalstore = EvalStore.current()
-            result = evalstore.poll_eval(key, deps=deps, local_only=self.local_only)
-            if isinstance(result, StoreMiss):
-                if isinstance(result, CodeChanged):
-                    if fn_hash not in self._fn_hashes_reported:
-                        user_info(
-                            f"Dependencies changed for",
-                            fn_key,
-                            "\n" + result.reason,
-                            highlight=False,
-                        )
-                        self._fn_hashes_reported.add(fn_hash)
-                else:
-                    logger.debug(f"No stored value for {fn_key}: {result.reason}")
-                start_time = datetime_now()
-                start_process_time = time.process_time_ns()
-                evalstore.start_eval(
-                    key,
-                    is_experiment=self.is_experiment,
-                    args=pretty_args,
-                    deps=deps,
-                    start_time=start_time,
-                    local_only=self.local_only,
-                )
-                # [todo] catch, log and rethrow errors raised by inner func.
-                result = self.func(*args, **kwargs)
-                end_process_time = time.process_time_ns()
-                elapsed_process_time = end_process_time - start_process_time
-                evalstore.resolve_eval(
-                    key,
-                    elapsed_process_time=elapsed_process_time,
-                    result=result,
-                    local_only=self.local_only,
-                )
-                logger.debug(f"Computed value for {fn_key}.")
-                return result
+    def call_core(self, *args: P.args, **kwargs: P.kwargs) -> R:
+        self.invocation_count += 1
+        session = Session.current()
+        sig = inspect.signature(self.func)
+        ba = sig.bind(*args, **kwargs)
+        args_hash = session.deephash(ba.arguments)
+        pretty_args = Arg.create(sig, ba)
+        fn_key = Symbol.of_object(self.func)
+        deps = session.fn_deps(fn_key)
+        fn_hash = session.fn_hash(fn_key)
+        key = EvalKey(fn_key=fn_key, fn_hash=fn_hash, args_hash=args_hash)
+        evalstore = EvalStore.current()
+        result = evalstore.poll_eval(key, deps=deps, local_only=self.local_only)
+        if isinstance(result, StoreMiss):
+            if isinstance(result, CodeChanged):
+                if fn_hash not in self._fn_hashes_reported:
+                    user_info(
+                        f"Dependencies changed for",
+                        fn_key,
+                        "\n" + result.reason,
+                        highlight=False,
+                    )
+                    self._fn_hashes_reported.add(fn_hash)
             else:
-                if self.invocation_count == 1:
-                    user_info(f"Found cache for", fn_key)
-                else:
-                    logger.debug(f"Found cached value for {fn_key}.")
-                return result.value
+                logger.debug(f"No stored value for {fn_key}: {result.reason}")
+            start_time = datetime_now()
+            start_process_time = time.process_time_ns()
+            evalstore.start_eval(
+                key,
+                is_experiment=self.is_experiment,
+                args=pretty_args,
+                deps=deps,
+                start_time=start_time,
+                local_only=self.local_only,
+            )
+            # [todo] catch, log and rethrow errors raised by inner func.
+            result = self.func(*args, **kwargs)
+            end_process_time = time.process_time_ns()
+            elapsed_process_time = end_process_time - start_process_time
+            evalstore.resolve_eval(
+                key,
+                elapsed_process_time=elapsed_process_time,
+                result=result,
+                local_only=self.local_only,
+            )
+            logger.debug(f"Computed value for {fn_key}.")
+            return result
+        else:
+            if self.invocation_count == 1:
+                user_info(f"Found cache for", fn_key)
+            else:
+                logger.debug(f"Found cached value for {fn_key}.")
+            return result.value
+
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
+        if self.debug_mode:
+            return self.call_core(*args, **kwargs)
+        try:
+            return self.call_core(*args, **kwargs)
         except Exception as e:
             internal_error(
                 "Unhandled exception, falling back to decorator-less behaviour.\n", e
