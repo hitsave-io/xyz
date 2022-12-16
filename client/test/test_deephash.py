@@ -100,10 +100,6 @@ def prop__hash_invariant_on_copy(x):
 
 def test_hash_invariant_on_copy():
     for x in examples:
-        if isinstance(x, set) and x == {7.0, Decimal("Infinity")}:
-            # skipping this example because pickler will only iter sets in a canonical order
-            # if rich comparison is available.
-            continue
         prop__hash_invariant_on_copy(x)
 
 

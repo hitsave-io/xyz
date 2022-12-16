@@ -32,7 +32,7 @@ import importlib
 from importlib.machinery import ModuleSpec
 import io
 from blake3 import blake3
-from pickle import Pickler
+from pickle import _Pickler, PicklingError
 import importlib.util
 import importlib.metadata
 import tempfile
@@ -594,16 +594,29 @@ def _sortkey(x):
     return (type(x).__name__, repr(x))
 
 
-class HashingPickler(Pickler):
-    hasher: blake3
-    code_dependencies: Set[Symbol]
-    outfile: Optional[IO[bytes]]
+class HashingWriter:
+    def __init__(self, hasher: blake3, outfile: Optional[IO[bytes]]):
+        self.hasher = hasher
+        self.outfile = outfile
 
     def write(self, b: bytes) -> None:
         # [todo] out-of-band
         self.hasher.update(b)
         if self.outfile is not None:
             self.outfile.write(b)
+
+
+class HashingPickler(_Pickler):
+    hasher: blake3
+    code_dependencies: Set[Symbol]
+    outfile: Optional[IO[bytes]]
+
+    def save(self, obj, save_persistent_id=True):
+        try:
+            super().save(obj, save_persistent_id)  # type: ignore
+        except PicklingError as pe:
+            internal_error(pe)
+            self.save_pers("___UNPICKLABLE___")  # type: ignore
 
     def reducer_override(self, obj):
         if isinstance(obj, set):
@@ -617,7 +630,7 @@ class HashingPickler(Pickler):
             try:
                 items = sorted(obj)
             except Exception as e:
-                logger.debug(f"Sorting error:\n{e}")
+                internal_error(f"Sorting error:", e)
                 items = list(obj)
             return (set, (), None, items)
 
@@ -628,7 +641,9 @@ class HashingPickler(Pickler):
         self.code_dependencies = set()
         self.outfile = outfile
         self.dispatch_table = ChainMap(digest_dispatch_table, copyreg.dispatch_table)
-        super().__init__(self, protocol=protocol, **kwargs)
+        super().__init__(
+            HashingWriter(self.hasher, self.outfile), protocol=protocol, **kwargs
+        )
 
     def persistent_id(self, obj):
         # Abusing the persistent_id mechanism.
