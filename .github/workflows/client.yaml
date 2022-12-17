@@ -38,6 +38,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     needs: build
+    environment: production
     env:
       HATCH_INDEX_USER: e.w.ayers
       HATCH_INDEX_AUTH: ${{ secrets.pypi_password }}
