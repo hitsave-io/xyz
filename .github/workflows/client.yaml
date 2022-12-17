@@ -39,7 +39,7 @@ jobs:
     env:
       HATCH_INDEX_USER: e.w.ayers
       HATCH_INDEX_AUTH: ${{ secrets.pypi_password }}
-    if: github.ref == 'refs/heads/main' && ${{ matrix.python-version }} == "3.10"
+    if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v3
       - name: Install Hatch
