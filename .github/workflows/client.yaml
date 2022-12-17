@@ -36,6 +36,7 @@ jobs:
           path: client/docs/_build/html
 
   publish:
+    runs-on: ubuntu-latest
     env:
       HATCH_INDEX_USER: e.w.ayers
       HATCH_INDEX_AUTH: ${{ secrets.pypi_password }}
