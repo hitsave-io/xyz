@@ -1,142 +1,125 @@
-(getting_started)=
-# How HitSave Works
+# Getting Started with HitSave
 
-## Prerequisites
 
-If you haven't done so already, follow the steps in the [installation
-guide](installation) to get setup with HitSave.
+## Setting up your project
 
-## The HitSave Decorators
+This article gives a tour of HitSave's features. Be sure to read the [installation guide](installation.md). Let's create a new python project in the terminal:
 
-The core object in HitSave is the `@memo` decorator. If you've used
-[`@functools.lru_cache`](https://docs.python.org/3/library/functools.html#functools.lru_cache)
-you'll be familiar with the notion of caching function executions.
-
-### [`@memo`](hitsave.memo)
-
-HitSave's `@memo` behaves similarly to `lru_cache` but incorporates a few
-powerful additions:
-
-- Rather than storing previous function evaluations in memory (where they
-  are only available for the current execution session) they are instead
-  persisted to disk and reusable in future execution sessions.
-- HitSave syncs your cache to the cloud. Soon, HitSave will allow teams to have
-  shared caches, so that if code has been run once on your team, no-one else
-  has to wait for the results if they re-run the same code with the same
-  inputs.
-- HitSave uses a much more sophisticated caching algorithm than `lru_cache`.
-  Before running your code, HitSave statically analyses the code dependency
-  tree of your `@memo`'d function, and uses hash digests of both the code
-  itself and the data you pass in. If you edit your code, or pass different
-  arguments, HitSave automatically invalidates the cache so that you are
-  always returned correct values.
-
-With this abstraction, HitSave enables you to persistently memoize
-long-running functions, and avoid manually saving intermediate results to
-persistent disk storage.
-
-For example, imagine you are ingesting a large dataset
-through an [ETL](https://en.wikipedia.org/wiki/Extract,_transform,_load) pipeline. Instead of using Python's native file API to save
-the state of your dataset to your local machine at each step, you can
-instead use `@memo` to persist the dataset to a managed local cache, as
-well as automatically syncing this to the cloud where it can be accessed
-by other team members. Now, if you need to edit a downstream step in your
-ETL pipeline, there's no need to reload the previous step's output as a
-starting point: simply running the whole pipeline again will have the
-effect of immediately picking up from the latest unchanged step and
-calculating the new results.
-Because HitSave is on the cloud, this works even if earlier steps were run on different computers!
-
-### [`@experiment`](hitsave.experiment)
-
-An interesting side-effect of HitSave's caching mechanics is that it means it can also be used to manage experiments, similar to tools such as MLFlow.
-
-HitSave provides a second core decorator called [`@experiment`](hitsave.experiment).
-`@experiment` behaves exactly the same as `@memo`, but sets a flag telling HitSave that
-the result is of interest and should never be automatically wiped from the cache.
-
-We've built a dashboard in the web interface where you can inspect
-all your experiments and see visualized arguments and return values in
-the browser.
-
-Here's a rough example of how you could use this functionality to get
-useful experiment tracking up and running in just a few lines of code.
-
-```python
-lr = 0.01
-batch_size = 200
-
-@experiment
-def train_model(lr, batch_size):
-    training_dataset, test_dataset = get_datasets()
-    model = NeuralNetwork()
-    writer = []
-    for epoch in range(epochs):
-        model.train(lr, training_dataset)
-        writer.append([{
-            'epoch': epoch,
-            'accuracy': accuracy(test_dataset, model)
-        }])
-
-    df = pd.DataFrame(writer)
-    fig = px.line(df, x='epoch', y='accuracy')
-
-    return model, fig
+```sh
+mkdir hello-hitsave
+cd hello-hitsave
+git init
+touch hello.py
 ```
 
-Perhaps you already had some code which looked like this, minus the
-`@experiment` decorator.
+[note] HitSave uses Git to determine the root directory of a Python project. If no Git project is present then
 
-Here's what happens:
+[note] currently HitSave doesn't work in notebooks and interactive sessions, but we are working on it!
 
-- You define parameters for your experiment like learning rate and batch
-  size. These are passed into the function, so HitSave can interpret the
-  relationship between input and output.
-- You load in your datasets. The `get_datasets` function could even be
-  an `@memo`'d function.
-- You train the model for a number of epochs and calculate the accuracy
-  performance on the test dataset at the end of each epoch.
-- Along the way, you append the accuracy data to a writer (e.g.
-  something like a Tensorboard log).
-- At the end, you construct a figure, plotting the accuracy at each
-  epoch.
-- Finally, you return the model and the figure.
+## Hello HitSave!
 
-Now, when you visit the [cloud experiment tracker](https://hitsave.io/dashboard/experiments)
-you'll see a row in the table displaying the experiment you ran. It
-includes the values of the learning rate and batch size parameters passed
-into the function, as well as displaying the returned accuracy plot on screen.
+Let's start with a simple function `fibo` in `hello.py`
 
-Now you can come back to the editor and try some different values of the
-input parameters. Each time you run the code, you'll get a new row in
-the table. You could even call the `@experiment` function many times in
-the same execution session by nesting it in a for-loop - for example to
-perform a hyperparameter sweep. Best of all, if you rerun the function
-with the same parameters as a previous run, you'll get the output
-instantaneously from the cache (well, at least as quickly as your
-computer can download it from the cloud or local disk).
+```python
+# hello.py
+def fibo(n):
+  print(f"computing fibo({n})")
+  return 1 if n < 3 else fibo(n - 1) + fibo(n - 2)
 
-In the future, we're going to make it possible to share caches and
-experiments among team members, as well as allowing you to directly
-download cached artifacts into a Python session by referencing a unique
-identifier which you'll be able to grab from the interface.
+fibo(10)
 
-## When to Use `@memo`
+```
 
-Not all functions are appropriate for `@memo`. A good rule-of-thumb is asking
-whether the function is a good target for other forms of caching such as
-`lru_cache`. Here are some considerations for whether a function can be useful
-for saving:
+This computes the `n`th Fibonacci number, but note that it is inefficient because it needs to repeatedly recompute the inner `fibo` calls.
+The classic way to fix this is with _memoisation_ of `fibo`. This is where you decorate `fibo` with `functools.cache`:
 
-- Does the function takes a long time to run? If the function is fast, it's hardly
-  worth the overhead of hashing arguments and downloading the saved value.
-- Are the arguments to the function easy to hash? If you pass a huge tensor to
-  the function, HitSave will have to hash the entire object before it can
-  determine if the function is already hashed.
-- Does the function cause [side-effects](<https://en.wikipedia.org/wiki/Side_effect_(computer_science)>)?
-  A side-effect is a change that the function makes to the environment
-  that isn't in the function's return value. Examples are: modifying
-  a global value, or changing a file on disk.
-- The function doesn't depend on a changing external resource (for example,
-  polling a web API for the weather).
-- The function doesn't implicitly depend on the state of the filesystem.
+
+```python
+import functools
+
+@functools.cache
+def fibo(n):
+  print(f"computing fibo({n})")
+  return 1 if n < 3 else fibo(n - 1) + fibo(n - 2)
+
+fibo(10)
+```
+
+This is nice. But you need to repopulate the memoisation cache every time you run your python code.
+That is, if you run the above code twice, it will recompute all of the `fibo(n)` values.
+
+
+What if, instead, the cache was saved to disk so that the numbers could be used on later runs?
+What if, this cache was on the cloud, so anyone using your code would also have access to the cache?
+This is what HitSave does.
+HitSave is `@functools.cache` with super powers. We take this simple idea of a cloud-backed cache and use it to build streamlined data infrastructure for you and your team.
+
+```python
+from hitsave import experiment
+
+@experiment
+def fibo(n):
+  print(f"computing fibo({n})")
+  return 1 if n < 3 else fibo(n - 1) + fibo(n - 2)
+
+fibo(10)
+```
+
+If you run this code multiple times, it only needs to compute `fibo(n)` exactly once for each `n`. Each value is stored to the HitSave local database _and_ to the cloud. Head over to https://hitsave.io/dashboard/experiments to see the results.
+
+## Changing your code
+
+While holding a cache of your function in memory is useful to avoid recomputation, we need to know when to throw away the cache when our code changes.
+Let's edit our `fibo` function to be the sum of the last _three_ values:
+
+```python
+from hitsave import experiment
+
+@experiment
+def fibo(n):
+  print(f"computing fibo({n})")
+  return 1 if n < 3 else fibo(n - 1) + fibo(n - 2) + fibo(n - 3)
+
+fibo(10)
+```
+
+Now, our cached values are invalid! HitSave looks at the code that is about to run and figures out whether any code has changed by diffing the code with the code that executed when the function was run.
+
+What if the `fibo` code depends on variables and functions outside of `fibo`?
+HitSave tracks the dependencies of `fibo` using fancy code analysis to figure out when it needs to invalidate the cache:
+
+```python
+from hitsave import experiment
+
+C = 4
+
+def g(x):
+    return x * x
+
+@experiment
+def fibo(n):
+  print(f"computing fibo({n})")
+  return 1 if n < 3 else fibo(n - 1) + g(fibo(n - 2)) + C
+
+fibo(10)
+```
+
+Try editing the value of `C` or the contents of `g` and re-running. The cache is invalidated when the dependencies change.
+
+## Next up: Using HitSave to level-up your workflow.
+
+That is all there is to HitSave! It's just cloud-backed memoisation and some nice code dependency tracking.
+While the core mechanic is as simple as you can get, there are some wide-reaching ramifications for data science and data engineering.
+
+The above `fibo` example showed how cloud-memoisation works, but the `@memo` and `@experiment` decorators were built to wrap heavy computation where you want to avoid recomputing from scratch.
+Think analytics on large amounts of data, or running an optimisation, or training an ML model.
+
+In the coming guides, we will see how to use `@memo` and `@experiment` for working with large amounts of data.
+
+## Where next?
+
+- [How HitSave works](how_it_works.md).
+- Managing experiments with HitSave (coming soon)
+- Creating data pipelines with HitSave (coming soon)
+- Try out the [Sentiment analysis example project](../examples/sentiment).
+- Jump on [the Discord](https://discord.gg/DfxGynVBcN) and talk to us about your ideas and use cases.
