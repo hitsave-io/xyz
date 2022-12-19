@@ -16,6 +16,7 @@ from hitsave.util import (
 from blake3 import blake3
 from stat import S_IREAD, S_IRGRP
 import tempfile
+import io
 from hitsave.console import logger, internal_error
 from hitsave.cloudutils import request, read_header, create_header, encode_hitsavemsg
 
