@@ -12,9 +12,10 @@ git init
 touch hello.py
 ```
 
-[note] HitSave uses Git to determine the root directory of a Python project. If no Git project is present then
+````{admonition} Projects
+HitSave uses Git to determine the root directory of a Python project. If no Git project is present then
+````
 
-[note] currently HitSave doesn't work in notebooks and interactive sessions, but we are working on it!
 
 ## Hello HitSave!
 
@@ -121,5 +122,5 @@ In the coming guides, we will see how to use `@memo` and `@experiment` for worki
 - [How HitSave works](how_it_works.md).
 - Managing experiments with HitSave (coming soon)
 - Creating data pipelines with HitSave (coming soon)
-- Try out the [Sentiment analysis example project](../examples/sentiment).
+- Try out the [Sentiment analysis example project](https://docs.hitsave.io/examples/sentiment.html).
 - Jump on [the Discord](https://discord.gg/DfxGynVBcN) and talk to us about your ideas and use cases.

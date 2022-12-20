@@ -23,7 +23,7 @@
    :maxdepth: 1
    :caption: Examples
 
-   auto_examples/sentiment
+   examples/sentiment
 
 ```
 
