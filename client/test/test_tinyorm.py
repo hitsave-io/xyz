@@ -5,7 +5,7 @@ import logging
 import sqlite3
 from typing import Optional
 
-from hitsave.tinyorm import col, Schema, transaction, Connection
+from hitsave.util.tinyorm import col, Schema, transaction, Connection
 
 
 class BlobStatus(Enum):

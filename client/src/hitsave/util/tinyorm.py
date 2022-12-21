@@ -408,6 +408,11 @@ class Connection(Current):
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
 
+    @classmethod
+    def default(cls):
+        # [todo] remove dependency on session
+        return Connection(Session.current().local_db)
+
 
 @contextmanager
 def transaction():
