@@ -22,10 +22,13 @@ import logging
 from typing import Callable, List, Sequence, Union
 from dataclasses import dataclass, is_dataclass, fields, field, Field
 from contextlib import contextmanager
-from datetime import datetime
+import datetime
 import sqlite3
 from hitsave.util import Current, as_optional, ofdict
+from hitsave.session import Session
 from typing import Any, Generic, Iterable, Iterator, Optional, Type, TypeVar, overload
+
+from hitsave.util.dispatch import classdispatch
 
 logger = logging.getLogger("tinyorm")
 
@@ -34,20 +37,34 @@ S = TypeVar("S")
 R = TypeVar("R")
 
 
+class AdaptationError(TypeError):
+    pass
+
+
 @singledispatch
 def adapt(o):
+    """Turn it into a SQLite-compatible type."""
     if isinstance(o, (str, int, bytes, float)):
         return o
     if isinstance(o, Enum):
         return o.value
     if o is None:
         return None
-    raise NotImplementedError()
+    raise AdaptationError(o)
 
 
-@adapt.register
-def _enc_datetime(o: datetime):
-    return o.isoformat()
+@classdispatch
+def restore(T, x):
+    if isinstance(x, T):
+        return x
+    if issubclass(T, Enum):
+        return T(x)
+    else:
+        raise NotImplementedError(f"Unsupported target type {T}")
+
+
+adapt.register(datetime.datetime)(lambda o: o.isoformat())
+restore.register(datetime.datetime)(lambda T, t: datetime.datetime.fromisoformat(t))
 
 
 class Table(Generic[T]):
@@ -183,6 +200,10 @@ class Pattern(Generic[S]):
     def __init__(self, items: List["Expr"], outfn: Callable[[List[Any]], S]):
         ...
 
+    @overload
+    def __init__(self, obj: "Column"):
+        ...
+
     def __init__(self, obj: S, outfn=None):  # type: ignore
         if isinstance(obj, list) and isinstance(outfn, Callable):
             assert all(isinstance(x, Expr) for x in obj)
@@ -194,9 +215,9 @@ class Pattern(Generic[S]):
             self.outfn = obj.outfn
             return
         elif isinstance(obj, Column):
+            T = obj.type
             self.items = [Expr(obj)]
-            # [todo] perform conversion here?
-            self.outfn = lambda x: x[0]  # type: ignore
+            self.outfn = lambda x: restore(T, x[0])  # type: ignore
         elif isinstance(obj, (tuple, list)):
             self.items = []
             js = [0]
@@ -254,7 +275,7 @@ class Pattern(Generic[S]):
 
 
 class Expr:
-    """A sqlite expression."""
+    """A sqlite expression. That is, it's a string full of '?'s and a value for each '?'."""
 
     expr: str
     values: List[Any]
@@ -263,9 +284,23 @@ class Expr:
     def const(cls, expr: str):
         return Expr(expr, [])
 
-    def __init__(
-        self, obj: Union["Expr", "Column", Any], values: Optional[List[Any]] = None
-    ):
+    @overload
+    def __init__(self, obj: "Expr"):
+        ...
+
+    @overload
+    def __init__(self, obj: "Column"):
+        ...
+
+    @overload
+    def __init__(self, obj: str, values: List[Any]):
+        ...
+
+    @overload
+    def __init__(self, obj: str):
+        ...
+
+    def __init__(self, obj, values: Optional[List[Any]] = None):
         if isinstance(obj, Expr):
             assert values is None
             self.expr = obj.expr
@@ -331,15 +366,16 @@ class Column(Expr):
     field: Field
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self.field.name
 
     @property
-    def type(self):
+    def type(self) -> Type:
         return self.field.type
 
     @property
-    def primary(self):
+    def primary(self) -> bool:
+        """Is it a primary key?"""
         return self.field.metadata.get("primary", False)
 
     def __init__(self, f: Field):

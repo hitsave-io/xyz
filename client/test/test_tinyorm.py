@@ -49,10 +49,12 @@ def test_it():
     assert blob.label is None
     assert blob.length == 1000
 
+    t = datetime.now()
+
     blobs.update(
         {
             Blob.accesses: Blob.accesses + 1,
-            Blob.created: datetime.now(),
+            Blob.created: t,
             Blob.status: BlobStatus.bar,
         },
         where=Blob.digest == blob.digest,
@@ -62,6 +64,7 @@ def test_it():
     assert blob2 is not None
     assert blob2.status == BlobStatus.bar
     assert blob2.accesses == blob.accesses + 1
+    assert blob2.created == t
 
     for (status, label) in blobs.select(
         where=(Blob.label == "hello"), select=(Blob.status, Blob.label)
