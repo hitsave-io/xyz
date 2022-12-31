@@ -13,7 +13,7 @@ touch hello.py
 ```
 
 ````{admonition} Projects
-HitSave uses Git to determine the root directory of a Python project. If no Git project is present then
+HitSave uses Git to determine the root directory of a Python project. If no Git project is present then it will look for a `pyproject.toml` or emit a warning.
 ````
 
 
