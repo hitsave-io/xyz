@@ -50,13 +50,9 @@ from typing import (
     IO,
     Any,
     Callable,
-    Dict,
     Iterable,
-    List,
     Literal,
     Optional,
-    Set,
-    Tuple,
     Union,
 )
 from functools import cached_property
@@ -102,7 +98,7 @@ class BindingKind(Enum):
 
 class Binding(ABC):
     kind: BindingKind
-    deps: Set[Symbol]
+    deps: set[Symbol]
     diffstr: str
     """ A string that can be diffed with other versions of the binding to show the user what changed. """
     digest: str
@@ -135,7 +131,7 @@ class ImportedBinding(Binding):
 class FnBinding(Binding):
     kind = BindingKind.fun
     sourcetext: str
-    deps: Set[Symbol]
+    deps: set[Symbol]
 
     @cached_property
     def digest(self) -> str:
@@ -150,8 +146,8 @@ class FnBinding(Binding):
 class ClassBinding(Binding):
     kind = BindingKind.cls
     sourcetext: str
-    code_deps: Set[Symbol]
-    methods: List[Symbol]
+    code_deps: set[Symbol]
+    methods: list[Symbol]
 
     @property
     def deps(self):
@@ -170,7 +166,7 @@ class ClassBinding(Binding):
 class UnresolvedBinding(Binding):
     kind: BindingKind = field(default=BindingKind.val)
     diffstr: str = field(default="??? unknown binding ???")
-    deps: Set[Symbol] = field(default_factory=set)
+    deps: set[Symbol] = field(default_factory=set)
     digest: str = field(default="??????????")
 
 
@@ -190,7 +186,7 @@ class ValueBinding(Binding):
 
     kind = BindingKind.val
     digest: str
-    deps: Set[Symbol]
+    deps: set[Symbol]
     diffstr: str
     # [todo] weakref to object
 
@@ -467,7 +463,7 @@ def get_digest(s: Symbol):
 
 
 @cache
-def get_module_imports(module_name: str) -> Dict[str, Symbol]:
+def get_module_imports(module_name: str) -> dict[str, Symbol]:
     """Returns all of the vertices that are imported from the given module name."""
     src = get_source(module_name)
     if src is None:
@@ -608,7 +604,7 @@ class HashingWriter:
 
 class HashingPickler(_Pickler):
     hasher: blake3
-    code_dependencies: Set[Symbol]
+    code_dependencies: set[Symbol]
     outfile: Optional[IO[bytes]]
 
     def save(self, obj, save_persistent_id=True):
@@ -700,7 +696,7 @@ def value_digest(obj, outfile=None) -> str:
     return h.digest
 
 
-def debug_value_digest(obj) -> Tuple[str, str]:
+def debug_value_digest(obj) -> tuple[str, str]:
     import pickletools
 
     with io.BytesIO() as f1:

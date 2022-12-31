@@ -3,7 +3,7 @@ from datetime import datetime
 from functools import cached_property
 from genericpath import isfile
 from io import BufferedReader
-from typing import IO, Any, List, Literal, Optional, Union
+from typing import IO, Any, Literal, Optional, Union
 from hitsave.blobstore import BlobStore
 from hitsave.cloudutils import ConnectionError
 from hitsave.config import Config
@@ -189,7 +189,7 @@ class DirectorySnapshot:
 
     If it is none, then the snapshot was not taken on a directory that is in the workspace.
     """
-    files: List[FileSnapshot]
+    files: list[FileSnapshot]
     digest: str
     """ All files (including files in subdirectories),  """
 

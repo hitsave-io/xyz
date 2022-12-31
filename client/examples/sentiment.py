@@ -41,7 +41,8 @@ Before we start, make sure that you have installed HitSave by following the [ins
 
 #%%
 
-from typing import Iterator, List, Literal, Tuple
+from collections.abc import Iterator
+from typing import Literal
 import torch
 from itertools import islice
 import time
@@ -77,7 +78,7 @@ digests = {
 }
 
 
-def load_dataset(split: Split) -> Iterator[Tuple[int, str]]:
+def load_dataset(split: Split) -> Iterator[tuple[int, str]]:
     """Given a split, produces a list of rating, review pairs.
 
     Label 0 is a bad review (1-2 stars), label 1 is a good review (4-5 stars).

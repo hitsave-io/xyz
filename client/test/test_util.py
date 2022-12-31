@@ -1,6 +1,6 @@
 from dataclasses import dataclass, fields
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Optional, Union
 from hitsave.config import get_git_root
 from hitsave.util import (
     Current,
@@ -52,7 +52,7 @@ def test_asoptional():
 
 
 def test_aslist():
-    assert as_list(List[int]) is int
+    assert as_list(list[int]) is int
     assert as_list(int) is None
 
 

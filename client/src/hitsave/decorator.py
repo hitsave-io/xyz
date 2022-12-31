@@ -1,6 +1,6 @@
 from dataclasses import asdict, dataclass, field
 import inspect
-from typing import Any, Callable, Generic, List, Optional, Set, TypeVar, overload
+from typing import Any, Callable, Generic, Optional, TypeVar, overload
 from hitsave.console import user_info
 from hitsave.codegraph import Symbol, get_binding
 from functools import update_wrapper
@@ -29,10 +29,10 @@ class Arg:
     docs: Optional[str]
 
     @classmethod
-    def create(cls, sig: inspect.Signature, bas: inspect.BoundArguments) -> List["Arg"]:
+    def create(cls, sig: inspect.Signature, bas: inspect.BoundArguments) -> list["Arg"]:
         if bas.signature != sig:
             raise ValueError(f"Bad signature for {bas}")
-        o: List[Arg] = []
+        o: list[Arg] = []
         for param in sig.parameters.values():
             is_default = param.name not in bas.arguments
             value = param.default if is_default else bas.arguments[param.name]
@@ -66,7 +66,7 @@ class SavedFunction(Generic[P, R]):
 
     local_only: bool = field(default=False)  # [todo] not used yet
     invocation_count: int = field(default=0)
-    _fn_hashes_reported: Set[str] = field(default_factory=set)
+    _fn_hashes_reported: set[str] = field(default_factory=set)
 
     def call_core(self, *args: P.args, **kwargs: P.kwargs) -> R:
         self.invocation_count += 1

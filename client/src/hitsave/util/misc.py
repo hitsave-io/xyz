@@ -8,14 +8,10 @@ from typing import (
     Any,
     BinaryIO,
     Callable,
-    Dict,
     Generic,
-    Iterable,
-    Iterator,
-    Set,
-    Tuple,
     TypeVar,
 )
+from collections.abc import Iterator, Iterable
 from functools import partial
 import math
 import functools
@@ -56,15 +52,15 @@ Y = TypeVar("Y")
 
 @dataclass
 class DictDiff(Generic[X, Y]):
-    add: Set[str]
-    rm: Set[str]
-    mod: Dict[str, Tuple[X, Y]]
+    add: set[str]
+    rm: set[str]
+    mod: dict[str, tuple[X, Y]]
 
     def is_empty(self):
         return len(self.add) == 0 and len(self.rm) == 0 and len(self.mod) == 0
 
 
-def dict_diff(d1: Dict[str, X], d2: Dict[str, Y]) -> DictDiff[X, Y]:
+def dict_diff(d1: dict[str, X], d2: dict[str, Y]) -> DictDiff[X, Y]:
     k1 = set(d1.keys())
     k2 = set(d2.keys())
     return DictDiff(
@@ -76,7 +72,7 @@ def dict_diff(d1: Dict[str, X], d2: Dict[str, Y]) -> DictDiff[X, Y]:
 
 def partition(
     pred: Callable[[X], bool], iterable: Iterable[X]
-) -> Tuple[Iterable[X], Iterable[X]]:
+) -> tuple[Iterable[X], Iterable[X]]:
     """Use a predicate to partition entries into false entries and true entries.
 
     ref: https://docs.python.org/3/library/itertools.html
@@ -106,7 +102,7 @@ def digest_string(x: str) -> str:
     return h.hexdigest()
 
 
-def digest_dictionary(d: Dict[str, str]):
+def digest_dictionary(d: dict[str, str]):
     h = blake3()
     h.update(b"{")
     for k in sorted(d.keys()):

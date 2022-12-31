@@ -6,19 +6,15 @@ from typing import (
     Any,
     ClassVar,
     Generic,
-    Iterator,
-    List,
     Literal,
     Optional,
-    Dict,
     NamedTuple,
     Protocol,
-    Set,
-    Tuple,
     TypeVar,
     TypedDict,
     Union,
 )
+from collections.abc import Iterator
 from hitsave.console import decorate, pp_diff
 from hitsave.util import dict_diff, ofdict
 import json
@@ -71,13 +67,13 @@ class Eval:
     is_experiment: bool
 
     status: EvalStatus
-    deps: Dict[str, str]
+    deps: dict[str, str]
 
     session_id: UUID
     user_id: UUID
 
     """ True when the saved function is an experiment (as opposed to a memo). Experiments should never be deleted by cache cleaners. """
-    args: Optional[Dict[str, Any]] = field(default=None)
+    args: Optional[dict[str, Any]] = field(default=None)
 
     @property
     def fn_key(self):
@@ -114,9 +110,9 @@ class StoreMiss:
 # [todo] move this out of types.
 @dataclass
 class CodeChanged(StoreMiss):
-    _ALREADY_SEEN: ClassVar[Set[Tuple[str, str]]] = set()
-    old_deps: Optional[Dict[str, str]]
-    new_deps: Optional[Dict[str, str]]
+    _ALREADY_SEEN: ClassVar[set[tuple[str, str]]] = set()
+    old_deps: Optional[dict[str, str]]
+    new_deps: Optional[dict[str, str]]
 
     @property
     def reason(self):

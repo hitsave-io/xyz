@@ -1,18 +1,18 @@
 from dataclasses import fields, is_dataclass
 from enum import Enum
 import json
-from typing import Any, Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, Optional, TypeVar, Union
 
 from hitsave.util.dispatch import classdispatch
 from hitsave.util.type_helpers import as_list, as_optional, is_optional
 
-JsonLike = Optional[Union[str, float, int, List["JsonLike"], Dict[str, "JsonLike"]]]
+JsonLike = Optional[Union[str, float, int, list["JsonLike"], dict[str, "JsonLike"]]]
 
 T = TypeVar("T")
 
 
 @classdispatch
-def ofdict(A: Type[T], a: JsonLike) -> T:
+def ofdict(A: type[T], a: JsonLike) -> T:
     """Converts an ``a`` to an instance of ``A``, calling recursively if necessary.
 
     We assume that ``a`` is a nested type made of dicts, lists and scalars.
@@ -80,7 +80,7 @@ class TypedJsonDecoder(json.JSONDecoder):
 
     It makes use of the `ofdict` function defined above to convert plain json dictionaries to native python types."""
 
-    def __init__(self, T: Type):
+    def __init__(self, T: type):
         self.T = T
 
     def decode(self, j):
@@ -89,7 +89,7 @@ class TypedJsonDecoder(json.JSONDecoder):
 
 
 @classdispatch
-def validate(t: Type, item) -> bool:
+def validate(t: type, item) -> bool:
     """Validates that the given item is of the given type."""
     # [todo] type assertion `bool ↝ item is t`
     if t == Any:

@@ -1,5 +1,5 @@
 from contextvars import ContextVar
-from typing import List, TypeVar, Type
+from typing import TypeVar
 
 T = TypeVar("T", bound="Current")
 
@@ -10,7 +10,7 @@ class Current:
     """
 
     CURRENT: ContextVar
-    _tokens: List
+    _tokens: list
 
     @classmethod
     def default(cls):
@@ -35,7 +35,7 @@ class Current:
         self.__class__.CURRENT.reset(t)
 
     @classmethod
-    def current(cls: Type[T]) -> T:
+    def current(cls: type[T]) -> T:
         """The current value of the singleton class."""
         c = cls.CURRENT.get(None)
         if c is None:

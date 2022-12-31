@@ -1,7 +1,7 @@
 from collections import defaultdict
 import configparser
 from pathlib import Path
-from typing import Any, Iterable, Dict, Type, TypeVar, Union, overload
+from typing import Any, Iterable, TypeVar, Union, overload
 import logging
 from hitsave.util.ofdict import validate
 from hitsave.util.type_helpers import as_optional
@@ -13,7 +13,7 @@ T = TypeVar("T")
 logger = logging.getLogger("hitsave.util")
 
 
-def interpret_var_str(t: Type[T], value: str) -> T:
+def interpret_var_str(t: type[T], value: str) -> T:
     """Given a string attained from an environment variable, make a best-effort attempt to parse it to an instance of the given type."""
     # [todo] this must be in argparse or something
     if t == str:
@@ -40,17 +40,17 @@ def get_config(path: Path, key: str) -> Any:
 
 
 @overload
-def get_config(path: Path, key: str, type: Type[T]) -> T:
+def get_config(path: Path, key: str, type: type[T]) -> T:
     ...
 
 
 @overload
-def get_config(path: Path, keys: Iterable[str]) -> Dict[str, Any]:
+def get_config(path: Path, keys: Iterable[str]) -> dict[str, Any]:
     ...
 
 
 @overload
-def get_config(path: Path, keys_and_types: Dict[str, Type]) -> Dict[str, Any]:
+def get_config(path: Path, keys_and_types: dict[str, type]) -> dict[str, Any]:
     ...
 
 
@@ -67,8 +67,8 @@ def get_config(path: Path, keys, type=Any) -> Any:  # type: ignore
 
 
 def read_keys_from_config_file(
-    path: Path, keys: Union[Dict[str, Type], Iterable[str]]
-) -> Dict[str, Any]:
+    path: Path, keys: Union[dict[str, type], Iterable[str]]
+) -> dict[str, Any]:
     if not path.exists():
         return {}
     cfg = configparser.ConfigParser()

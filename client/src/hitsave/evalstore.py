@@ -4,7 +4,7 @@ from pathlib import Path
 import pickle
 import tempfile
 import requests
-from typing import IO, Any, Dict, List, Literal, Optional, Union
+from typing import IO, Any, Literal, Optional, Union
 from hitsave.blobstore import BlobStore, get_digest_and_length
 from hitsave.codegraph import Binding, Symbol
 from hitsave.console import internal_error, user_info, tape_progress
@@ -74,7 +74,7 @@ class LocalEvalStore:
         return self.len_evals()
 
     def poll_eval(
-        self, key: EvalKey, deps: Dict[Symbol, Binding]
+        self, key: EvalKey, deps: dict[Symbol, Binding]
     ) -> Union[PollEvalResult, StoreMiss]:
         with localdb() as conn:
             cur = conn.execute(
@@ -150,11 +150,11 @@ class LocalEvalStore:
         key: EvalKey,
         *,
         is_experiment: bool = False,
-        args: Dict[str, Any],
-        deps: Dict[Symbol, Binding],
+        args: dict[str, Any],
+        deps: dict[Symbol, Binding],
         start_time: datetime,
     ) -> int:
-        # [todo] enforce this: deps is Dict[symbol, digest]
+        # [todo] enforce this: deps is dict[symbol, digest]
         # note: we don't bother storing args locally.
         with localdb() as conn:
             # [todo] what to do if there is already a started eval?
@@ -219,7 +219,7 @@ class LocalEvalStore:
 
 
 class CloudEvalStore:
-    pending: Dict
+    pending: dict
 
     def __init__(self):
         self.pending = {}
@@ -274,8 +274,8 @@ class CloudEvalStore:
         **kwargs
         # *,
         # is_experiment: bool = False,
-        # args: Dict[str, Any],
-        # deps: Dict[Symbol, Binding],
+        # args: dict[str, Any],
+        # deps: dict[Symbol, Binding],
         # start_time: datetime,
     ) -> Any:
         # [todo] server doesn't currently support separate start/resolve

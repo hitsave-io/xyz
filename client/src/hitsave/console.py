@@ -42,7 +42,7 @@ The plan for this module is to also deal with telemetry, reporting errors to the
 """
 from contextlib import nullcontext
 import difflib
-from typing import List, Optional, Tuple, TypeVar, Union
+from typing import Optional, TypeVar, Union
 from rich.console import Console
 from rich.logging import RichHandler
 import rich.progress
@@ -110,7 +110,7 @@ def tape_progress(
     file: T,
     total: Optional[int],
     bigsize: int = 2**23,
-    message: Optional[Union[str, Tuple]] = None,
+    message: Optional[Union[str, tuple]] = None,
     description: str = "Reading",
     transient: bool = True,
     **kwargs,
@@ -150,7 +150,7 @@ def tape_progress(
         return nullcontext(file)
 
 
-def pp_diff(s1: str, s2: str) -> List[str]:
+def pp_diff(s1: str, s2: str) -> list[str]:
     """Takes a pair of strings with newlines and diffs them in a pretty way.
 
     Returns a string that should start on a newline.

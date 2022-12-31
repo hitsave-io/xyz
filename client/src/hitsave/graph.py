@@ -1,11 +1,13 @@
-from typing import Dict, Generator, Generic, Iterator, Tuple, TypeVar, Set
+from typing import Generator, Generic, TypeVar
+from collections.abc import Iterator
 from collections import deque
 
 V = TypeVar("V")
 E = TypeVar("E")
 
+
 class DirectedGraph(Generic[V, E]):
-    adj: Dict[V, Dict[V, E]]
+    adj: dict[V, dict[V, E]]
 
     def __init__(self):
         self.adj = dict()
@@ -18,7 +20,7 @@ class DirectedGraph(Generic[V, E]):
     def has_vertex(self, v):
         return v in self.adj
 
-    def __iter__(self) -> Iterator[Tuple[V, V, E]]:
+    def __iter__(self) -> Iterator[tuple[V, V, E]]:
         for s, ts in self.adj.items():
             for t, e in ts.items():
                 yield (s, t, e)

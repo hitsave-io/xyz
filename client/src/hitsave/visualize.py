@@ -3,7 +3,7 @@ from enum import Enum
 from functools import partial, singledispatch
 from itertools import islice
 from hitsave.console import logger
-from typing import List, Dict, Any
+from typing import Any
 from dataclasses import dataclass
 from typing import Optional
 from hitsave.blobstore import BlobStore
@@ -61,8 +61,8 @@ class Html:
     """
 
     tag: str
-    attrs: Dict[str, Any]
-    children: List[Any]
+    attrs: dict[str, Any]
+    children: list[Any]
 
     def __visualize__(self):
         return {
@@ -78,7 +78,7 @@ def visualize(item, rec):
     """Convert an item to a visualisable json-like object.
 
     You do not need to use this recursively
-    The output should be a Dict[str, _], a List[_] or a json-compatible scalar value.
+    The output should be a dict[str, _], a list[_] or a json-compatible scalar value.
     In the case of a composite output, visualise will be run on the child objects.
 
     """
@@ -240,8 +240,8 @@ except ModuleNotFoundError:
 try:
     # [todo] in these, we need to also assert that it is the PyPI module
     # and not a user-module with the same name.
-    import chess.svg
-    from chess import Board
+    import chess.svg  # type: ignore
+    from chess import Board  # type: ignore
 
     @visualize.register(Board)
     def _viz_board(board: Board):

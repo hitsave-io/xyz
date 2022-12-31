@@ -2,7 +2,7 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import IO, Optional, Tuple, Union
+from typing import IO, Optional, Union
 from hitsave.config import Config, no_cloud, no_local
 from hitsave.console import tape_progress, user_info
 from hitsave.session import Session
@@ -35,7 +35,7 @@ class BlobStatus(Enum):
     deleted = 2
 
 
-def get_digest_and_length(tape: IO[bytes]) -> Tuple[str, int]:
+def get_digest_and_length(tape: IO[bytes]) -> tuple[str, int]:
     content_length = 0
     h = blake3()
     for data in chunked_read(tape):

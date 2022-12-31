@@ -2,7 +2,7 @@ from decimal import Decimal
 from fractions import Fraction
 from numbers import Number
 import sys
-from typing import Any, List, Type
+from typing import Any
 from hypothesis import given, assume
 import pytest
 import json
@@ -44,7 +44,7 @@ We define the following terms:
     - logging.Logger.
  """
 
-supported_types: List[Any] = [
+supported_types: list[Any] = [
     type,
     object,
     # primitive
@@ -74,7 +74,7 @@ supported_types: List[Any] = [
 ]
 
 
-def types() -> hs.SearchStrategy[Type]:
+def types() -> hs.SearchStrategy[type]:
     return hs.sampled_from(supported_types)
 
 

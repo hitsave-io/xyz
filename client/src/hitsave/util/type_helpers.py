@@ -3,19 +3,14 @@ from typing import (
     Any,
     BinaryIO,
     Callable,
-    Dict,
     Generic,
     Iterable,
-    Iterator,
-    Set,
-    Tuple,
     TypeVar,
+    Type,
     get_origin,
     get_args,
-    Type,
     Optional,
     Union,
-    List,
 )
 
 
@@ -24,7 +19,7 @@ def is_optional(T: Type) -> bool:
     return as_optional(T) is not None
 
 
-def as_optional(T: Type) -> Optional[Type]:
+def as_optional(T: Type) -> Optional[type]:
     """If we have ``T == Optional[X]``, returns ``X``, otherwise returns ``None``.
 
     Note that because ``Optional[X] == Union[X, type(None)]``, so
@@ -44,8 +39,8 @@ def as_optional(T: Type) -> Optional[Type]:
     return None
 
 
-def as_list(T: Type) -> Optional[Type]:
-    """If `T = List[X]`, return `X`, otherwise return None."""
+def as_list(T: type) -> Optional[type]:
+    """If `T = list[X]`, return `X`, otherwise return None."""
     if get_origin(T) is list:
         return get_args(T)[0]
     return None

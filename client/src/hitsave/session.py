@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Dict, Set
+from typing import Callable
 from hitsave.codegraph import Binding, CodeGraph, Symbol, ValueBinding, get_binding
 from hitsave.config import Config
 from blake3 import blake3
@@ -34,12 +34,12 @@ class Session(Current):
             }
         )
 
-    def fn_deps(self, s: Symbol) -> Dict[Symbol, Binding]:
+    def fn_deps(self, s: Symbol) -> dict[Symbol, Binding]:
         return {dep: get_binding(dep) for dep in self.codegraph.get_dependencies(s)}
 
     def deephash(self, obj):
         b = ValueBinding.from_object(obj)
-        d: Set[Symbol] = set()
+        d: set[Symbol] = set()
         for s in b.deps:
             d.add(s)
             for ss in self.codegraph.get_dependencies(s):

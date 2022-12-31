@@ -1,5 +1,4 @@
 from dataclasses import dataclass, asdict
-from typing import List
 from test.deepeq import deepeq
 from hitsave.util import ofdict
 
@@ -14,7 +13,7 @@ class Bar:
 class Foo:
     bar: Bar
     bar2: Bar
-    blap: List[Bar]
+    blap: list[Bar]
 
 
 def test_foo():

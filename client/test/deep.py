@@ -59,15 +59,11 @@ import copyreg
 from typing import (
     Any,
     Callable,
-    Iterable,
-    Iterator,
-    List,
     Literal,
-    Tuple,
-    Type,
     Optional,
     Union,
 )
+from collections.abc import Iterable, Iterator
 from functools import wraps
 from pickle import DEFAULT_PROTOCOL
 from dataclasses import dataclass, field, fields, is_dataclass, replace
@@ -97,17 +93,17 @@ def register_reducer(type):
 
 
 @register_reducer(list)
-def list_reductor(l: list) -> Tuple:
+def list_reductor(l: list) -> tuple:
     return (list, (), None, l)
 
 
 @register_reducer(dict)
-def dict_reductor(d: dict) -> Tuple:
+def dict_reductor(d: dict) -> tuple:
     return (dict, (), None, None, d)
 
 
 @register_reducer(tuple)
-def tuple_reductor(t: tuple) -> Tuple:
+def tuple_reductor(t: tuple) -> tuple:
     return (tuple, (), None, t)
 
 
@@ -153,8 +149,8 @@ class ReductionValue:
     """
 
     func: Callable
-    args: Tuple
-    state: Optional[Union[dict, Tuple]] = field(default=None)
+    args: tuple
+    state: Optional[Union[dict, tuple]] = field(default=None)
     listiter: Optional[list] = field(default=None)
     dictiter: Optional[dict] = field(default=None)
 
@@ -197,7 +193,7 @@ class ReductionValue:
             l += len(self.dictiter)
         return l
 
-    def __iter__(self) -> Iterator[Tuple[Tuple[str, Any], Any]]:
+    def __iter__(self) -> Iterator[tuple[tuple[str, Any], Any]]:
         """Iterates on all of the child objects of the reduced value.
 
         Returns ((loc, key), value):
@@ -223,7 +219,7 @@ class ReductionValue:
     """ Gets the type that this reduction will create when reconstructed. """
 
     @property
-    def type(self) -> Type:
+    def type(self) -> type:
         if self.func.__name__ == "__newobj__":
             return self.args[0]
         elif isinstance(self.func, type):
@@ -329,7 +325,7 @@ class Stop:
     value: Any
 
 
-VisitFn = Callable[[Any, Tuple[Any]], Union[Step, Stop]]
+VisitFn = Callable[[Any, tuple[Any]], Union[Step, Stop]]
 
 """ Closure of walk """
 

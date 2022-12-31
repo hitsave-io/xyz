@@ -1,5 +1,4 @@
 import asyncio
-from typing import Dict, Optional
 import webbrowser
 from aiohttp import web
 import aiohttp

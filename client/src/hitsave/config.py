@@ -5,7 +5,7 @@ import os
 import os.path
 import sys
 from pathlib import Path
-from typing import Literal, Optional, Type, TypeVar, Any, List, Dict, Iterable
+from typing import Literal, Optional, TypeVar, Any, Iterable
 from hitsave.util import Current, as_optional, is_optional, validate
 from hitsave.util.config_file import interpret_var_str, get_config
 import importlib.metadata

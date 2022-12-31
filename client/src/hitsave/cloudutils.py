@@ -1,13 +1,14 @@
 from io import BufferedReader
 import io
 from pathlib import Path
-from typing import IO, Any, Dict, Iterable, Iterator, Literal, Optional
+from typing import IO, Any, Iterable, Literal, Optional
 import logging
 import json
 from hitsave.config import Config
 from hitsave.util import chunked_read, human_size
 import requests
 from urllib3.exceptions import NewConnectionError
+from collections.abc import Iterator
 from rich import print
 
 logger = logging.getLogger("hitsave")
@@ -125,7 +126,7 @@ def print_api_key_status() -> None:
 
 
 def request(
-    method: str, path, headers: Dict[str, str] = {}, **kwargs
+    method: str, path, headers: dict[str, str] = {}, **kwargs
 ) -> requests.Response:
     """Sends an HTTP request to the hitsave api, we provide the right authentication headers.
 
