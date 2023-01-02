@@ -230,7 +230,7 @@ def clear_local():
     bs = BlobStore.current()
     user_info(
         "[red]Deleting everything from your local cache.[/]",
-        f"\nevals: {len(es.local)}, blobs: {len(bs.local)}",
+        f"\nevals: {len(es.local)}, blobs: {len(bs)}",
         # "\nAny file snapshot symlinks will need to be restored.",
     )
     c = Confirm.ask("Delete local cache?")

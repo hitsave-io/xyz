@@ -1,12 +1,15 @@
+from dataclasses import dataclass
 from datetime import datetime
 import json
 from pathlib import Path
 import pickle
 import tempfile
+from uuid import UUID, uuid4
+from blake3 import blake3
 import requests
 from typing import IO, Any, Dict, List, Literal, Optional, Union
-from hitsave.blobstore import BlobStore, get_digest_and_length
-from hitsave.codegraph import Binding, Symbol
+from hitsave.blobstore import BlobInfo, BlobStore, get_digest_and_length
+from hitsave.codegraph import Binding, BindingKind, Symbol
 from hitsave.console import internal_error, user_info, tape_progress
 from hitsave.types import (
     CodeChanged,
@@ -24,125 +27,157 @@ from hitsave.cloudutils import (
 from contextlib import nullcontext
 from hitsave.session import Session
 from hitsave.util import Current, datetime_to_string
+from hitsave.util.tinyorm import Schema, Table, col, transaction
 from hitsave.visualize import visualize_rec
 from hitsave.visualize import visualize_rec
 from hitsave.console import logger
+import hitsave.util.tinyorm as tinyorm
+
+""" An eval result is stored in a few different ways:
+- inline on the eval entry; this is good for things like integers and small strings.
+- inline on the results table. This is good for medium-sized values that appear more frequently
+- blob digest of a pickled python value. This is good for large objects.
+ """
 
 
-def localdb():
-    return Session.current().local_db
+@dataclass
+class Eval(Schema):
+    id: UUID = col(primary=True, default_factory=uuid4)
+    symbol: Symbol = col()
+    binding_digest: str = col()
+    args_digest: str = col()
+    deps: dict[str, str] = col(encoding="json")
+    status: EvalStatus = col()
+    start_time: datetime = col()
+    is_experiment: bool = col(default=False)
+    result_digest: Optional[str] = col(default=None)
+    """ BLAKE3 digest of the pickled value. """
+    elapsed_process_time: Optional[bool] = col(default=None)
+
+
+@dataclass
+class BindingRecord(Schema):
+    symbol: str = col(primary=True)
+    digest: str = col(primary=True)
+    diffstr: str = col()
+    kind: BindingKind = col()
+
+
+@dataclass
+class Result(Schema):
+    digest: str = col(primary=True)
+    content_length: int = col()
+    pickle: bytes = col()
+
+
+@tinyorm.adapt.register(Symbol)
+def _adapt_symb(s: Symbol) -> str:
+    return str(s)
+
+
+@tinyorm.restore.register(Symbol)
+def _restore_sym(x: str):
+    assert isinstance(x, str)
+    return Symbol.of_str(x)
 
 
 class LocalEvalStore:
+    bindings: Table[BindingRecord]
+    evals: Table[Eval]
+    results: Table[Result]
+    # [todo] in-mem cache EvalKey → python value.
     def __init__(self):
-        with localdb() as conn:
-            # id autoincrements https://www.sqlite.org/faq.html#q1
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS evals (
-                    id INTEGER PRIMARY KEY,
-                    fn_key TEXT NOT NULL,
-                    fn_hash TEXT NOT NULL,
-                    args_hash TEXT NOT NULL,
-                    deps TEXT,
-                    result BLOB,
-                    status INTEGER NOT NULL,
-                    start_time TEXT
-                );
-            """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS bindings (
-                    symbol TEXT NOT NULL,
-                    digest TEXT NOT NULL,
-                    diffstr TEXT,
-                    kind INTEGER,
-                    PRIMARY KEY (symbol, digest)
-                );
-            """
-            )
+        self.bindings = BindingRecord.create_table("bindings")
+        self.evals = Eval.create_table("evals")
+        self.results = Result.create_table("results")
         logger.debug(f"Initialised local database.")
 
     def len_evals(self):
-        with localdb() as conn:
-            r = conn.execute("SELECT COUNT(*) FROM evals;")
-            return r.fetchone()[0]
+        return len(self.evals)
 
     def __len__(self):
         """Returns number of evals in the table"""
         return self.len_evals()
 
+    def get_result(self, result_digest: str):
+        r = self.results.select_one(where={Result.digest: result_digest})
+        if r is not None:
+            return
+
     def poll_eval(
         self, key: EvalKey, deps: Dict[Symbol, Binding]
     ) -> Union[PollEvalResult, StoreMiss]:
-        with localdb() as conn:
-            cur = conn.execute(
-                """
-                SELECT result FROM evals
-                WHERE fn_key = ? AND fn_hash = ? AND args_hash = ? AND status = ?;
-            """,
-                (
-                    str(key.fn_key),
-                    key.fn_hash,
-                    key.args_hash,
-                    EvalStatus.resolved.value,
-                ),
-            )
-            result = cur.fetchall()
-            if len(result) != 0:
-                # [todo] orderby start time.
-                try:
-                    value = pickle.loads(result[0][0])
-                    return PollEvalResult(value=value, origin="local")
-                except:
-                    msg = f"Corrupted result for {str(key)}"
-                    logger.error(msg)
-                    return StoreMiss(msg)
+        # [todo]; in-mem caching goes here.
+        symbol = str(key.fn_key)
+        binding_digest = key.fn_hash
+        args_digest = key.args_hash
+        with transaction():
 
-            cur = conn.execute(
-                """
-                SELECT deps FROM evals
-                WHERE fn_key = ? AND args_hash = ? AND status = ?
-                ORDER BY start_time DESC;
-            """,
-                (
-                    str(key.fn_key),
-                    key.args_hash,
-                    EvalStatus.resolved.value,
-                ),
+            es = self.evals.select(
+                where={
+                    Eval.symbol: symbol,
+                    Eval.binding_digest: binding_digest,
+                    Eval.args_digest: args_digest,  # [todo] refactor EvalKey
+                    Eval.status: EvalStatus.resolved,  # [todo] rejected evals should reject immediately.
+                }
             )
-            x = cur.fetchone()
-            if x is not None:
-                if deps is not None:
-                    symbol_to_digest = json.loads(x[0])
-                    deps1 = {}
-                    for s, digest in symbol_to_digest.items():
-                        # [todo] this should really be done by having a third table joining evals to deps but cba
-                        x = conn.execute(
-                            """SELECT diffstr FROM bindings
-                            WHERE symbol = ? AND digest = ?;""",
-                            (s, digest),
-                        ).fetchone()
-                        if x is not None:
-                            deps1[s] = x[0]
-                    # [todo] code changed should just store deps1.
-                    deps2 = {str(k): v.diffstr for k, v in deps.items()}
-                    return CodeChanged(old_deps=deps1, new_deps=deps2)
-            cur = conn.execute(
-                """
-                SELECT deps FROM evals
-                WHERE fn_key = ? AND fn_hash = ? AND status = ?
-                ORDER BY start_time DESC; """,
-                (
-                    str(key.fn_key),
-                    key.fn_hash,
-                    EvalStatus.resolved.value,
-                ),
+            for e in es:
+                rd = e.result_digest
+                if rd is None:
+                    continue
+                r = self.results.select_one(where=Result.digest == rd)
+                if r is not None:
+                    value = pickle.loads(r.pickle)
+                    return PollEvalResult(value=value, origin="local")
+                bs = BlobStore.current()
+                if bs.has_blob(rd):
+                    with bs.open_blob(rd) as f:
+                        try:
+                            value = pickle.load(f)
+                            return PollEvalResult(value=value, origin="local")
+                        except:
+                            msg = f"Corrupted result for {str(key)}"
+                            logger.error(msg)
+                            return StoreMiss(msg)
+
+            # find the most recent evals where the binding id doesn't match.
+            x = self.evals.select_one(
+                where={
+                    Eval.symbol: symbol,
+                    Eval.args_digest: args_digest,
+                    Eval.status: EvalStatus.resolved,
+                },
+                order_by=Eval.start_time,
+                descending=True,
             )
-            x = cur.fetchone()
+
             if x is not None:
-                return StoreMiss("New arguments.")
+                assert isinstance(x.deps, dict)
+                deps1 = {}
+                for s, digest in x.deps.items():
+                    # [todo] this should really be done by having a third table joining evals to bindings but cba
+                    b = self.bindings.select_one(
+                        where={
+                            BindingRecord.symbol: s,
+                            BindingRecord.digest: digest,
+                        }
+                    )
+                    assert b is not None
+                    if x is not None:
+                        deps1[s] = b.diffstr
+                # [todo] code changed should just store deps1.
+                deps2 = {str(k): v.diffstr for k, v in deps.items()}
+                return CodeChanged(old_deps=deps1, new_deps=deps2)
+
+            e = self.evals.select_one(
+                where={
+                    Eval.symbol: symbol,
+                    Eval.binding_digest: binding_digest,
+                    Eval.status: EvalStatus.resolved,
+                }
+            )
+            if e is not None:
+                return StoreMiss("New arguments")
             return StoreMiss("No evaluation found")
 
     def start_eval(
@@ -153,67 +188,99 @@ class LocalEvalStore:
         args: Dict[str, Any],
         deps: Dict[Symbol, Binding],
         start_time: datetime,
-    ) -> int:
+    ) -> UUID:
         # [todo] enforce this: deps is Dict[symbol, digest]
         # note: we don't bother storing args locally.
-        with localdb() as conn:
-            # [todo] what to do if there is already a started eval?
-            digests = {str(k): v.digest for k, v in deps.items()}
-            conn.executemany(
-                """
-                INSERT OR IGNORE INTO bindings(symbol, digest, diffstr, kind)
-                VALUES (?, ?, ?, ?); """,
-                [(str(k), v.digest, v.diffstr, v.kind.value) for k, v in deps.items()],
+        symbol = key.fn_key
+        binding_digest = key.fn_hash
+        args_digest = key.args_hash
+        digests = {str(k): v.digest for k, v in deps.items()}
+        with transaction():
+            self.bindings.insert_many(
+                [
+                    BindingRecord(str(k), v.digest, v.diffstr, v.kind)
+                    for k, v in deps.items()
+                ],
+                exist_ok=True,
             )
-            c = conn.execute(
+            if self.evals.select_one(
+                where={
+                    Eval.args_digest: args_digest,
+                    Eval.binding_digest: binding_digest,
+                    Eval.status: EvalStatus.started,
+                }
+            ):
+                """This can happen when:
+                - The app was killed before rejecting the evals. In this case; delete the row.
+                  On startup we should delete any started eval rows.
+                - We are running with concurrency, and the function has already been entered.
+                  In which case the other threads should block / await until it's done.
+
                 """
-                INSERT INTO evals
-                  (fn_key, fn_hash, args_hash, status, deps, start_time)
-                VALUES (?, ?, ?, ?, ?, ?)
-                RETURNING id; """,
-                (
-                    str(key.fn_key),
-                    key.fn_hash,
-                    key.args_hash,
-                    EvalStatus.started.value,
-                    json.dumps(digests),
-                    datetime_to_string(start_time),
+                raise RuntimeError(f"Eval {key} already started.")
+            id = self.evals.insert_one(
+                Eval(
+                    symbol=symbol,
+                    binding_digest=binding_digest,
+                    args_digest=args_digest,
+                    deps=digests,
+                    result_digest=None,
+                    status=EvalStatus.started,
+                    start_time=start_time,
+                    is_experiment=is_experiment,
                 ),
+                returning=Eval.id,
             )
-            (id,) = c.fetchone()
             return id
 
-    def resolve_eval(self, key: EvalKey, *, result: Any, elapsed_process_time: int):
+    def resolve_eval(
+        self,
+        id: UUID,
+        *,
+        result: Union[Result, BlobInfo],
+        elapsed_process_time: int,
+    ):
         # [todo] fail with friendly error if the result is not picklable.
         # give a list of suggestions: try saving as a file-snapshot.
         # instructions on how to use the pickling system.
         # if the object is defined in a library, tell us and we can support it!
-        with localdb() as conn:
-            conn.execute(
-                """
-                UPDATE evals
-                SET status = ?, result = ?
-                WHERE fn_key = ? AND fn_hash = ? AND args_hash = ? AND status = ?; """,
-                (
-                    EvalStatus.resolved.value,
-                    pickle.dumps(result),  # [todo] should go to blob
-                    str(key.fn_key),
-                    key.fn_hash,
-                    key.args_hash,
-                    EvalStatus.started.value,
-                ),
-            )
-            # [todo], if this didn't update anything it means that multiple processes or threads evaluated at the same time!
+        # [todo] add result to in-mem cache here.
+        result_digest = result.digest
+        assert isinstance(id, UUID)
+        with transaction():
+            if isinstance(result, BlobInfo):
+                assert BlobStore.current().has_blob(result.digest), "blob not found"
+            elif isinstance(result, Result):
+                self.results.insert_one(result, exist_ok=True)
+            else:
+                raise TypeError(f"{type(result)}")
 
-    def reject_eval(self, key: EvalKey):
-        raise NotImplementedError()
+            i = self.evals.update(
+                {
+                    Eval.status: EvalStatus.resolved,
+                    Eval.result_digest: result_digest,
+                    Eval.elapsed_process_time: elapsed_process_time,
+                },
+                where=Eval.id == id,
+            )
+            if i == 0:
+                raise KeyError(f"Failed to find an evaluation with id {id}")
+
+    def reject_eval(self, id: UUID, elapsed_process_time : Optional[int] = None):
+        assert isinstance(id, UUID)
+        with transaction():
+            n = self.evals.update({
+                Eval.status: EvalStatus.rejected,
+                Eval.elapsed_process_time: elapsed_process_time,
+            }, where = Eval.id == id)
+            if n == 0:
+                raise KeyError(f"Failed to find evaluation with id {id}")
 
     def clear(self):
-        tables = ["evals", "bindings"]
-        with localdb() as conn:
-            for table in tables:
-                conn.execute(f"DROP TABLE {table};")
-                logger.debug("Dropped local ", table)
+        self.bindings.drop()
+        self.evals.drop()
+        self.results.drop()
+        # [todo] clear the caches too.
 
     # [todo] import_eval for when you download an eval from cloud. maybe all evals should be pulled at once.
 

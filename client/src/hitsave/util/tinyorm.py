@@ -18,13 +18,16 @@ You are free to give a field in your schema dataclass a name like "; DROP TABLE"
 """
 from enum import Enum
 from functools import singledispatch
+import json
 import logging
-from typing import Callable, List, Union
+from typing import Callable, List, Literal, Union
 from dataclasses import MISSING, fields, field, Field
 from contextlib import contextmanager
 import datetime
 import sqlite3
-from hitsave.util import Current, as_optional, ofdict
+from hitsave.util.current import Current
+from hitsave.util.type_helpers import as_optional
+from hitsave.util.ofdict import TypedJsonDecoder, ofdict, MyJsonEncoder
 from hitsave.session import Session
 from typing import Any, Generic, Iterable, Iterator, Optional, Type, TypeVar, overload
 
@@ -76,6 +79,19 @@ class UpdateKind(Enum):
     Rollback = "ROLLBACK"
 
 
+class OrderKind(Enum):
+    Ascending = "ASC"
+    Descending = "DESC"
+
+
+WhereClause = Union[bool, dict]
+
+
+def where_to_expr(where: WhereClause):
+    if where is True:
+        return Expr.empty
+
+
 class Table(Generic[T]):
     schema: Type[T]
 
@@ -100,6 +116,13 @@ class Table(Generic[T]):
         with transaction() as conn:
             conn.execute(f"DROP TABLE {self.name};")
 
+    def as_column(self, item: Union["Column", str]) -> "Column":
+        if isinstance(item, Column):
+            return item
+        else:
+            assert isinstance(item, str)
+            return Column(self.schema.__dataclass_fields__.get(item))  # type: ignore
+
     @property
     def exists(self):
         """Returns true if the table exists on the given sqlite connection.
@@ -112,34 +135,93 @@ class Table(Generic[T]):
             )
             return bool(cur.fetchone())
 
+    def _mk_where_clause(self, where: WhereClause) -> "Expr":
+        if where is True:
+            return Expr.empty()
+        if isinstance(where, dict):
+            e = [self.as_column(k) == v for k, v in where.items()]
+            e = Expr.binary("AND", e)
+        else:
+            assert isinstance(where, Expr)
+            e = where
+        return Expr("WHERE ?", [e])
+
     @overload
-    def select(self, *, where: bool = True) -> Iterator[T]:
+    def select(
+        self,
+        *,
+        where: WhereClause = True,
+        order_by: Optional[Any] = None,
+        descending=False,
+        limit: Optional[int] = None,
+    ) -> Iterator[T]:
         ...
 
     @overload
-    def select(self, *, where: bool = True, select: S) -> Iterator[S]:
+    def select(
+        self,
+        *,
+        where: WhereClause = True,
+        select: S,
+        order_by: Optional[Any] = None,
+        descending=False,
+        limit: Optional[int] = None,
+    ) -> Iterator[S]:
         ...
 
-    def select(self, *, where=True, select=None):  # type: ignore
+    def select(self, *, where=True, select=None, order_by: Optional[Any] = None, descending=False, limit: Optional[int] = None):  # type: ignore
         p = Pattern(select) if select is not None else self.schema.pattern()
         query = Expr(f"SELECT ?\nFROM {self.name} ", [p.to_expr()])
         if where is not True:
-            assert isinstance(where, Expr)
-            query = Expr("?\nWHERE ?", [query, where])
+            query = Expr("?\n?", [query, self._mk_where_clause(where)])
+        if order_by is not None:
+            asc = "DESC" if descending else "ASC"
+            query = Expr(f"?\nORDER BY ? {asc}", [query, order_by])
+        if limit is not None:
+            query = Expr(f"?\nLIMIT {limit}")
         with transaction() as conn:
             xs = query.execute(conn)
             return map(p.outfn, xs)
 
     @overload
-    def select_one(self, *, where: bool = True, select: S) -> Optional[S]:
+    def select_one(
+        self,
+        *,
+        where: WhereClause = True,
+        select: S,
+        order_by: Optional[Any] = None,
+        descending=False,
+    ) -> Optional[S]:
         ...
 
     @overload
-    def select_one(self, *, where: bool = True) -> Optional[T]:
+    def select_one(
+        self,
+        *,
+        where: WhereClause = True,
+        order_by: Optional[Any] = None,
+        descending=False,
+    ) -> Optional[T]:
         ...
 
-    def select_one(self, *, where=True, select=None):
-        return next(self.select(where=where, select=select), None)
+    def select_one(
+        self,
+        *,
+        where: WhereClause = True,
+        select=None,
+        order_by: Optional[Any] = None,
+        descending=False,
+    ):
+        return next(
+            self.select(
+                where=where,
+                select=select,
+                limit=1,
+                order_by=order_by,
+                descending=descending,
+            ),
+            None,
+        )
 
     @overload
     def update(
@@ -178,43 +260,47 @@ class Table(Generic[T]):
                 return i
 
     @overload
-    def insert_one(self, item: T) -> None:
+    def insert_one(self, item: T, *, exist_ok=False) -> None:
         ...
 
     @overload
-    def insert_one(self, item: T, returning: S) -> S:
+    def insert_one(self, item: T, *, returning: S, exist_ok=False) -> S:
         ...
 
-    def insert_one(self, item: T, returning=None):
+    def insert_one(self, item: T, *, returning=None, exist_ok=False):
+        assert isinstance(item, self.schema)
         if returning is not None:
-            cur: Any = self.insert_many([item], returning)
+            cur: Any = self.insert_many([item], returning, exist_ok=exist_ok)
             return next(cur, None)
         else:
-            self.insert_many(items=[item], returning=returning)
+            self.insert_many(items=[item], returning=returning, exist_ok=exist_ok)
 
     @overload
-    def insert_many(self, items: Iterable[T]) -> None:
+    def insert_many(self, items: Iterable[T], exist_ok=False) -> None:
         ...
 
     @overload
-    def insert_many(self, items: Iterable[T], returning: S) -> Iterable[S]:
+    def insert_many(
+        self, items: Iterable[T], returning: S, exist_ok=False
+    ) -> Iterable[S]:
         ...
 
-    def insert_many(self, items: Iterable[T], returning=None):  # type: ignore
+    def insert_many(self, items: Iterable[T], returning=None, exist_ok=False):  # type: ignore
+        items = list(items)
+        assert all(isinstance(x, self.schema) for x in items)
         cs = list(columns(self.schema))
         qfs = ", ".join(c.name for c in cs)
         qqs = ", ".join("?" for _ in cs)
-        q = f"INSERT INTO {self.name} ({qfs}) VALUES ({qqs}) "
+        caveat = "OR IGNORE" if exist_ok else ""
+        q = f"INSERT {caveat} INTO {self.name} ({qfs}) VALUES ({qqs}) "
         if returning is not None:
             p = Pattern(returning)
             rq = Expr("RETURNING ? ;", [p.to_expr()])
             with transaction() as conn:
                 vs = [
                     tuple(
-                        map(
-                            adapt,
-                            [getattr(item, c.name) for c in cs] + rq.values,
-                        )
+                        [c.adapt(getattr(item, c.name)) for c in cs]
+                        + list(map(adapt, rq.values))
                     )
                     for item in items
                 ]
@@ -261,9 +347,8 @@ class Pattern(Generic[S]):
             self.outfn = obj.outfn
             return
         elif isinstance(obj, Column):
-            T = obj.type
             self.items = [Expr(obj)]
-            self.outfn = lambda x: restore(T, x[0])  # type: ignore
+            self.outfn = lambda x: obj.restore(x[0])  # type: ignore
         elif isinstance(obj, (tuple, list)):
             self.items = []
             js = [0]
@@ -331,8 +416,12 @@ class Expr:
     values: List[Any]
 
     @classmethod
-    def const(cls, expr: str):
-        return Expr(expr, [])
+    def const(cls, template: str):
+        return Expr(template, [])
+
+    @classmethod
+    def empty(cls):
+        return Expr("", [])
 
     @overload
     def __init__(self, obj: "Expr"):
@@ -405,6 +494,8 @@ class Expr:
     def __eq__(self, other):
         return Expr.binary(" = ", [self, other])
 
+    # [todo] all the other operators.
+
     def execute(self, conn: sqlite3.Connection):
         logger.info(f"Running:\n{str(self)}")
         e = self.template
@@ -436,6 +527,42 @@ class Column(Expr):
         self.field = f
 
     @property
+    def encoding(self) -> Optional["Encoding"]:
+        return self.field.metadata.get("encoding")
+
+    def adapt(self, value):
+        """Adapt a python value to the sql equivalent."""
+        # [todo] replace with adapter pattern
+        enc = self.encoding
+        if enc is None:
+            return adapt(value)
+        if enc == "json":
+            return MyJsonEncoder().encode(value)
+        if enc == "str":
+            return str(value)
+        if isinstance(enc, tuple):
+            enc, _ = enc
+            return enc(value)
+        else:
+            raise NotImplementedError(f"unknown encoder {repr(enc)}")
+
+    def restore(self, sql_value):
+        # [todo] replace with adapter pattern.
+        enc = self.encoding
+        if enc is None:
+            return restore(self.type, sql_value)
+        elif enc == "json":
+            return TypedJsonDecoder(self.type).decode(sql_value)
+        elif enc == "str":
+            assert isinstance(sql_value, str)
+            return self.type.of_str(sql_value)
+        elif isinstance(enc, tuple):
+            _, dec = enc
+            return dec(self.type, sql_value)
+        else:
+            raise NotImplementedError(f"unknown decoder {repr(enc)}")
+
+    @property
     def template(self) -> str:
         """Convert to an Expr template."""
         return self.name
@@ -448,8 +575,6 @@ class Column(Expr):
     @property
     def schema(self):
         s = f"{self.name} {get_sqlite_storage_type(self.type)}"
-        if self.primary:
-            s += " PRIMARY KEY"
         return s
 
     def __repr__(self):
@@ -458,11 +583,8 @@ class Column(Expr):
     def __hash__(self):
         return hash(self.name)
 
-    def convert(self, item):
-        return ofdict(self.type, item)
-
     def pattern(self):
-        return Pattern([Expr(self.name, [])], lambda x: self.convert(x[0]))
+        return Pattern([Expr(self.name, [])], lambda x: self.restore(x[0]))
 
 
 def get_sqlite_storage_type(T: Type) -> str:
@@ -486,11 +608,23 @@ def get_sqlite_storage_type(T: Type) -> str:
 
 
 def columns(x) -> Iterator[Column]:
+    if isinstance(x, Table):
+        return columns(x.schema)
     return map(Column, fields(x))
 
 
-def col(primary=False, metadata={}, **kwargs) -> Any:
-    return field(metadata={**metadata, "primary": primary}, **kwargs)
+Encoding = Union[
+    Literal["json"], Literal["str"], tuple[Callable, Callable], Literal["flatten"]
+]
+
+
+def col(
+    primary=False, metadata={}, encoding: Optional[Encoding] = None, **kwargs
+) -> Any:
+    return field(
+        metadata={**metadata, "primary": primary, "encoding": encoding},
+        **kwargs,
+    )
 
 
 class Connection(Current):
@@ -527,11 +661,19 @@ class Schema(metaclass=SchemaMeta):
         # [todo] run a sql query here.
         # if clobber is true then if the table exists but the schema has changed we
         # just brutally wipe everything.
+        # [todo] validate column names and table name.
 
         with transaction() as conn:
-            fields = ",\n  ".join(c.schema for c in columns(cls))
+            fields = [c.schema for c in columns(cls)]
+            if not any(c.primary for c in columns(cls)):
+                raise TypeError(
+                    f"At least one of the fields in {cls.__name__} should be labelled as primary: `= col(primary = True)`"
+                )
+            ks = ", ".join([c.name for c in columns(cls) if c.primary])
+            fields.append(f"PRIMARY KEY ({ks})")
+            fields = ",\n  ".join(fields)
             q = f"CREATE TABLE IF NOT EXISTS {name} (\n  {fields}\n);"
-            logger.debug(f"Running:\n{q}")
+            logger.info(f"Running:\n{q}")
             conn.execute(q)
 
         return Table(name, schema=cls)
