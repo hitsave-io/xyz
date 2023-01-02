@@ -19,7 +19,7 @@ You are free to give a field in your schema dataclass a name like "; DROP TABLE"
 from enum import Enum
 from functools import singledispatch
 import logging
-from typing import Callable, List
+from typing import Callable, List, Union
 from dataclasses import fields, field, Field
 from contextlib import contextmanager
 import datetime
@@ -175,7 +175,7 @@ class Table(Generic[T]):
                     )
                     for item in items
                 ]
-                cur = conn.executemany(q + rq.expr, vs)
+                cur = conn.executemany(q + rq.template, vs)
                 return map(p.outfn, cur)
         else:
             q += ";"
@@ -278,9 +278,13 @@ class Pattern(Generic[S]):
 
 
 class Expr:
-    """A sqlite expression. That is, it's a string full of '?'s and a value for each '?'."""
+    """A sqlite expression. That is, it's a template string full of '?'s and a value for each '?'.
 
-    expr: str
+    Any user-provided data should be represented as a '?' with an item in `values` to prevent injection attacks.
+    However we don't add any checks for this.
+    """
+
+    template: str
     values: List[Any]
 
     @classmethod
@@ -289,49 +293,53 @@ class Expr:
 
     @overload
     def __init__(self, obj: "Expr"):
+        """Creates a new Expr with the same values as the given one."""
         ...
 
     @overload
     def __init__(self, obj: "Column"):
+        """Create an expression from a column in a table."""
         ...
 
     @overload
-    def __init__(self, obj: str, values: List[Any]):
+    def __init__(self, obj: str, values: list):
+        """Create an expression from the given '?'-bearing template string, where each '?' is replaced with the python value given in ``values``."""
         ...
 
     @overload
-    def __init__(self, obj: str):
+    def __init__(self, obj: Union[str, int, bytes]):
+        """Create a new constant expression with the given value."""
         ...
 
-    def __init__(self, obj, values: Optional[List[Any]] = None):
+    def __init__(self, obj, values: Optional[list] = None):
         if isinstance(obj, Expr):
             assert values is None
-            self.expr = obj.expr
+            self.template = obj.template
             self.values = obj.values
         elif isinstance(obj, Column):
             assert values is None
-            self.expr = obj.name
+            self.template = obj.name
             self.values = []
         elif isinstance(obj, str) and values is not None:
             [head, *tail] = obj.split("?")
             assert len(tail) == len(values)
-            self.expr = head
+            self.template = head
             self.values = []
             for c, p in zip(map(Expr, values), tail):
-                self.expr += c.expr
+                self.template += c.template
                 self.values.extend(c.values)
-                self.expr += p
+                self.template += p
         elif values is None:
-            self.expr = " ? "
+            self.template = " ? "
             self.values = [obj]
         else:
-            raise ValueError(f"Don't know how to make expression.")
+            raise ValueError(f"Don't know how to make expression from {repr(obj)}.")
 
     def __repr__(self):
-        return f"Expr({repr(self.expr)}, {repr(self.values)})"
+        return f"Expr({repr(self.template)}, {repr(self.values)})"
 
     def __str__(self):
-        [x, *xs] = self.expr.split("?")
+        [x, *xs] = self.template.split("?")
         acc = x
         for v, x in zip(self.values, xs):
             acc += f"⟨{str(v)}⟩"
@@ -356,7 +364,7 @@ class Expr:
 
     def execute(self, conn: sqlite3.Connection):
         logger.debug(f"Running:\n{str(self)}")
-        e = self.expr
+        e = self.template
         if not e.rstrip().endswith(";"):
             e += ";"
         return conn.execute(e, tuple(map(adapt, self.values)))
@@ -385,11 +393,13 @@ class Column(Expr):
         self.field = f
 
     @property
-    def expr(self) -> str:
+    def template(self) -> str:
+        """Convert to an Expr template."""
         return self.name
 
     @property
     def values(self) -> List[Any]:
+        """Convert to Expr values."""
         return []
 
     @property
