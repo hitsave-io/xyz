@@ -51,7 +51,7 @@ def test_it():
 
     t = datetime.now()
 
-    blobs.update(
+    i = blobs.update(
         {
             Blob.accesses: Blob.accesses + 1,
             Blob.created: t,
@@ -59,6 +59,7 @@ def test_it():
         },
         where=Blob.digest == blob.digest,
     )
+    assert i == 1
 
     blob2 = blobs.select_one(where=Blob.digest == blob.digest)
     assert blob2 is not None

@@ -20,7 +20,7 @@ from enum import Enum
 from functools import singledispatch
 import logging
 from typing import Callable, List, Union
-from dataclasses import fields, field, Field
+from dataclasses import MISSING, fields, field, Field
 from contextlib import contextmanager
 import datetime
 import sqlite3
@@ -68,12 +68,49 @@ adapt.register(datetime.datetime)(lambda o: o.isoformat())
 restore.register(datetime.datetime)(lambda T, t: datetime.datetime.fromisoformat(t))
 
 
+class UpdateKind(Enum):
+    Abort = "ABORT"
+    Fail = "FAIL"
+    Ignore = "IGNORE"
+    Replace = "REPLACE"
+    Rollback = "ROLLBACK"
+
+
 class Table(Generic[T]):
     schema: Type[T]
 
     def __init__(self, name: str, schema: Type[T]):
+        # [todo] properly validate name is not an injection attack.
+        if any(x in name for x in "; "):
+            raise ValueError(
+                f"Name {repr(name)} should not contain spaces or semicolons."
+            )
         self.name = name
         self.schema = schema
+
+    def __len__(self):
+        with transaction() as conn:
+            c = conn.execute(f"SELECT COUNT(*) FROM {self.name}")
+            return c.fetchone()[0]
+
+    def drop(self):
+        """Drops the table.
+
+        Note that once this is called subsequent queries to the table will error."""
+        with transaction() as conn:
+            conn.execute(f"DROP TABLE {self.name};")
+
+    @property
+    def exists(self):
+        """Returns true if the table exists on the given sqlite connection.
+
+        This returns false when you have dropped the table."""
+
+        with transaction() as conn:
+            cur = conn.execute(
+                f"SELECT name FROM sqlite_master WHERE type='table' AND name='{self.name}';"
+            )
+            return bool(cur.fetchone())
 
     @overload
     def select(self, *, where: bool = True) -> Iterator[T]:
@@ -111,16 +148,20 @@ class Table(Generic[T]):
         ...
 
     @overload
-    def update(self, update_dict, /, *, where: bool = True) -> None:
+    def update(self, update_dict, /, *, where: bool = True) -> int:
+        """Run an UPDATE query on the object. Returns the number of records that were updated."""
         ...
 
-    def update(self, update_dict, /, where=True, returning=None):  # type: ignore
+    def update(self, update_dict, /, where=True, returning=None, kind: Optional[UpdateKind] = None):  # type: ignore
         def mk_setter(key, value) -> "Expr":
             assert isinstance(key, Column)  # [todo] strings for column names are ok too
             return Expr(f"{key.name} = ?", [value])
 
         setters = Expr.binary(", ", [mk_setter(k, v) for k, v in update_dict.items()])
-        query = Expr(f"UPDATE {self.name} SET ? ", [setters])
+        t = "UPDATE"
+        if kind is not None:
+            t += " " + kind.value
+        query = Expr(f"{t} {self.name} SET ? ", [setters])
         if where is not True:
             assert isinstance(where, Expr)
             query = Expr("?\nWHERE ?", [query, where])
@@ -132,7 +173,9 @@ class Table(Generic[T]):
                 return map(p.outfn, xs)
         else:
             with transaction() as conn:
-                query.execute(conn)
+                cur = query.execute(conn)
+                i = cur.execute("SELECT changes();").fetchone()[0]
+                return i
 
     @overload
     def insert_one(self, item: T) -> None:
@@ -363,7 +406,7 @@ class Expr:
         return Expr.binary(" = ", [self, other])
 
     def execute(self, conn: sqlite3.Connection):
-        logger.debug(f"Running:\n{str(self)}")
+        logger.info(f"Running:\n{str(self)}")
         e = self.template
         if not e.rstrip().endswith(";"):
             e += ";"
@@ -446,9 +489,8 @@ def columns(x) -> Iterator[Column]:
     return map(Column, fields(x))
 
 
-def col(primary=False) -> Any:
-    # raise NotImplementedError()
-    return field(metadata={"primary": primary})
+def col(primary=False, metadata={}, **kwargs) -> Any:
+    return field(metadata={**metadata, "primary": primary}, **kwargs)
 
 
 class Connection(Current):

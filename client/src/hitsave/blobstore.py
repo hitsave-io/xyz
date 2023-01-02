@@ -1,5 +1,6 @@
 from contextlib import nullcontext
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import IO, Optional, Tuple, Union
@@ -19,6 +20,8 @@ import tempfile
 import io
 from hitsave.console import logger, internal_error
 from hitsave.cloudutils import request, read_header, create_header, encode_hitsavemsg
+from hitsave.util import tinyorm
+from hitsave.util.tinyorm import Schema, col, transaction
 
 """ This file contains everything to do with storing and retrieving blobs locally and on the cloud. """
 
@@ -43,10 +46,6 @@ def get_digest_and_length(tape: IO[bytes]) -> Tuple[str, int]:
         h.update(data)
     digest = h.hexdigest()
     return (digest, content_length)
-
-
-def localdb():
-    return Session.current().local_db
 
 
 class LocalBlobStore:
@@ -93,11 +92,6 @@ class LocalBlobStore:
         if not self.has_blob(digest):
             raise FileNotFoundError(f"No blob {digest}")
         return open(self.local_file_cache_path(digest), mode="rb", **kwargs)
-
-    def __len__(self):
-        with localdb() as conn:
-            c = conn.execute("SELECT COUNT(*) FROM blobs;")
-            return c.fetchone()[0]
 
     def add_blob(
         self,
@@ -230,29 +224,34 @@ class CloudBlobStore:
         return tape
 
 
+@dataclass
+class BlobRecord(Schema):
+    digest: str = col(primary=True)
+    length: int = col()
+    label: Optional[str] = col()
+    status: BlobStatus = col()
+    accesses: int = col(default=0)
+    last_accessed: datetime = col(default_factory=lambda: datetime.now())
+    created: datetime = col(default_factory=lambda: datetime.now())
+
+
 class BlobStore(Current):
     """Combined local and cloud blob storage system.
 
     We maintain a local db of the status of the blobs to track cache management.
     """
 
+    local: LocalBlobStore
+    cloud: CloudBlobStore
+    table: tinyorm.Table[BlobRecord]
+
     def __init__(self):
         self.local = LocalBlobStore()
         self.cloud = CloudBlobStore()
-        with localdb() as conn:
-            conn.execute(
-                """
-                    CREATE TABLE IF NOT EXISTS blobs (
-                        digest TEXT PRIMARY KEY NOT NULL,
-                        length INTEGER NOT NULL,
-                        label TEXT,
-                        status INTEGER,
-                        accesses INTEGER,
-                        last_accessed TEXT,
-                        created TEXT
-                    );
-                """
-            )
+        self.table = BlobRecord.create_table("blobs")
+
+    def __len__(self):
+        return len(self.table)
 
     @classmethod
     def default(cls):
@@ -260,16 +259,14 @@ class BlobStore(Current):
 
     def touch(self, digest: str):
         """Tell the local db that the blob has been accessed."""
-        time = datetime_to_string(datetime_now())
-        with localdb() as conn:
-            conn.execute(
-                """
-                UPDATE blobs
-                SET last_accessed = ?, accesses = accesses + 1
-                WHERE digest = ?;
-            """,
-                (time, digest),
-            )
+        time = datetime.now()
+        self.table.update(
+            {
+                BlobRecord.last_accessed: time,
+                BlobRecord.accesses: BlobRecord.accesses + 1,
+            },
+            where=BlobRecord.digest == digest,
+        )
 
     def open_blob(self, digest: str) -> IO[bytes]:
         """Returns a readable IO stream of the blob with the given digest.
@@ -309,6 +306,18 @@ class BlobStore(Current):
         else:
             return self._add_blob_core(item, **kwargs)
 
+    def get_status(self, digest: str) -> Optional[BlobStatus]:
+        return self.table.select_one(
+            where=BlobRecord.digest == digest, select=BlobRecord.status
+        )
+
+    def set_status(self, digest, status: BlobStatus):
+        i = self.table.update(
+            {BlobRecord.status: status}, where=BlobRecord.digest == digest
+        )
+        if i == 0:
+            raise KeyError(f"Digest {digest} not found.")
+
     def _add_blob_core(
         self, tape: IO[bytes], digest=None, content_length=None, label=None
     ) -> BlobInfo:
@@ -321,43 +330,28 @@ class BlobStore(Current):
             return self.local.add_blob(
                 tape, digest=digest, content_length=content_length, label=label
             )
-        with localdb() as conn:
-            time = datetime_to_string(datetime_now())
+        with transaction():
             info = self.local.add_blob(
                 tape, digest=digest, content_length=content_length
             )
             digest = info.digest
-            x = conn.execute(
-                """SELECT status FROM blobs WHERE digest = ?""", (digest,)
-            ).fetchone()
-            status: Optional[BlobStatus] = None if x is None else BlobStatus(x[0])
+            status = self.get_status(digest)
             if status == BlobStatus.deleted:
                 # undelete the blob in the local table.
-                conn.execute(
-                    """UPDATE blobs SET status = ? WHERE digest = ?""",
-                    (BlobStatus.to_push.value, digest),
-                )
+                self.set_status(digest, BlobStatus.to_push)
                 return info
             if status == BlobStatus.synced or status == BlobStatus.to_push:
                 logger.debug(f"Blob {digest[:10]} already present in local blob table.")
                 return info
-            if x is None:
-                conn.execute(
-                    """
-                INSERT INTO blobs(digest, length, label, status, accesses, last_accessed, created)
-                VALUES (?, ?, ?, ?, ?, ?, ?);
-                """,
-                    (
-                        info.digest,
-                        info.content_length,
-                        label,
-                        BlobStatus.to_push.value,
-                        0,
-                        time,
-                        time,
-                    ),
+            if status is None:
+                record = BlobRecord(
+                    digest=digest,
+                    length=info.content_length,
+                    label=label,
+                    status=BlobStatus.to_push,
                 )
-        return info
+                self.table.insert_one(record)
+            return info
 
     def has_blob(self, digest) -> bool:
         """Returns true if the digest is present either locally or on the cloud.
@@ -408,26 +402,16 @@ class BlobStore(Current):
             if digest != info.digest:
                 internal_error(f"Corrupted local blob {digest[:10]}")
             logger.debug(f"Pushed blob {digest}")
-        with localdb() as conn:
-            conn.execute(
-                """UPDATE blobs SET status = ? WHERE digest = ?""",
-                (
-                    BlobStatus.synced.value,
-                    digest,
-                ),
-            )
+        self.set_status(digest, BlobStatus.synced)
         return True
 
     def push_blobs(self):
         """Pushes all blobs that need pushing."""
-        with localdb() as conn:
-            digests = conn.execute(
-                """ SELECT digest from blobs WHERE status = ? """,
-                (BlobStatus.to_push.value,),
-            ).fetchall()
-        for (digest,) in digests:
+        digests = self.table.select(
+            where=BlobRecord.status == BlobStatus.to_push, select=BlobRecord.digest
+        )
+        for digest in digests:
             self.push_blob(digest)
-        raise NotImplementedError()
 
     def local_file_cache_path(self, digest) -> Path:
         """Path to the local, readonly cached file.
@@ -443,21 +427,14 @@ class BlobStore(Current):
 
     def clear_local(self):
         """Removes all entries from the blobs table."""
-        with localdb() as conn:
-            conn.execute("DROP TABLE blobs;")
-            logger.debug("Dropped local blobs table.")
+        self.table.drop()
+        logger.debug("Dropped local blobs table.")
 
     def prune_local(self):
         """Removes all local blobs that are not present in the blobs table."""
         ok_digests = set()
-        with localdb() as conn:
-            cur = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='blobs';"
-            )
-            t = cur.fetchone()
-            if t:
-                cur = conn.execute("SELECT digest FROM blobs;")
-                ok_digests = set(d for (d,) in cur)
+        if self.table.exists:
+            ok_digests = set(self.table.select(select=BlobRecord.digest))
         delete_me = set()
         for digest in self.local.iter_blobs():
             if digest not in ok_digests:
