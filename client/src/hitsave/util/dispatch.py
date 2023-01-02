@@ -1,5 +1,5 @@
 from abc import get_cache_token
-from typing import Dict, Generic, Optional, Type, TypeVar, Union, get_origin
+from typing import Dict, Generic, Optional, Type, TypeVar, Union, get_origin, NewType
 from functools import singledispatch, update_wrapper
 from functools import _find_impl  # type: ignore
 from weakref import WeakKeyDictionary
@@ -17,6 +17,7 @@ class Dispatcher(Generic[F]):
     def __init__(self):
         self.registry = {}
         self.cache = WeakKeyDictionary()
+        self.cache_token = None
 
     def register(self, cls: Type, f=None):
         # [todo] method override
@@ -40,6 +41,7 @@ class Dispatcher(Generic[F]):
         for the given *cls* registered on *generic_func*.
 
         """
+        # [todo] also dispatch on generic aliases.
         if self.cache_token is not None:
             current_token = get_cache_token()
             if self.cache_token != current_token:

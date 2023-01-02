@@ -19,8 +19,8 @@ You are free to give a field in your schema dataclass a name like "; DROP TABLE"
 from enum import Enum
 from functools import singledispatch
 import logging
-from typing import Callable, List, Sequence, Union
-from dataclasses import dataclass, is_dataclass, fields, field, Field
+from typing import Callable, List
+from dataclasses import fields, field, Field
 from contextlib import contextmanager
 import datetime
 import sqlite3
@@ -54,11 +54,12 @@ def adapt(o):
 
 
 @classdispatch
-def restore(T, x):
-    if isinstance(x, T):
+def restore(X, x):
+    """Convert the SQLite type to the python type."""
+    if isinstance(x, X):
         return x
-    if issubclass(T, Enum):
-        return T(x)
+    if issubclass(X, Enum):
+        return X(x)
     else:
         raise NotImplementedError(f"Unsupported target type {T}")
 
@@ -186,6 +187,8 @@ class Table(Generic[T]):
 
 
 class Pattern(Generic[S]):
+    """A list of Exprs and a function sending these exprs to a python value."""
+
     items: List["Expr"]
     outfn: Callable[[List[Any]], S]
 
