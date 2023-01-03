@@ -25,12 +25,12 @@ from dataclasses import MISSING, fields, field, Field
 from contextlib import contextmanager
 import datetime
 import sqlite3
+import uuid
 from hitsave.util.current import Current
-from hitsave.util.type_helpers import as_optional
+from hitsave.util.type_helpers import as_optional, is_optional
 from hitsave.util.ofdict import TypedJsonDecoder, ofdict, MyJsonEncoder
 from hitsave.session import Session
 from typing import Any, Generic, Iterable, Iterator, Optional, Type, TypeVar, overload
-
 from hitsave.util.dispatch import classdispatch
 
 logger = logging.getLogger("tinyorm")
@@ -59,16 +59,26 @@ def adapt(o):
 @classdispatch
 def restore(X, x):
     """Convert the SQLite type to the python type."""
+    # [todo] abstract this out into an adapter pattern. adapt(x, protocol = X)
     if isinstance(x, X):
         return x
+    Y = as_optional(X)
+    if Y is not None:
+        if x is None:
+            return x
+        else:
+            return restore(Y, x)
     if issubclass(X, Enum):
         return X(x)
-    else:
-        raise NotImplementedError(f"Unsupported target type {T}")
+    if X is bool:
+        return bool(x)
+    raise NotImplementedError(f"Unsupported target type {X}")
 
 
 adapt.register(datetime.datetime)(lambda o: o.isoformat())
 restore.register(datetime.datetime)(lambda T, t: datetime.datetime.fromisoformat(t))
+adapt.register(uuid.UUID)(lambda u: u.bytes)
+restore.register(uuid.UUID)(lambda T, b: uuid.UUID(bytes=b))
 
 
 class UpdateKind(Enum):
@@ -178,7 +188,7 @@ class Table(Generic[T]):
             asc = "DESC" if descending else "ASC"
             query = Expr(f"?\nORDER BY ? {asc}", [query, order_by])
         if limit is not None:
-            query = Expr(f"?\nLIMIT {limit}")
+            query = Expr(f"?\nLIMIT {limit}", [query])
         with transaction() as conn:
             xs = query.execute(conn)
             return map(p.outfn, xs)
@@ -259,6 +269,12 @@ class Table(Generic[T]):
                 i = cur.execute("SELECT changes();").fetchone()[0]
                 return i
 
+    def delete(self, where: WhereClause):
+        assert isinstance(where, Expr)
+        q = Expr(f"DELETE FROM {self.name} \nWHERE ?", [where])
+        with transaction() as conn:
+            q.execute(conn)
+
     @overload
     def insert_one(self, item: T, *, exist_ok=False) -> None:
         ...
@@ -270,8 +286,8 @@ class Table(Generic[T]):
     def insert_one(self, item: T, *, returning=None, exist_ok=False):
         assert isinstance(item, self.schema)
         if returning is not None:
-            cur: Any = self.insert_many([item], returning, exist_ok=exist_ok)
-            return next(cur, None)
+            r = self.insert_many([item], returning, exist_ok=exist_ok)
+            return next(iter(r))
         else:
             self.insert_many(items=[item], returning=returning, exist_ok=exist_ok)
 
@@ -294,18 +310,20 @@ class Table(Generic[T]):
         caveat = "OR IGNORE" if exist_ok else ""
         q = f"INSERT {caveat} INTO {self.name} ({qfs}) VALUES ({qqs}) "
         if returning is not None:
+
             p = Pattern(returning)
             rq = Expr("RETURNING ? ;", [p.to_expr()])
+            vs = [
+                tuple(
+                    [c.adapt(getattr(item, c.name)) for c in cs]
+                    + list(map(adapt, rq.values))
+                )
+                for item in items
+            ]
+            q = q + rq.template
             with transaction() as conn:
-                vs = [
-                    tuple(
-                        [c.adapt(getattr(item, c.name)) for c in cs]
-                        + list(map(adapt, rq.values))
-                    )
-                    for item in items
-                ]
-                cur = conn.executemany(q + rq.template, vs)
-                return map(p.outfn, cur)
+                # [note] RETURNING keyword is not supported for executemany()
+                return [p.outfn(conn.execute(q, v).fetchone()) for v in vs]
         else:
             q += ";"
             with transaction() as conn:
@@ -597,6 +615,8 @@ def get_sqlite_storage_type(T: Type) -> str:
             return "TEXT"
         elif T == datetime:
             return "timestamp"
+        elif T == uuid.UUID:
+            return "BLOB"
         else:
             return ""
 
@@ -619,10 +639,20 @@ Encoding = Union[
 
 
 def col(
-    primary=False, metadata={}, encoding: Optional[Encoding] = None, **kwargs
+    primary=False,
+    metadata={},
+    encoding: Optional[Encoding] = None,
+    default: Any = MISSING,
+    default_factory: Union[Callable[[], Any], Literal[MISSING]] = MISSING,
+    **kwargs,
 ) -> Any:
+    if default is not MISSING:
+        if default_factory is not MISSING:
+            raise ValueError("Cannot set both default and default_factory.")
+        default_factory = lambda: default
     return field(
         metadata={**metadata, "primary": primary, "encoding": encoding},
+        default_factory=default_factory,
         **kwargs,
     )
 
@@ -647,11 +677,15 @@ def transaction():
 
 
 class SchemaMeta(type):
-    def __getattr__(self, key):
+    def __getattr__(cls, key):
+        # [todo] instead of this, we should ``setattr(field.name, Column(field))`` for each
+        # field on the cls. The problem is you have to do this after the @dataclass function has run.
+        # probably do this with dataclass_transform
         if key.startswith("__"):
             raise AttributeError()
-        fields = self.__dataclass_fields__
-        field = fields.get(key)
+        field = cls.__dataclass_fields__.get(key, None)
+        if field is None:
+            raise AttributeError()
         return Column(field)
 
 

@@ -2,7 +2,7 @@ from dataclasses import fields, is_dataclass
 from datetime import datetime
 from enum import Enum
 import json
-from typing import Any, Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, Dict, List, Optional, Type, TypeVar, Union, get_args, get_origin
 
 from hitsave.util.dispatch import classdispatch
 from hitsave.util.type_helpers import as_list, as_optional, is_optional
@@ -57,6 +57,8 @@ def ofdict(A: Type[T], a: JsonLike) -> T:
         else:
             raise TypeError(f"Expected an {A} but was {type(a)}")
 
+    if (not get_origin(A)) and isinstance(a, A):
+        return a
     raise NotImplementedError(f"No implementation of ofdict for {A}.")
 
 
@@ -69,6 +71,17 @@ def _list_ofdict(A, a):
         return [ofdict(X, y) for y in a]
     else:
         return a
+
+
+@ofdict.register(dict)
+def _dict_ofdict(A, a):
+    if not isinstance(a, dict):
+        raise TypeError(f"Expected a {A} but got {type(a)}")
+    o = get_origin(A)
+    if o is None:
+        return a
+    K, V = get_args(A)
+    return o({ofdict(K, k): ofdict(V, v) for k, v in a.items()})
 
 
 @ofdict.register(Enum)
@@ -88,6 +101,7 @@ class TypedJsonDecoder(json.JSONDecoder):
 
     def __init__(self, T: Type):
         self.T = T
+        super().__init__()
 
     def decode(self, j):
         jj = super().decode(j)

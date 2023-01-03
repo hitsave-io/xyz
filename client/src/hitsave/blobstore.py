@@ -1,4 +1,5 @@
 from contextlib import nullcontext
+import contextlib
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -109,8 +110,11 @@ class LocalBlobStore:
             tape.seek(0)
             digest, content_length = get_digest_and_length(tape)
         tape.seek(0)
+
         if not self.has_blob(digest):
             cp = self.local_file_cache_path(digest)
+            # [todo] smaller blobs (< 2**20) should be stored in a sqlite table or
+            # other kv store system.
             # [todo] exclusive file lock.
             with open(cp, "wb") as c:
                 for data in chunked_read(tape):
@@ -296,15 +300,25 @@ class BlobStore(Current):
         self.touch(digest)
         return tape
 
-    def add_blob(self, item: Union[str, bytes, IO[bytes]], **kwargs) -> BlobInfo:
+    def add_blob(
+        self,
+        item: Union[str, bytes, IO[bytes]],
+        digest=None,
+        content_length=None,
+        label=None,
+    ) -> BlobInfo:
         """Creates a new binary blob from the given readable, seekable ``tape`` IO stream."""
         if isinstance(item, str):
             item = item.encode("utf-8")
         if isinstance(item, bytes):
-            with io.BytesIO(item) as tape:
-                return self._add_blob_core(tape, **kwargs)
+            ctx = io.BytesIO(item)
         else:
-            return self._add_blob_core(item, **kwargs)
+            ctx = contextlib.nullcontext(item)
+
+        with ctx as tape:
+            return self._add_blob_core(
+                tape, digest=digest, content_length=content_length, label=label
+            )
 
     def get_status(self, digest: str) -> Optional[BlobStatus]:
         return self.table.select_one(

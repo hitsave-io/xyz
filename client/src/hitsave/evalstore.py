@@ -27,7 +27,7 @@ from hitsave.cloudutils import (
 from contextlib import nullcontext
 from hitsave.session import Session
 from hitsave.util import Current, datetime_to_string
-from hitsave.util.tinyorm import Schema, Table, col, transaction
+from hitsave.util.tinyorm import Column, Schema, Table, col, transaction
 from hitsave.visualize import visualize_rec
 from hitsave.visualize import visualize_rec
 from hitsave.console import logger
@@ -42,17 +42,22 @@ import hitsave.util.tinyorm as tinyorm
 
 @dataclass
 class Eval(Schema):
-    id: UUID = col(primary=True, default_factory=uuid4)
     symbol: Symbol = col()
     binding_digest: str = col()
     args_digest: str = col()
     deps: dict[str, str] = col(encoding="json")
     status: EvalStatus = col()
     start_time: datetime = col()
+    id: UUID = col(primary=True, default_factory=uuid4)
     is_experiment: bool = col(default=False)
     result_digest: Optional[str] = col(default=None)
     """ BLAKE3 digest of the pickled value. """
     elapsed_process_time: Optional[bool] = col(default=None)
+
+
+assert isinstance(Eval.is_experiment, Column)
+assert isinstance(Eval.result_digest, Column)
+assert isinstance(Eval.elapsed_process_time, Column)
 
 
 @dataclass
@@ -63,20 +68,13 @@ class BindingRecord(Schema):
     kind: BindingKind = col()
 
 
-@dataclass
-class Result(Schema):
-    digest: str = col(primary=True)
-    content_length: int = col()
-    pickle: bytes = col()
-
-
 @tinyorm.adapt.register(Symbol)
 def _adapt_symb(s: Symbol) -> str:
     return str(s)
 
 
 @tinyorm.restore.register(Symbol)
-def _restore_sym(x: str):
+def _restore_sym(T, x: str):
     assert isinstance(x, str)
     return Symbol.of_str(x)
 
@@ -84,13 +82,15 @@ def _restore_sym(x: str):
 class LocalEvalStore:
     bindings: Table[BindingRecord]
     evals: Table[Eval]
-    results: Table[Result]
     # [todo] in-mem cache EvalKey → python value.
     def __init__(self):
         self.bindings = BindingRecord.create_table("bindings")
         self.evals = Eval.create_table("evals")
-        self.results = Result.create_table("results")
+        self.clean_started_evals()  # [todo] need to be completely sure this only runs once per session.
         logger.debug(f"Initialised local database.")
+
+    def clean_started_evals(self):
+        self.evals.delete(where=Eval.status == EvalStatus.started)
 
     def len_evals(self):
         return len(self.evals)
@@ -98,11 +98,6 @@ class LocalEvalStore:
     def __len__(self):
         """Returns number of evals in the table"""
         return self.len_evals()
-
-    def get_result(self, result_digest: str):
-        r = self.results.select_one(where={Result.digest: result_digest})
-        if r is not None:
-            return
 
     def poll_eval(
         self, key: EvalKey, deps: Dict[Symbol, Binding]
@@ -125,10 +120,6 @@ class LocalEvalStore:
                 rd = e.result_digest
                 if rd is None:
                     continue
-                r = self.results.select_one(where=Result.digest == rd)
-                if r is not None:
-                    value = pickle.loads(r.pickle)
-                    return PollEvalResult(value=value, origin="local")
                 bs = BlobStore.current()
                 if bs.has_blob(rd):
                     with bs.open_blob(rd) as f:
@@ -233,11 +224,22 @@ class LocalEvalStore:
             )
             return id
 
+    def get_running_eval(self, key: EvalKey) -> Optional[UUID]:
+        return self.evals.select_one(
+            where={
+                Eval.symbol: key.fn_key,
+                Eval.binding_digest: key.fn_hash,
+                Eval.args_digest: key.args_hash,
+                Eval.status: EvalStatus.started,
+            },
+            select=Eval.id,
+        )
+
     def resolve_eval(
         self,
         id: UUID,
         *,
-        result: Union[Result, BlobInfo],
+        result: BlobInfo,
         elapsed_process_time: int,
     ):
         # [todo] fail with friendly error if the result is not picklable.
@@ -250,8 +252,6 @@ class LocalEvalStore:
         with transaction():
             if isinstance(result, BlobInfo):
                 assert BlobStore.current().has_blob(result.digest), "blob not found"
-            elif isinstance(result, Result):
-                self.results.insert_one(result, exist_ok=True)
             else:
                 raise TypeError(f"{type(result)}")
 
@@ -266,27 +266,29 @@ class LocalEvalStore:
             if i == 0:
                 raise KeyError(f"Failed to find an evaluation with id {id}")
 
-    def reject_eval(self, id: UUID, elapsed_process_time : Optional[int] = None):
+    def reject_eval(self, id: UUID, elapsed_process_time: Optional[int] = None):
         assert isinstance(id, UUID)
         with transaction():
-            n = self.evals.update({
-                Eval.status: EvalStatus.rejected,
-                Eval.elapsed_process_time: elapsed_process_time,
-            }, where = Eval.id == id)
+            n = self.evals.update(
+                {
+                    Eval.status: EvalStatus.rejected,
+                    Eval.elapsed_process_time: elapsed_process_time,
+                },
+                where=Eval.id == id,
+            )
             if n == 0:
                 raise KeyError(f"Failed to find evaluation with id {id}")
 
     def clear(self):
         self.bindings.drop()
         self.evals.drop()
-        self.results.drop()
         # [todo] clear the caches too.
 
     # [todo] import_eval for when you download an eval from cloud. maybe all evals should be pulled at once.
 
 
 class CloudEvalStore:
-    pending: Dict
+    pending: dict[UUID, dict]
 
     def __init__(self):
         self.pending = {}
@@ -337,35 +339,31 @@ class CloudEvalStore:
 
     def start_eval(
         self,
-        key: EvalKey,
+        id: UUID,
         **kwargs
         # *,
         # is_experiment: bool = False,
         # args: Dict[str, Any],
         # deps: Dict[Symbol, Binding],
         # start_time: datetime,
-    ) -> Any:
+    ) -> None:
         # [todo] server doesn't currently support separate start/resolve
-        self.pending[key] = kwargs
-        return key
+        self.pending[id] = kwargs
 
-    def resolve_eval(self, key: EvalKey, *, result: Any, elapsed_process_time: int):
-        if not key in self.pending:
-            internal_error(f"EvalKey {key} is not pending resolution")
-        e = self.pending[key]
-        with tempfile.SpooledTemporaryFile() as tape:
-            pickle.dump(result, tape)
-            tape.seek(0)
-            info = BlobStore.current().add_blob(tape, label=str(key))
+    def resolve_eval(self, id: UUID, *, result: BlobInfo, elapsed_process_time: int):
+        if not id in self.pending:
+            internal_error(f"Local eval id {id} is not pending resolution")
+        e = self.pending[id]
+        key = e["key"]
 
-        args = [visualize_rec(x) for x in e.get("args", None)]
+        args = [visualize_rec(x) for x in e.get("args", [])]
         metadata = dict(
             fn_key=str(key.fn_key),
             fn_hash=key.fn_hash,
             args_hash=key.args_hash,
             args=args,
-            content_hash=info.digest,
-            content_length=info.content_length,
+            content_hash=result.digest,
+            content_length=result.content_length,
             is_experiment=e["is_experiment"],
             start_time=datetime_to_string(e["start_time"]),
             elapsed_process_time=elapsed_process_time,
@@ -385,7 +383,7 @@ class CloudEvalStore:
             # they should all result in the user being given some friendly advice about
             # how they can make sure their thing is uploaded.
             logger.error(err)
-        BlobStore.current().push_blob(info.digest)
+        BlobStore.current().push_blob(result.digest)
 
     def reject_eval(self, key, **kwargs):
         logger.debug("Erroring evals not supported on server.")
@@ -428,23 +426,33 @@ class EvalStore(Current):
             # [todo] poll cloud anyway but don't download
             return r_local
 
-    def start_eval(self, key, *, local_only=False, **kwargs) -> None:
-        if not Config.current().no_local:
-            self.local.start_eval(key, **kwargs)
-        if local_only or not Config.current().no_cloud:
-            self.cloud.start_eval(key, **kwargs)
+    def start_eval(self, key, *, local_only=False, **kwargs) -> UUID:
 
-    def resolve_eval(self, key, *, local_only=False, **kwargs) -> None:
-        if not Config.current().no_local:
-            self.local.resolve_eval(key, **kwargs)
-        if local_only or not Config.current().no_cloud:
-            self.cloud.resolve_eval(key, **kwargs)
+        id = self.local.start_eval(key, **kwargs)
+        if (not local_only) and (not Config.current().no_cloud):
+            self.cloud.start_eval(id, key=key, **kwargs)
+        return id
 
-    def reject_eval(self, key, *, local_only=False, **kwargs) -> None:
+    def resolve_eval(
+        self, id: UUID, *, local_only=False, result: Any, **kwargs
+    ) -> None:
+
+        with tempfile.SpooledTemporaryFile() as tape:
+            # [todo] use dill or custom pickler.
+            pickle.dump(result, tape)
+            tape.seek(0)
+            r = BlobStore.current().add_blob(tape, label=f"eval:{id}")
+
         if not Config.current().no_local:
-            self.local.reject_eval(key, **kwargs)
-        if local_only or not Config.current().no_cloud:
-            self.cloud.reject_eval(key, **kwargs)
+            self.local.resolve_eval(id, result=r, **kwargs)
+        if (not local_only) and not Config.current().no_cloud:
+            self.cloud.resolve_eval(id, result=r, **kwargs)
+
+    def reject_eval(self, id, *, local_only=False, **kwargs) -> None:
+        if not Config.current().no_local:
+            self.local.reject_eval(id, **kwargs)
+        if (not local_only) and (not Config.current().no_cloud):
+            self.cloud.reject_eval(id, **kwargs)
 
     def clear_local(self, *args, **kwargs):
         return self.local.clear(*args, **kwargs)

@@ -98,7 +98,7 @@ class SavedFunction(Generic[P, R]):
                 logger.debug(f"No stored value for {fn_key}: {result.reason}")
             start_time = datetime_now()
             start_process_time = time.process_time_ns()
-            evalstore.start_eval(
+            id = evalstore.start_eval(
                 key,
                 is_experiment=self.is_experiment,
                 args=pretty_args,
@@ -111,7 +111,7 @@ class SavedFunction(Generic[P, R]):
             end_process_time = time.process_time_ns()
             elapsed_process_time = end_process_time - start_process_time
             evalstore.resolve_eval(
-                key,
+                id,
                 elapsed_process_time=elapsed_process_time,
                 result=result,
                 local_only=self.local_only,
