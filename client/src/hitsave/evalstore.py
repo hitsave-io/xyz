@@ -62,10 +62,29 @@ assert isinstance(Eval.elapsed_process_time, Column)
 
 @dataclass
 class BindingRecord(Schema):
+    """Record for a Binding object."""
+
     symbol: str = col(primary=True)
     digest: str = col(primary=True)
     diffstr: str = col()
     kind: BindingKind = col()
+
+
+""" Each topic has an accumulation strategy, which says how multiple
+messages may be combined.
+- none; no compaction is possible
+- binary-append; concatenate the strings
+- custom; custom user-defined python function.
+
+A special topic '__next__' is for generators.
+ """
+
+
+class SideMessage(Schema):
+    eval_id: UUID = col(primary=True)
+    topic: str = col(primary=True)
+    order: int = col(primary=True)
+    digest: str = col()
 
 
 @tinyorm.adapt.register(Symbol)

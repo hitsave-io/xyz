@@ -650,6 +650,7 @@ def col(
         if default_factory is not MISSING:
             raise ValueError("Cannot set both default and default_factory.")
         default_factory = lambda: default
+    # [todo] kwonly = true
     return field(
         metadata={**metadata, "primary": primary, "encoding": encoding},
         default_factory=default_factory,
