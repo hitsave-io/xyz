@@ -76,6 +76,7 @@ def test_hashing_pickler_deps():
 
 
 if __name__ == "__main__":
+    # for debugging
     test_hashing_pickler_deps()
 
     test_savesave()
