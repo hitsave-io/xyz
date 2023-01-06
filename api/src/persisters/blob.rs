@@ -77,6 +77,10 @@ impl Query for Path<BlobParams> {
 
     async fn fetch(self, auth: Option<&Auth>, state: &State) -> Result<Self::Resolve, Self::Error> {
         let auth = auth.ok_or(BlobError::Unauthorized)?;
+        dbg!("querying blob");
+        dbg!("auth: {:?}", auth);
+        dbg!("auth jwt: {:?}", auth.jwt());
+        dbg!("auth api key: {:?}", auth.api_key());
 
         let content_hash = self.into_inner().content_hash;
 
