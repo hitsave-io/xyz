@@ -96,7 +96,7 @@ impl Query for Path<BlobParams> {
                     OR is_public = TRUE
            "#,
             content_hash,
-            auth.jwt().map(|c| c.sub),
+            auth.jwt().map(|c| c.sub.to_string()),
             auth.api_key(),
         )
         .fetch_one(&state.db_conn)
