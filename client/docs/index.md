@@ -9,6 +9,7 @@
 
    guides/installation
    guides/getting_started
+   guides/how_it_works
    guides/files
 
 .. toctree::
@@ -22,7 +23,7 @@
    :maxdepth: 1
    :caption: Examples
 
-   auto_examples/sentiment
+   examples/sentiment
 
 ```
 
@@ -49,7 +50,7 @@ HitSave's core mechanic is simple: memoized functions. HitSave provides the [`@m
 decorator, which you can think of as a more powerful version of [`@lru_cache`](https://docs.python.org/3/library/functools.html#functools.lru_cache).
 
 HitSave can be configured to cache your function executions to the cloud. Read the
-[getting started guide](/guides/getting_started.md) for more information.
+[getting started guide](/guides/how_it_works.md) for more information.
 
 ### Granular code versioning
 

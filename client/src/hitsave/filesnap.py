@@ -26,8 +26,8 @@ BLOCK_SIZE = 2**20
 @dataclass
 class FileSnapshot:
     """This represents the state of a file on the host machine at a particular point in time.
-    ``@save``d methods can return these to make it clear that a function's result is stored in a file.
-    You can then read this file directly
+    Saved methods can return these to make it clear that a function's result is stored in a file.
+    You can then read this file directly.
     """
 
     relpath: Optional[Path]

@@ -20,7 +20,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # reference: https://sphinx-gallery.github.io/stable/getting_started.html
 sphinx_gallery_conf = {
     "examples_dirs": "../examples",  # path to your example scripts
-    "gallery_dirs": "auto_examples",  # path to where to save gallery generated output
+    "gallery_dirs": "examples",  # path to where to save gallery generated output
 }
 
 # -- Options for HTML output -------------------------------------------------
