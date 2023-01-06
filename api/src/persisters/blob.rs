@@ -93,7 +93,6 @@ impl Query for Path<BlobParams> {
                 SELECT count(id) FROM blobs
                 WHERE   content_hash = $1
                     AND user_id = get_user_id($2, $3)
-                    OR is_public = TRUE
            "#,
             content_hash,
             auth.jwt().map(|c| c.sub),
@@ -135,7 +134,6 @@ impl Query for Path<BlobParamsHead> {
                 SELECT count(id) FROM blobs
                 WHERE   content_hash = $1
                     AND user_id = get_user_id($2, $3)
-                    OR is_public = TRUE
            "#,
             content_hash,
             auth.jwt().map(|c| c.sub),
