@@ -204,7 +204,7 @@ class Svg:
         blobstore.push_blob(info.digest)
         return {
             **init(self),
-            "__kind__": Kind.image.value,
+            "__kind__": Kind.image.name,
             "mime_type": "image/svg+xml",
             "digest": info.digest,
             "content_length": info.content_length,
@@ -244,8 +244,8 @@ try:
     from chess import Board
 
     @visualize.register(Board)
-    def _viz_board(board: Board):
-        return Svg(chess.svg.board(board))
+    def _viz_board(board: Board, rec):
+        return Svg(chess.svg.board(board)).__visualize__()
 
 except ModuleNotFoundError:
     pass

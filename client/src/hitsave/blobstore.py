@@ -140,7 +140,12 @@ class CloudBlobStore:
         If disconnected raises a ConnectionError.
         """
         r = request("HEAD", f"/blob/{digest}")
-        return r.status_code // 100 == 2
+        if r.status_code == 404:
+            return False
+        if r.status_code // 100 == 2:
+            return True
+        r.raise_for_status()
+        raise NotImplementedError(f"Unhandled status {r.status_code}: {r.text}")
 
     def get_content_length(self, digest: str) -> Optional[int]:
         r = request("HEAD", f"/blob/{digest}")

@@ -58,7 +58,7 @@ class Arg:
 class SavedFunction(Generic[P, R]):
     func: Callable[P, R]
 
-    debug_mode: bool = field(default=False)
+    debug_mode: bool = field(default=True)
     """ In debug mode, exceptions thrown in HitSave will not be swallowed. """
 
     is_experiment: bool = field(default=False)
@@ -67,6 +67,7 @@ class SavedFunction(Generic[P, R]):
     local_only: bool = field(default=False)  # [todo] not used yet
     invocation_count: int = field(default=0)
     _fn_hashes_reported: Set[str] = field(default_factory=set)
+    _cache: dict[EvalKey, Any] = field(default_factory=dict)  # [todo] use weakref? lru?
 
     def call_core(self, *args: P.args, **kwargs: P.kwargs) -> R:
         self.invocation_count += 1
@@ -79,6 +80,8 @@ class SavedFunction(Generic[P, R]):
         deps = session.fn_deps(fn_key)
         fn_hash = session.fn_hash(fn_key)
         key = EvalKey(fn_key=fn_key, fn_hash=fn_hash, args_hash=args_hash)
+        if key in self._cache:
+            return self._cache[key]
         evalstore = EvalStore.current()
         result = evalstore.poll_eval(key, deps=deps, local_only=self.local_only)
         if isinstance(result, StoreMiss):
@@ -114,6 +117,7 @@ class SavedFunction(Generic[P, R]):
                 local_only=self.local_only,
             )
             logger.debug(f"Computed value for {fn_key}.")
+            self._cache[key] = result
             return result
         else:
             if self.invocation_count == 1:
