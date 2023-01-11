@@ -49,10 +49,11 @@ def get_digest_and_length(tape: IO[bytes]) -> Tuple[str, int]:
     return (digest, content_length)
 
 
-class LocalBlobStore:
-    """Everything to do with storing blobs locally.
+class LocalFileBlobStore:
+    """Everything to do with storing blobs locally on disk.
 
-    We don't do anything with connecting to the local blobs tracking db.
+    We don't do anything with connecting to the local blobs tracking db or storing blobs
+    directly on the local database.
     """
 
     def __init__(self):
@@ -237,6 +238,7 @@ class BlobRecord(Schema):
     accesses: int = col(default=0)
     last_accessed: datetime = col(default_factory=lambda: datetime.now())
     created: datetime = col(default_factory=lambda: datetime.now())
+    content: Optional[bytes] = col(default=None)
 
 
 class BlobStore(Current):
@@ -245,12 +247,12 @@ class BlobStore(Current):
     We maintain a local db of the status of the blobs to track cache management.
     """
 
-    local: LocalBlobStore
+    local: LocalFileBlobStore
     cloud: CloudBlobStore
     table: tinyorm.Table[BlobRecord]
 
     def __init__(self):
-        self.local = LocalBlobStore()
+        self.local = LocalFileBlobStore()
         self.cloud = CloudBlobStore()
         self.table = BlobRecord.create_table("blobs")
 
@@ -272,6 +274,17 @@ class BlobStore(Current):
             where=BlobRecord.digest == digest,
         )
 
+    def _open_local_blob(self, digest):
+        content = self.table.select_one(
+            where=BlobRecord.digest == digest,
+            select=BlobRecord.content,
+        )
+        if content is not None:
+            return io.BytesIO(content)
+        if self.local.has_blob(digest):
+            return self.local.open_blob(digest)
+        raise FileNotFoundError()
+
     def open_blob(self, digest: str) -> IO[bytes]:
         """Returns a readable IO stream of the blob with the given digest.
         If the blob is present in the local cache, this will be used, otherwise we download from the cloud.
@@ -283,9 +296,9 @@ class BlobStore(Current):
         if no_local():
             return self.cloud.open_blob(digest=digest)
         if no_cloud():
-            return self.local.open_blob(digest=digest)
+            return self._open_local_blob(digest=digest)
         try:
-            return self.local.open_blob(digest=digest)
+            return self._open_local_blob(digest)
         except FileNotFoundError:
             pass
         if no_cloud():
@@ -293,7 +306,7 @@ class BlobStore(Current):
                 f"Blob {digest[0:10]} not found locally and HITSAVE_NO_CLOUD is enabled."
             )
         tape = self.cloud.open_blob(digest=digest)
-        info = self.local.add_blob(tape)
+        info = self._add_local_blob(tape)
         if info.digest != digest:
             internal_error(f"Corrupted digest of cloud file {digest}")
         tape.seek(0)
@@ -332,6 +345,44 @@ class BlobStore(Current):
         if i == 0:
             raise KeyError(f"Digest {digest} not found.")
 
+    def _has_local_blob(self, digest):
+        return self.table.has(digest=digest)
+
+    def _add_local_blob(
+        self, tape, digest=None, content_length=None, label=None
+    ) -> BlobInfo:
+        if digest is None or content_length is None:
+            digest, content_length = get_digest_and_length(tape)
+            tape.seek(0)
+        info = BlobInfo(digest=digest, content_length=content_length)
+        with transaction():
+            record = self.table.select_one(where=BlobRecord.digest == digest)
+            if record is None:
+                record = BlobRecord(
+                    digest=digest,
+                    length=content_length,
+                    label=label,
+                    status=BlobStatus.to_push,
+                )
+                # idea: big items go on the filesystem, small items live on the table to save some IO.
+                if content_length < 2**20:  # [todo] tune this param
+                    record.content = tape.read()
+                else:
+                    self.local.add_blob(
+                        tape, digest=digest, content_length=content_length, label=label
+                    )
+                self.table.insert_one(record)
+                return info
+            status = record.status
+            if status == BlobStatus.deleted:
+                # undelete the blob in the local table.
+                self.set_status(digest, BlobStatus.to_push)
+                return info
+            if status == BlobStatus.synced or status == BlobStatus.to_push:
+                logger.debug(f"Blob {digest[:10]} already present in local blob table.")
+                return info
+            raise RuntimeError(f"unknown status {status.name}")
+
     def _add_blob_core(
         self, tape: IO[bytes], digest=None, content_length=None, label=None
     ) -> BlobInfo:
@@ -341,30 +392,13 @@ class BlobStore(Current):
                 tape, digest=digest, content_length=content_length, label=label
             )
         if no_cloud():
-            return self.local.add_blob(
+            return self._add_local_blob(
                 tape, digest=digest, content_length=content_length, label=label
             )
         with transaction():
-            info = self.local.add_blob(
+            info = self._add_local_blob(
                 tape, digest=digest, content_length=content_length
             )
-            digest = info.digest
-            status = self.get_status(digest)
-            if status == BlobStatus.deleted:
-                # undelete the blob in the local table.
-                self.set_status(digest, BlobStatus.to_push)
-                return info
-            if status == BlobStatus.synced or status == BlobStatus.to_push:
-                logger.debug(f"Blob {digest[:10]} already present in local blob table.")
-                return info
-            if status is None:
-                record = BlobRecord(
-                    digest=digest,
-                    length=info.content_length,
-                    label=label,
-                    status=BlobStatus.to_push,
-                )
-                self.table.insert_one(record)
             return info
 
     def has_blob(self, digest) -> bool:

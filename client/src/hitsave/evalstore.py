@@ -455,13 +455,10 @@ class EvalStore(Current):
     def resolve_eval(
         self, id: UUID, *, local_only=False, result: Any, **kwargs
     ) -> None:
-
         with tempfile.SpooledTemporaryFile() as tape:
-            # [todo] use dill or custom pickler.
             pickle.dump(result, tape)
             tape.seek(0)
             r = BlobStore.current().add_blob(tape, label=f"eval:{id}")
-
         if not Config.current().no_local:
             self.local.resolve_eval(id, result=r, **kwargs)
         if (not local_only) and not Config.current().no_cloud:

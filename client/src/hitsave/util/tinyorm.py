@@ -9,11 +9,9 @@ Related work:
 - peewee http://docs.peewee-orm.com/en/latest/
 - sqlalchemy
 
-I didn't like peewee because it associates the schema with the table. But really
-you could make multiple tables with the same schama. Also the schema definitions are clunky.
-
-Also injection attacks are only defended with user data being inserted.
-You are free to give a field in your schema dataclass a name like "; DROP TABLE" if you really want to.
+Also injection attacks are only defended against user data.
+We assume that the definitions of dataclasses and query constructions are trusted.
+That is, if you give a field in your schema dataclass a name like "; DROP TABLE" it will execute the injection.
 
 """
 from enum import Enum
@@ -232,6 +230,9 @@ class Table(Generic[T]):
             ),
             None,
         )
+
+    def has(self, **where: WhereClause):
+        return self.select_one(where=where) is not None
 
     @overload
     def update(
