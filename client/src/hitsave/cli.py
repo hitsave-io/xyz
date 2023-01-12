@@ -252,5 +252,12 @@ def status():
     # [todo] info about local cache for the given project.
 
 
+@app.command()
+def serve():
+    from hitsave.server.core import main
+
+    main()
+
+
 if __name__ == "__main__":
     app()

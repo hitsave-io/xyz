@@ -25,12 +25,17 @@ def ofdict(A: Type[T], a: JsonLike) -> T:
     """
     if A is Any:
         return a  # type: ignore
-    X = as_optional(A)
-    if X is not None:
-        if a is None:
-            return None  # type: ignore
-        else:
-            return ofdict(X, a)
+    if A is type(None) and a is None:
+        return a  # type: ignore
+    if get_origin(A) is Union:
+        es = []
+        for X in get_args(A):
+            try:
+                return ofdict(X, a)
+            except Exception as e:
+                es.append(e)
+        # [todo] raise everything?
+        raise es[0]
     if is_dataclass(A):
         d2 = {}
         for f in fields(A):
