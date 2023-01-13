@@ -1,8 +1,10 @@
 import * as React from "react";
-import * as ReactDOM from "react-dom";
+import { createRoot } from "react-dom/client";
+declare const acquireVsCodeApi: any;
+// const vscode = acquireVsCodeApi();
 
-export const Greet = () => <h1>Hello, world!</h1>;
+export const Greet = () => <h1>Hello from React!!!</h1>;
 
-const elt = document.getElementById("react-root");
-ReactDOM.render(<Greet />, elt);
-// hello workd asdf
+const elt = document.getElementById("react_root");
+const root = createRoot(elt!);
+root.render(<Greet />);

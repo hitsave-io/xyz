@@ -19,13 +19,17 @@
       {
         "command": "hitsave.helloWorld",
         "title": "Hello World"
+      },
+      {
+        "command": "hitsave.openInfo",
+        "title": "Open HitSave Info Panel"
       }
     ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "node ./build.js",
-    "watch": "node ./build.js --watch",
+    "compile": "node ./build.mjs",
+    "watch": "node ./build.mjs --watch",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js"
