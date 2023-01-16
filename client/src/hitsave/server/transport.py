@@ -55,7 +55,7 @@ class PipeTransport(Transport):
     async def send(self, data: bytes, header={}):
         assert self.is_connected
         header["Content-Length"] = len(data)
-        header = "\r\n".join(f"{k}:{v}" for k, v in header.items())
+        header = "".join(f"{k}:{v}\r\n" for k, v in header.items())
         header += "\r\n"
         self.writer.write(header.encode())
         self.writer.write(data)
