@@ -365,7 +365,9 @@ class BlobStore(Current):
                     status=BlobStatus.to_push,
                 )
                 # idea: big items go on the filesystem, small items live on the table to save some IO.
-                if content_length < 2**20:  # [todo] tune this param
+                # If the blob size < 100k it's better to store inline.
+                # reference: https://www.sqlite.org/intern-v-extern-blob.html
+                if content_length < 2**17:
                     record.content = tape.read()
                 else:
                     self.local.add_blob(

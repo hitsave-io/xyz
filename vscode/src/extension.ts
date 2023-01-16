@@ -79,7 +79,7 @@ class Infoview {
 
     getLocalPath(path: string): string | undefined {
 
-        const devmode = true
+        const devmode = true // [todo] set in a config somewhere.
         if (devmode) {
             return `${devserver}/${path}`
         }
