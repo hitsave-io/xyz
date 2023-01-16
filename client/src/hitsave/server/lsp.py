@@ -1,4 +1,4 @@
-from asyncio import Future, StreamReader, StreamWriter
+from asyncio import Future, StreamReader, StreamWriter, Task
 import asyncio
 from functools import singledispatch
 from dataclasses import MISSING, asdict, dataclass, field, is_dataclass
@@ -8,6 +8,7 @@ import inspect
 import logging
 from hitsave.util.ofdict import MyJsonEncoder, ofdict
 import json
+from hitsave.server.transport import Transport
 
 logger = logging.getLogger("hitsave.lsp")
 
@@ -108,26 +109,23 @@ def method(name: Optional[str] = None):
 
 
 class LanguageServer:
-    reader: StreamReader
-    writer: StreamWriter
+    transport: Transport
     request_counter: int
     in_flight: Dict[str, Future[Any]]
+    tasks: set[Task]
 
-    def __init__(self, reader: StreamReader, writer: StreamWriter):
-        self.reader = reader
-        self.writer = writer
+    def __init__(self, transport: Transport):
+        self.transport = transport
         self.in_flight = {}
         self.request_counter = 1000
+        self.tasks = set()
 
-    def send(self, r: Union[Response, Request]):
-        bs = r.to_bytes()
-        header = f"Content-Length:{len(bs)}\r\n\r\n"
-        self.writer.write(header.encode())
-        self.writer.write(bs)
+    async def send(self, r: Union[Response, Request]):
+        await self.transport.send(r.to_bytes())
 
     async def notify(self, method: str, params: Optional[Any]):
         req = Request(method=method, params=params)
-        self.send(req)
+        await self.send(req)
 
     async def request(self, method: str, params: Optional[Any]) -> Awaitable[Any]:
         self.request_counter += 1
@@ -135,64 +133,64 @@ class LanguageServer:
         req = Request(method=method, id=id, params=params)
         fut = asyncio.get_running_loop().create_future()
         self.in_flight[id] = fut
-        self.send(req)
+        await self.send(req)
         return fut
 
     async def start(self):
         """Runs forever. Serves your client."""
         while True:
-            # read the header
-            header = {}
-            while True:
-                line = await self.reader.readline()
-                line = line.decode().rstrip()
-                if line == "":
-                    break
-                k, v = line.split(":", 1)
-                header[k] = v
-            content_len = header.get("Content-Length")
-            assert content_len is not None
-            res = await self.reader.read(int(content_len))
+            data = await self.transport.recv()
             try:
-                res = json.loads(res)
+                messages = json.loads(data)
+                # res can be a batch
+                if isinstance(messages, dict):
+                    messages = [messages]
+                assert isinstance(messages, list)
             except json.JSONDecodeError as e:
                 response = Response(
                     error=ResponseError(message=e.msg, code=ErrorCode.parse_error)
                 )
-                self.send(response)
+                await self.send(response)
                 continue
-            if "result" in res or "error" in res:
-                res = ofdict(Response, res)
-                fut = self.in_flight.pop(res.id)
-                if res.error is not None:
-                    fut.set_exception(
-                        ResponseException(
-                            id=res.id,
-                            message=res.error.message,
-                            code=res.error.code,
-                            data=res.error.data,
+            for message in messages:
+                if "result" in message or "error" in message:
+                    res = ofdict(Response, message)
+                    fut = self.in_flight.pop(res.id)
+                    if res.error is not None:
+                        fut.set_exception(
+                            ResponseException(
+                                id=res.id,
+                                message=res.error.message,
+                                code=res.error.code,
+                                data=res.error.data,
+                            )
                         )
-                    )
-                elif res.result is not None:
-                    fut.set_result(res.result)
+                    elif res.result is not None:
+                        fut.set_result(res.result)
+                    else:
+                        raise TypeError(f"badly formed {res}")
                 else:
-                    raise TypeError(f"badly formed {res}")
-            else:
-                req = ofdict(Request, res)
-                logger.debug(f"← {req.id} {req.method}")
-                handler = METHODS.get(req.method)
-                if handler is None:
-                    err = ResponseError(
-                        code=ErrorCode.method_not_found,
-                        message=f"No such method {req.method}",
-                    )
-                    response = Response(id=req.id, error=err)
-                    self.send(response)
-                    continue
-                resp: Optional[Response] = await handler(req)
-                if resp is not None:
-                    logger.debug(f"→ {req.id} {resp}")
-                    self.send(resp)
+                    req = ofdict(Request, message)
+                    task = asyncio.create_task(self.handle(req))
+                    self.tasks.add(task)
+                    task.add_done_callback(self.tasks.discard)
+
+    async def handle(self, req: Request):
+        logger.debug(f"← {req.id} {req.method}")
+        handler = METHODS.get(req.method)
+        if handler is None:
+            err = ResponseError(
+                code=ErrorCode.method_not_found,
+                message=f"No such method {req.method}",
+            )
+            response = Response(id=req.id, error=err)
+            await self.send(response)
+            return
+        # [todo] this only runs one handler at a time
+        resp: Optional[Response] = await handler(req)
+        if resp is not None:
+            logger.debug(f"→ {req.id} {resp}")
+            await self.send(resp)
 
 
 """ # LSP Data types """

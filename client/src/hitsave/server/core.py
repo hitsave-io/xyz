@@ -10,6 +10,7 @@ import importlib
 import importlib.util
 from hitsave.decorator import SavedFunction
 from hitsave.server.lsp import Range, TextDocumentIdentifier, LanguageServer, method
+from hitsave.server.transport import PipeTransport
 from hitsave.session import Session
 from hitsave.symbol import module_name_of_file
 
@@ -103,9 +104,10 @@ async def connect():
 
 
 async def run():
-    reader, writer = await connect()
-    server = LanguageServer(reader, writer)
-    await server.start()
+    tr = PipeTransport(in_pipe=sys.stdin, out_pipe=sys.stdout)
+    await tr.connect()
+    server = LanguageServer(tr)
+    await server.start()  # runs forever
 
 
 def main():
