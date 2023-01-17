@@ -103,12 +103,26 @@ async def connect():
     return reader, writer
 
 
+async def register_websocket(websocket):
+    logging.info("New connection")
+    server = LanguageServer(websocket)
+    await server.start()
+
+
 async def run():
-    tr = PipeTransport(in_pipe=sys.stdin, out_pipe=sys.stdout)
-    await tr.connect()
-    server = LanguageServer(tr)
-    await server.start()  # runs forever
+    import websockets
+
+    async with websockets.serve(register_websocket, "localhost", 7787):
+        # connect up the stdin, stdout for lsp
+        tr = PipeTransport(in_pipe=sys.stdin, out_pipe=sys.stdout)
+        await tr.connect()
+        server = LanguageServer(tr)
+        await server.start()  # runs forever
 
 
 def main():
     asyncio.run(run())
+
+
+if __name__ == "__main__":
+    main()
