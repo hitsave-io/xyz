@@ -8,9 +8,8 @@ interacting with the production environments.
 
 ## Directory
 
-- `/current`:
-  - Documentation explaining the current state of deployments
-- `/history`:
+- `Deployment.md`: Current state of deployment.
+- `history`:
   - Records of actions taken to modify the deployment environment(s).
     This folder should consist of date-prefixed files (e.g.
     `20221116-initial-deployment.md`), which contain detailed explanations
