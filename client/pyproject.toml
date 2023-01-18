@@ -28,7 +28,7 @@ hitsave = "hitsave:main_cli"
 
 [project.urls]
 "Homepage" = "https://hitsave.io"
-"Bug Tracker" = "https://github.com/hitsave-io/hitsave/issues"
+"Bug Tracker" = "https://github.com/hitsave-io/xyz/issues"
 "Documentation" = "https://docs.hitsave.io"
 
 [build-system]
