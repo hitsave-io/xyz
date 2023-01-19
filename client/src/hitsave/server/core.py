@@ -5,11 +5,13 @@ import logging
 import pprint
 import json
 import os
+from typing import Optional
 import urllib.parse
 import importlib
 import importlib.util
 from hitsave.decorator import SavedFunction
-from hitsave.server.lsp import Range, TextDocumentIdentifier, LanguageServer, method
+from hitsave.server.lsp import LanguageServer, method
+from hitsave.server.lsptypes import InitializeParams, Range, TextDocumentIdentifier
 from hitsave.server.transport import PipeTransport
 from hitsave.session import Session
 from hitsave.symbol import module_name_of_file
@@ -20,8 +22,8 @@ logger = logging.getLogger("hitsave.server")
 
 
 @method()
-async def initialize(params):
-    logger.debug(f"Initializing at {os.getcwd()}")
+async def initialize(params: InitializeParams):
+    logger.debug(f"Initializing at {os.getcwd()}\n{params}")
     return {"capabilities": {"codeLensProvider": {"resolveProvider": False}}}
 
 
