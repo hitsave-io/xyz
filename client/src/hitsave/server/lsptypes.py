@@ -61,3 +61,8 @@ class InitializeParams:
     processId: Optional[int]
     locale: Optional[str]
     workspaceFolders: Optional[list[WorkspaceFolder]]
+
+
+@dataclass
+class CodeLensParams:
+    textDocument: TextDocumentIdentifier

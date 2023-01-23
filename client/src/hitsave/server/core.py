@@ -11,110 +11,58 @@ import importlib
 import importlib.util
 from hitsave.decorator import SavedFunction
 from hitsave.server.lsp import LanguageServer, method
-from hitsave.server.lsptypes import InitializeParams, Range, TextDocumentIdentifier
+from hitsave.server.lsptypes import (
+    CodeLensParams,
+    InitializeParams,
+    Range,
+    TextDocumentIdentifier,
+)
 from hitsave.server.transport import PipeTransport
+from hitsave.server.webviewserver import WebviewServer
 from hitsave.session import Session
 from hitsave.symbol import module_name_of_file
 
-logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
 logger = logging.getLogger("hitsave.server")
-
-
-@method()
-async def initialize(params: InitializeParams):
-    logger.debug(f"Initializing at {os.getcwd()}\n{params}")
-    return {"capabilities": {"codeLensProvider": {"resolveProvider": False}}}
-
-
-@dataclass
-class CodeLensParams:
-    textDocument: TextDocumentIdentifier
-
-
-@method("textDocument/didChange")
-async def documentDidChange(params):
-    pass
-
-
-@method("textDocument/didOpen")
-async def documentDidOpen(params):
-    pass
-
-
-@method("textDocument/didClose")
-async def documentDidClose(params):
-    pass
-
-
-@method("textDocument/codeLens")
-async def codelens(params: CodeLensParams):
-    uri = urllib.parse.urlparse(params.textDocument.uri)
-    assert uri.scheme == "file"
-    assert uri.netloc == ""
-    module_name = module_name_of_file(uri.path)
-    if module_name is None:
-        logger.error(f"No such module for {uri.path}")
-        return []
-    logger.info(f"Resolved module {module_name} from {uri.path}")
-    module = sys.modules.get(module_name)
-    if module is None:
-        spec = importlib.util.spec_from_file_location(module_name, uri.path)
-        assert spec is not None
-        module = importlib.import_module(module_name)
-    module = importlib.reload(module)
-    # [todo] need a way to invalidate the codegraph of the changed modules here.
-    logger.debug(
-        f"module has {len(module.__dict__)} entries: {list(module.__dict__.keys())}"
-    )
-    rs = []
-    for k, sf in module.__dict__.items():
-        if not isinstance(sf, SavedFunction):
-            continue
-        logger.debug(f"Found {k}.")
-        f = sf.func
-        sess = Session.current()
-        deps = set(sess.codegraph.get_dependencies_obj(f))
-        # ref: https://docs.python.org/3/library/inspect.html#types-and-members
-        ln = f.__code__.co_firstlineno - 1
-        r = Range.mk(ln, 0, ln, len("@save"))
-        rs.append(
-            {
-                "range": r,
-                "command": {
-                    "title": f"{len(deps) - 1} dependencies",
-                    "command": "hitsave.helloWorld",
-                },
-            }
-        )
-    return rs
-
 
 # ref: https://stackoverflow.com/questions/64303607/python-asyncio-how-to-read-stdin-and-write-to-stdout
 
 
-async def connect():
-    loop = asyncio.get_event_loop()
-    reader = asyncio.StreamReader()
-    protocol = asyncio.StreamReaderProtocol(reader)
-    await loop.connect_read_pipe(lambda: protocol, sys.stdin)
-    w_transport, w_protocol = await loop.connect_write_pipe(
-        asyncio.streams.FlowControlMixin, sys.stdout
-    )
-    writer = asyncio.StreamWriter(w_transport, w_protocol, reader, loop)
-    return reader, writer
-
-
 async def register_websocket(websocket):
     logging.info("New connection")
-    server = LanguageServer(websocket)
-    await server.start()
+    server = WebviewServer(websocket)
+    runforever = server.start()
+    count = 1
+
+    # test it works with a 'derp' stream.
+    async def periodic():
+        nonlocal count
+        while True:
+            count += 1
+            await server.notify("derp", "herpy " + "derp " * count)
+            await asyncio.sleep(1)
+
+    async def stop():
+        await asyncio.sleep(10)
+        logger.info("stoppping derp")
+        task.cancel()
+        await server.notify("derp", "ok that's enough")
+
+    loop = asyncio.get_event_loop()
+    task = loop.create_task(periodic())
+    loop.create_task(stop())
+    await runforever
 
 
 async def run():
+    """Runs the language server.
+
+    The LSP listens on stdin and stdout.
+    There is also a websocket server at 7787 that the webview can connect to.
+    """
     import websockets
 
-    async with websockets.serve(register_websocket, "localhost", 7787):
+    async with websockets.serve(register_websocket, "localhost", 7787):  # type: ignore
         # connect up the stdin, stdout for lsp
         tr = PipeTransport(in_pipe=sys.stdin, out_pipe=sys.stdout)
         await tr.connect()
@@ -123,6 +71,7 @@ async def run():
 
 
 def main():
+    logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
     asyncio.run(run())
 
 
