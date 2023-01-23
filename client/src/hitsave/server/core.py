@@ -31,27 +31,7 @@ logger = logging.getLogger("hitsave.server")
 async def register_websocket(websocket):
     logging.info("New connection")
     server = WebviewServer(websocket)
-    runforever = server.start()
-    count = 1
-
-    # test it works with a 'derp' stream.
-    async def periodic():
-        nonlocal count
-        while True:
-            count += 1
-            await server.notify("derp", "herpy " + "derp " * count)
-            await asyncio.sleep(1)
-
-    async def stop():
-        await asyncio.sleep(10)
-        logger.info("stoppping derp")
-        task.cancel()
-        await server.notify("derp", "ok that's enough")
-
-    loop = asyncio.get_event_loop()
-    task = loop.create_task(periodic())
-    loop.create_task(stop())
-    await runforever
+    await server.start()
 
 
 async def run():

@@ -100,6 +100,7 @@ export class JsonRpc {
   pending = new Map<Id, Future>();
   methods = new Map<string, (params: any) => Promise<any>>();
   notifications = new Map<string, Pubsub<any>>();
+  handleReady : any;
   count = 0;
   constructor(readonly transport: WebSocket) {
     transport.addEventListener("open", this.handleOpen.bind(this));
@@ -115,6 +116,9 @@ export class JsonRpc {
       },
     });
     console.log("initialize response:", resp);
+    if (this.handleReady) {
+      this.handleReady()
+    }
   }
 
   getNotification(method: string): Pubsub<any> {
@@ -202,6 +206,7 @@ export class JsonRpc {
     };
     return new Promise<any>((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
+      console.log("sending", req);
       this.sendMessage(req);
     });
   }
