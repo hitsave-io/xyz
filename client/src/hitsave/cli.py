@@ -254,7 +254,16 @@ def status():
 
 @app.command()
 def serve():
+    """Start the HitSave server as a background process."""
     from hitsave.server.core import main
+
+    main()
+
+
+@app.command(hidden=True)
+def kernel():
+    """A kernel is like a jupyter kernel for HitSave."""
+    from hitsave.server.kernel import main
 
     main()
 

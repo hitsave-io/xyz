@@ -106,6 +106,7 @@ def module_name_of_file(path: str) -> Optional[str]:
             r = r.split(os.path.sep)
             r = ".".join(r)
             return r
+    logger.error(f"Can't find module {path}. Did you `pip install -e .` your package?")
     return None
 
 

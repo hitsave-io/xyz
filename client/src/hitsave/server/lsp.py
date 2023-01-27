@@ -1,94 +1,84 @@
+from asyncio import Future
 import os
 import logging
+from typing import Optional
 from hitsave.server.jsonrpc import Dispatcher, RpcServer
 from hitsave.server.lsptypes import InitializeParams
+from hitsave.server.proxy_session import ProxySession, SavedFunctionInfo
 from hitsave.server.transport import Transport
 import sys
 import urllib.parse
 import importlib
 import importlib.util
 from hitsave.decorator import SavedFunction
-from hitsave.server.lsptypes import (
-    CodeLensParams,
-    InitializeParams,
-    Range,
-)
-from hitsave.session import Session
+import hitsave.server.lsptypes as lsp
 from hitsave.symbol import module_name_of_file
+from hitsave.util import ofdict
 
 logger = logging.getLogger("hitsave.lsp")
 
-LSP_DISPATCHER = Dispatcher()
-
-
-def method(name=None):
-    return LSP_DISPATCHER.register(name)
-
 
 class LanguageServer(RpcServer):
+    initialize_params: Future[lsp.InitializeParams]
+    session: Optional[ProxySession] = None
+
     def __init__(self, transport: Transport):
-        super().__init__(transport=transport, dispatcher=LSP_DISPATCHER)
+        self.session = None
+        self.initialize_params = Future()
+        super().__init__(transport=transport)
+        self.dispatcher.register("initialize")(self.lsp_initialize)
+        self.dispatcher.register("textDocument/didChange")(self.lsp_document_change)
+        self.dispatcher.register("textDocument/didOpen")(self.lsp_document_open)
+        self.dispatcher.register("textDocument/didClose")(self.lsp_document_close)
+        self.dispatcher.register("textDocument/codeLens")(self.lsp_code_lens)
 
+    async def lsp_initialize(
+        self,
+        params: lsp.InitializeParams,
+    ):
+        logger.debug(f"Initializing at {os.getcwd()} for PID:{params.processId}")
+        self.initialize_params.set_result(params)
+        return {"capabilities": {"codeLensProvider": {"resolveProvider": False}}}
 
-@method()
-async def initialize(params: InitializeParams):
-    logger.debug(f"Initializing at {os.getcwd()}\n{params}")
-    return {"capabilities": {"codeLensProvider": {"resolveProvider": False}}}
+    async def lsp_document_change(
+        self,
+        params: lsp.DidChangeTextDocumentParams,
+    ):
+        # [todo] invalidate session here.
+        logger.info(f"document change detected")
 
+    async def lsp_document_close(
+        self,
+        params: lsp.TextDocumentParams,
+    ):
+        logger.info("Document closed")
 
-@method("textDocument/didChange")
-async def documentDidChange(params):
-    pass
+    async def lsp_document_open(
+        self,
+        params: lsp.TextDocumentParams,
+    ):
+        logger.info("document opened")
 
+    async def lsp_code_lens(
+        self,
+        params: lsp.CodeLensParams,
+    ):
+        # [todo] lives in own file.
+        assert self.session is not None
+        items = await self.session.get_info_for_file(params.textDocument)
 
-@method("textDocument/didOpen")
-async def documentDidOpen(params):
-    pass
-
-
-@method("textDocument/didClose")
-async def documentDidClose(params):
-    pass
-
-
-@method("textDocument/codeLens")
-async def codelens(params: CodeLensParams):
-    uri = urllib.parse.urlparse(params.textDocument.uri)
-    assert uri.scheme == "file"
-    assert uri.netloc == ""
-    module_name = module_name_of_file(uri.path)
-    if module_name is None:
-        logger.error(f"No such module for {uri.path}")
-        return []
-    logger.info(f"Resolved module {module_name} from {uri.path}")
-    module = sys.modules.get(module_name)
-    if module is None:
-        spec = importlib.util.spec_from_file_location(module_name, uri.path)
-        assert spec is not None
-        module = importlib.import_module(module_name)
-    module = importlib.reload(module)
-    # [todo] need a way to invalidate the codegraph of the changed modules here.
-    logger.debug(
-        f"module has {len(module.__dict__)} entries: {list(module.__dict__.keys())}"
-    )
-    rs = []
-    for k, sf in module.__dict__.items():
-        if not isinstance(sf, SavedFunction):
-            continue
-        logger.debug(f"Found {k}.")
-        f = sf.func
-        sess = Session.current()
-        deps = set(sess.codegraph.get_dependencies_obj(f))
-        # ref: https://docs.python.org/3/library/inspect.html#types-and-members
-        ln = f.__code__.co_firstlineno - 1
-        r = Range.mk(ln, 0, ln, len("@save"))
-        rs.append(
-            {
-                "range": r,
-                "command": {
-                    "title": f"{len(deps) - 1} dependencies",
-                    "command": "hitsave.helloWorld",
-                },
-            }
-        )
-    return rs
+        rs = []
+        for sfi in items:
+            # ref: https://docs.python.org/3/library/inspect.html#types-and-members
+            ln = sfi.line_start - 1
+            r = lsp.Range.mk(ln, 0, ln, len("@save"))
+            rs.append(
+                {
+                    "range": r,
+                    "command": {
+                        "title": f"{len(sfi.dependencies) - 1} dependencies",
+                        "command": "hitsave.openInfo",
+                    },
+                }
+            )
+        return rs

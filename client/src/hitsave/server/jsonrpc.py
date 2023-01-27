@@ -1,6 +1,6 @@
 from asyncio import Future, StreamReader, StreamWriter, Task
 import asyncio
-from functools import singledispatch
+from functools import singledispatch, partial
 from dataclasses import MISSING, asdict, dataclass, field, is_dataclass
 from enum import Enum
 from typing import Any, Awaitable, Dict, List, Optional, Union, Coroutine
@@ -9,6 +9,7 @@ import logging
 from hitsave.util.ofdict import MyJsonEncoder, ofdict
 import json
 from hitsave.server.transport import Transport
+from hitsave.server.hsptypes import InitParams
 
 logger = logging.getLogger("hitsave.json-rpc")
 
@@ -70,14 +71,15 @@ class Response:
 
 
 class Dispatcher:
-    def __init__(self):
-        self.methods = {}
+    def __init__(self, methods={}, extra_kwargs={}):
+        self.methods = methods
+        self.extra_kwargs = extra_kwargs
 
     def __contains__(self, method):
         return method in self.methods
 
     def __getitem__(self, method):
-        return self.methods[method]
+        return partial(self.methods[method], **self.extra_kwargs)
 
     def param_type(self, method):
         fn = self.methods[method]
@@ -108,6 +110,21 @@ class Dispatcher:
 
         return core
 
+    def with_kwargs(self, **kwargs):
+        return Dispatcher(self.methods, {**self.extra_kwargs, **kwargs})
+
+async def get_initialization_message(transport: Transport):
+    data = await transport.recv()
+    req = json.loads(data)
+    assert isinstance(req, dict), "oops, it was batched and I haven't implemented that"
+    req = ofdict(Request, req)
+    params = ofdict(InitParams, req.params)
+    await transport.send(Response(req.id, result={}).to_bytes())
+    return params
+
+
+server_count = 0
+
 
 class RpcServer:
     """Implementation of a JSON-RPC server."""
@@ -115,10 +132,16 @@ class RpcServer:
     dispatcher: Dispatcher
     transport: Transport
     request_counter: int
-    in_flight: Dict[str, Future[Any]]
+    in_flight: Dict[int, Future[Any]]
     tasks: set[Task]
 
-    def __init__(self, transport: Transport, dispatcher=Dispatcher()):
+    def __init__(self, transport: Transport, dispatcher=Dispatcher(), name=None):
+        global server_count
+        server_count += 1
+        if name is None:
+            self.name = f"s{server_count}"
+        else:
+            self.name = name
         self.transport = transport
         self.dispatcher = dispatcher
         self.in_flight = {}
@@ -132,16 +155,17 @@ class RpcServer:
         req = Request(method=method, params=params)
         await self.send(req)
 
-    async def request(self, method: str, params: Optional[Any]) -> Awaitable[Any]:
+    async def request(self, method: str, params: Optional[Any]) -> Any:
         self.request_counter += 1
-        id = f"server-{self.request_counter}"
+        id = self.request_counter
         req = Request(method=method, id=id, params=params)
         fut = asyncio.get_running_loop().create_future()
         self.in_flight[id] = fut
         await self.send(req)
-        return fut
+        result = await fut
+        return result
 
-    async def start(self):
+    async def serve_forever(self):
         """Runs forever. Serves your client."""
         while True:
             data = await self.transport.recv()
@@ -176,16 +200,20 @@ class RpcServer:
                         raise TypeError(f"badly formed {res}")
                 else:
                     req = ofdict(Request, message)
+                    if req.method == "exit":
+                        # https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#exit
+                        return
                     task = asyncio.create_task(self.handle(req))
                     self.tasks.add(task)
                     task.add_done_callback(self.tasks.discard)
 
     async def handle(self, req: Request):
-        logger.debug(f"← {req.id} {req.method}")
+        logger.debug(f"{self.name} ←  {req.id} {req.method}")
         if req.method not in self.dispatcher:
             if req.is_notification:
                 logger.debug(f"Unhandled notification {req.method}")
                 return
+            logger.error(f"No method named {req.method}")
             err = ResponseError(
                 code=ErrorCode.method_not_found,
                 message=f"No such method {req.method}",
@@ -196,10 +224,11 @@ class RpcServer:
 
         fn = self.dispatcher[req.method]
         try:
-            params = ofdict(self.dispatcher.param_type(req.method), req.params)
+            T = self.dispatcher.param_type(req.method)
+            params = ofdict(T, req.params)
             try:
                 result = await fn(params)
-                logger.debug(f"→ {req.id} {result}")
+                logger.debug(f"{self.name} →  {req.id}")
                 await self.send(Response(id=req.id, result=result))
             except Exception as e:
                 logger.error(e)
@@ -213,8 +242,9 @@ class RpcServer:
                         )
                     )
         except TypeError as e:
+            logger.error(e)
             if req.is_notification:
-                logger.error(e)
+                pass
             else:
                 await self.send(
                     Response(

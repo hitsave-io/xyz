@@ -2,14 +2,27 @@ from dataclasses import fields, is_dataclass
 from datetime import datetime
 from enum import Enum
 import json
-from typing import Any, Dict, List, Optional, Type, TypeVar, Union, get_args, get_origin
-
+from pathlib import Path
+from typing import (
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+)
+import logging
 from hitsave.util.dispatch import classdispatch
 from hitsave.util.type_helpers import as_list, as_optional, is_optional
 
 JsonLike = Optional[Union[str, float, int, List["JsonLike"], Dict[str, "JsonLike"]]]
 
 T = TypeVar("T")
+logger = logging.getLogger(__name__)
 
 
 @classdispatch
@@ -27,6 +40,12 @@ def ofdict(A: Type[T], a: JsonLike) -> T:
         return a  # type: ignore
     if A is type(None) and a is None:
         return a  # type: ignore
+    if get_origin(A) is Literal:
+        values = get_args(A)
+        if a in values:
+            return a  # type: ignore
+        else:
+            logger.warning(f"Expected one of {values}, got {a}")
     if get_origin(A) is Union:
         es = []
         for X in get_args(A):
@@ -99,6 +118,11 @@ def _ofdict_datetime(_, t):
     return datetime.fromisoformat(t)
 
 
+@ofdict.register(Path)
+def _ofdict_path(_, t):
+    return Path(t)
+
+
 class TypedJsonDecoder(json.JSONDecoder):
     """Given a python type T, this will decode a json object to an instance of `T`, or fail otherwise.
 
@@ -150,6 +174,8 @@ class MyJsonEncoder(json.JSONEncoder):
 
     # [todo] needs to handle `None` by not setting json field.
     def default(self, o):
+        if isinstance(o, Path):
+            return str(o)
         if isinstance(o, Enum):
             return o.value
         if is_dataclass(o):

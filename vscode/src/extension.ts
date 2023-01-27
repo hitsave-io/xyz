@@ -91,6 +91,8 @@ class Infoview {
     }
 
     getWebviewContent() {
+        const workspaceFolder = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0]
+        const workspacePath = workspaceFolder ? workspaceFolder.uri.fsPath : undefined
         const appPath = this.getLocalPath('out/app.js')
         const eventSource = `${devserver}/onReload`
         const livereloader = `<script>
@@ -112,6 +114,9 @@ class Infoview {
         <body>
             <div id="react_root"></div>
             ${livereloader}
+            <script>
+                workspace_dir = "${workspacePath}"
+            </script>
             <script src="${appPath}"></script>
         </body>
         </html>`

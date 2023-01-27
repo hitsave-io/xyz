@@ -1,8 +1,11 @@
 from typing import Awaitable, Protocol
 import asyncio
+import socket
 
 
 class Transport(Protocol):
+    """RPC-transport. (not to be confused with )"""
+
     def recv(self) -> Awaitable[bytes]:
         ...
 
@@ -10,32 +13,31 @@ class Transport(Protocol):
         ...
 
 
-class PipeTransport(Transport):
-    """Takes a non-messaging pair of TextIO streams and makes a messaging transport from them.
+async def create_pipe_streams(in_pipe, out_pipe):
+    """Converts a pair of pipes into a reader/writer async pair."""
+    loop = asyncio.get_event_loop()
+    reader = asyncio.StreamReader()
+    protocol = asyncio.StreamReaderProtocol(reader)
+    await loop.connect_read_pipe(lambda: protocol, in_pipe)
+    w_transport, w_protocol = await loop.connect_write_pipe(
+        asyncio.streams.FlowControlMixin, out_pipe
+    )
+    writer = asyncio.StreamWriter(w_transport, w_protocol, reader, loop)
+    return reader, writer
+
+
+class AsyncStreamTransport(Transport):
+    """Create a transport from a StreamReader, StreamWriter pair.
 
     We assume the message protocol is that described in LSP
     https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#baseProtocol
     """
 
-    def __init__(self, in_pipe, out_pipe):
-        self.in_pipe = in_pipe
-        self.out_pipe = out_pipe
-
-    async def connect(self):
-        loop = asyncio.get_event_loop()
-        reader = asyncio.StreamReader()
-        protocol = asyncio.StreamReaderProtocol(reader)
-        await loop.connect_read_pipe(lambda: protocol, self.in_pipe)
-        w_transport, w_protocol = await loop.connect_write_pipe(
-            asyncio.streams.FlowControlMixin, self.out_pipe
-        )
-        writer = asyncio.StreamWriter(w_transport, w_protocol, reader, loop)
+    def __init__(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         self.reader = reader
         self.writer = writer
-        self.is_connected = True
 
     async def recv(self):
-        assert self.is_connected
         # read the header
         header = {}
         while True:
@@ -53,7 +55,6 @@ class PipeTransport(Transport):
         return data
 
     async def send(self, data: bytes, header={}):
-        assert self.is_connected
         header["Content-Length"] = len(data)
         header = "".join(f"{k}:{v}\r\n" for k, v in header.items())
         header += "\r\n"

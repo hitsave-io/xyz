@@ -59,23 +59,4 @@ function RenderRoot() {
 const sock = new WebSocket("ws://localhost:7787");
 const rpc = new JsonRpc(sock);
 
-function Derper(props: any) {
-  const [derps, dispatch] = React.useReducer(
-    (state: any, action: any) => [...state, action],
-    []
-  );
-  React.useEffect(() => {
-    return rpc.sub("derp", dispatch);
-  });
-  return (
-    <>
-      <Greet />
-      <ol>
-        {derps.map((x, i) => (
-          <li key={i}>{x}</li>
-        ))}
-      </ol>
-    </>
-  );
-}
 rpc.handleReady = () => root.render(<RenderRoot />);

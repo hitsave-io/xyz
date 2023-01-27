@@ -1,5 +1,5 @@
 type Id = string | number;
-
+declare const workspace_dir: string;
 interface RpcRequest {
   id?: Id;
   method: string;
@@ -100,7 +100,7 @@ export class JsonRpc {
   pending = new Map<Id, Future>();
   methods = new Map<string, (params: any) => Promise<any>>();
   notifications = new Map<string, Pubsub<any>>();
-  handleReady : any;
+  handleReady: any;
   count = 0;
   constructor(readonly transport: WebSocket) {
     transport.addEventListener("open", this.handleOpen.bind(this));
@@ -110,14 +110,16 @@ export class JsonRpc {
   async handleOpen(ev: Event) {
     console.log(`initializing`);
     const resp = await this.request("initialize", {
+      type: "webview",
       clientInfo: {
         name: "hitsave-webview",
         version: "0.0.0", // [todo] get version
       },
+      workspace_dir: workspace_dir,
     });
     console.log("initialize response:", resp);
     if (this.handleReady) {
-      this.handleReady()
+      this.handleReady();
     }
   }
 

@@ -66,6 +66,7 @@ class SavedFunction(Generic[P, R]):
 
     local_only: bool = field(default=False)  # [todo] not used yet
     invocation_count: int = field(default=0)
+    """ number of times that the function has been invoked for this session. """
     _fn_hashes_reported: Set[str] = field(default_factory=set)
     _cache: dict[EvalKey, Any] = field(default_factory=dict)  # [todo] use weakref? lru?
 

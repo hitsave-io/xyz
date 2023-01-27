@@ -3,6 +3,7 @@ import os
 import logging
 from hitsave.server.jsonrpc import Dispatcher, RpcServer
 from hitsave.server.lsptypes import ClientInfo
+from hitsave.server.proxy_session import ProxySession
 from hitsave.server.transport import Transport
 import sys
 import urllib.parse
@@ -21,20 +22,21 @@ logger = logging.getLogger("hitsave.webview-server")
 
 
 def HelloWorld(props):
-    return h("h1", {"style": {"color": "red"}}, "Hello world")
+    sess: ProxySession = props.get("session")
+
+    return [
+        h("h1", {"style": {"color": "red"}}, "Hello world"),
+        h("p", {}, "result:", str(sess.workspace_dir)),
+    ]
 
 
 class WebviewServer(RpcServer):
-    def __init__(self, transport: Transport):
+    def __init__(self, transport: Transport, proxy_session: ProxySession):
         super().__init__(transport=transport)
-        self.reactor = Reactor(spec=h(HelloWorld, {}))
-        self.dispatcher.register("initialize")(self.initialize)
+        self.proxy_session = proxy_session
+        self.reactor = Reactor(spec=h(HelloWorld, {"session": self.proxy_session}))
+        self.reactor.initialize()
         self.dispatcher.register("render")(self.render)
 
     async def render(self, params):
         return self.reactor.render()
-
-    async def initialize(self, params):
-        logger.debug(f"initialize: {params}")
-        init_render = self.reactor.initialize()
-        return init_render

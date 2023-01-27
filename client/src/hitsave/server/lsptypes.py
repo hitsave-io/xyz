@@ -1,5 +1,6 @@
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Any, Literal, Optional
+from hitsave.__about__ import __version__
 
 DocumentUri = str
 
@@ -34,6 +35,11 @@ class TextDocumentContentChangeEvent:
 
 
 @dataclass
+class TextDocumentParams:
+    textDocument: TextDocumentIdentifier
+
+
+@dataclass
 class DidChangeTextDocumentParams:
     """
     https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#didChangeTextDocumentParams
@@ -45,8 +51,8 @@ class DidChangeTextDocumentParams:
 
 @dataclass
 class ClientInfo:
-    name: str
-    version: Optional[str]
+    name: str = field(default="hitsave")
+    version: Optional[str] = field(default=__version__)
 
 
 @dataclass
@@ -57,10 +63,13 @@ class WorkspaceFolder:
 
 @dataclass
 class InitializeParams:
-    clientInfo: Optional[ClientInfo]
-    processId: Optional[int]
-    locale: Optional[str]
-    workspaceFolders: Optional[list[WorkspaceFolder]]
+    processId: Optional[int] = field(default=None)
+    locale: Optional[str] = field(default=None)
+    workspaceFolders: Optional[list[WorkspaceFolder]] = field(default=None)
+    clientInfo: Optional[ClientInfo] = field(default_factory=ClientInfo)
+    initializationOptions: Optional[Any] = field(default=None)
+    capabilities: Optional[Any] = field(default=None)
+    trace: Optional[Literal["off", "messages", "verbose"]] = field(default=None)
 
 
 @dataclass
