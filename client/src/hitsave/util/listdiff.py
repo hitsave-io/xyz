@@ -1,8 +1,11 @@
 from collections import Counter, defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
+from functools import partial
 from typing import Any, Callable, Generic, Iterable, Optional, TypeVar, Union
 from difflib import SequenceMatcher
+
+from hitsave.util.misc import map_keys
 
 A = TypeVar("A")
 B = TypeVar("B")
@@ -23,35 +26,57 @@ class Sum(Generic[A, B]):
         return cls(False, value)
 
     def match(self, left: Callable[[A], R], right: Callable[[B], R]) -> R:
+        return left(self.value) if self.is_left else right(self.value)
         if self.is_left:
             return left(self.value)
         else:
             return right(self.value)
 
+    def mapl(self, f: Callable[[A], R]) -> "Sum[R,B]":
+        return Sum.inl(f(self.value)) if self.is_left else Sum.inr(self.value)  # type: ignore
+
+    def mapr(self, f: Callable[[B], R]) -> "Sum[A,R]":
+        return Sum.inl(self.value) if self.is_left else Sum.inr(f(self.value))  # type: ignore
+
 
 @dataclass
 class Reorder(Generic[A]):
-    """Represents a patch of removing and inserting items."""
+    """Represents a patch of removing and inserting items.
+
+    You should not instantiate this yourself, instead use the `listdiff` util.
+    """
 
     l1_len: int
     l2_len: int
     remove_these: dict[int, Optional[str]]
     then_insert_these: dict[int, Sum[str, A]]
 
-    def apply(self, l: list[A]) -> list[A]:
+    def apply(self, l1: list[A]) -> list[A]:
         l2 = []
         removed = {}
-        for i in range(len(l)):
+        for i in range(len(l1)):
             if i in self.remove_these:
                 k = self.remove_these[i]
                 if k is not None:
-                    removed[k] = l[i]
+                    removed[k] = l1[i]
             else:
-                l2.append(l[i])
+                l2.append(l1[i])
         for j in sorted(self.then_insert_these.keys()):
             o = self.then_insert_these[j].match(lambda k: removed[k], lambda t: t)
             l2.insert(j, o)
         return l2
+
+    def map_inserts(self, fn: Callable[[int, A], B]) -> "Reorder[B]":
+        x = {j: v.mapr(partial(fn, j)) for j, v in self.then_insert_these.items()}
+        return replace(self, then_insert_these=x)  # type: ignore
+
+    def increment(self, δ):
+        return Reorder(
+            self.l1_len + δ,
+            self.l2_len + δ,
+            remove_these= map_keys(lambda i: i + δ, self.remove_these),
+            then_insert_these= map_keys(lambda j: j + δ, self.then_insert_these)
+        )
 
     @property
     def deletions(self):
@@ -62,6 +87,7 @@ class Reorder(Generic[A]):
 
     @property
     def creations(self):
+        """Get the indices of items in the second list that are created."""
         for j, v in self.then_insert_these.items():
             if not v.is_left:
                 yield j
@@ -100,7 +126,7 @@ class Reorder(Generic[A]):
         assert len(rm) == 0
 
 
-def dedep_values(d: dict):
+def deduplicate_values(d: dict):
     acc = {}
     c = Counter()
     for k, v in d.items():
@@ -123,8 +149,8 @@ def diff(l1: list[A], l2: list[A]) -> Reorder[A]:
                 assert j not in co_removes
                 co_removes[j] = hash(l2[j])
     # deduplicate
-    removes = dedep_values(removes)
-    co_removes = dedep_values(co_removes)
+    removes = deduplicate_values(removes)
+    co_removes = deduplicate_values(co_removes)
     # if a new item is inserted we need to include a copy of the item.
     new_inserts = set(co_removes.values()).difference(removes.values())
     deletions = set(removes).difference(co_removes.values())

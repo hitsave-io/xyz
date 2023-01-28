@@ -1,4 +1,4 @@
-from hitsave.server.listdiff import diff, Reorder
+from hitsave.util.listdiff import diff, Reorder
 from hypothesis import given, assume
 import hypothesis.strategies as hs
 

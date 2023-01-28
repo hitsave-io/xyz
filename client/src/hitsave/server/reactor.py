@@ -1,5 +1,7 @@
+import asyncio
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
+import inspect
 import logging
 from typing import (
     Any,
@@ -19,7 +21,8 @@ from typing_extensions import override
 from uuid import UUID, uuid4
 
 from hitsave.server.jsonrpc import Dispatcher, RpcServer
-from hitsave.server.listdiff import diff as listdiff
+from hitsave.util.listdiff import Reorder, diff as listdiff
+from hitsave.util.misc import dict_diff
 
 """ React, in Python. How hard can it be? """
 
@@ -126,12 +129,15 @@ class Fiber:
     hooks: list[Hook]
     hook_idx: int
     rendered: list["Vdom"]
+    invalidated_event: asyncio.Event
+    update_loop_task: asyncio.Task
 
     @property
     def name(self) -> str:
         return getattr(self.component, "__name__")
 
     def __init__(self, spec: "FiberSpec"):
+        self.invalidated_event = asyncio.Event()
         component = spec.component
         if not hasattr(component, "__name__"):
             logger.warning(f"Please name component {component}.")
@@ -146,17 +152,26 @@ class Fiber:
         s: Spec = self.component(self.props)
         self.rendered = create(normalise_spec(s))
         fiber_context.reset(t)
+        self.update_loop_task = asyncio.create_task(self.update_loop())
+
+    async def update_loop(self):
+        while True:
+            await self.invalidated_event.wait()
+            self.invalidated_event.clear()
+            self.reconcile_core(self.component, self.props)
 
     def dispose(self):
+        # [todo] can I just use GC?
         assert hasattr(self, "hooks")
         assert hasattr(self, "rendered"), "fiber is not rendered"
         dispose(self.rendered)
         for hook in reversed(self.hooks):
             hook.dispose()
+        self.update_loop_task.cancel()
 
     def invalidate(self):
         """Called when a hook's callback is invoked, means that a re-render must occur."""
-        ...
+        self.invalidated_event.set()
 
     @property
     def key(self):
@@ -180,29 +195,49 @@ class Fiber:
         old_hook.reconcile(hook)
         return old_hook
 
-    def reconcile(self, new_spec: "FiberSpec") -> "Fiber":
-        assert hasattr(self, "hooks") and hasattr(self, "rendered"), "not created"
-        if new_spec.name != self.name:
-            self.dispose()
-            new_fiber = Fiber(new_spec)
-            return new_fiber
-        # [todo] check whether the props have changed here
+    @property
+    def id(self):
+        return id(self)
+
+    def reconcile_core(self, component: "Component", props: Any):
         t = fiber_context.set(self)
         self.hook_idx = 0
         try:
-            spec = new_spec.component(new_spec.props)
-            spec = normalise_spec(spec)
-            self.rendered = reconcile_lists(self.rendered, spec)
+            spec = component(props)
         except NoNeedToRerender:
             assert hasattr(self, "rendered")
-            return self
+            return
         finally:
             fiber_context.reset(t)
+        spec = normalise_spec(spec)
+        children, reorder = reconcile_lists(self.rendered, spec)
+        self.render = children
         l = self.hook_idx + 1
         old_hooks = self.hooks[l:]
         self.hooks = self.hooks[:l]
         for hook in reversed(old_hooks):
             hook.dispose()
+        patch(
+            ModifyChildrenPatch(
+                element_id=self.id,
+                remove_these=reorder.remove_these,
+                then_insert_these=reorder.then_insert_these,
+            )
+        )
+        return
+
+    def reconcile(self, new_spec: "FiberSpec") -> "Fiber":
+        assert hasattr(self, "hooks") and hasattr(self, "rendered"), "not created"
+        # if the identity of the component function has changed that
+        # means we should rerender.
+        if new_spec.name != self.name or self.component is not new_spec.component:
+            self.dispose()
+            new_fiber = Fiber(new_spec)
+            return new_fiber
+        # [todo] check whether the props have changed here
+        self.component = new_spec.component
+        self.props = new_spec.props
+        self.reconcile_core(self.component, self.props)
         return self
 
 
@@ -258,6 +293,11 @@ class Element:
     def key(self):
         return self.attrs.get("key", None)
 
+    @property
+    def id(self):
+        # [todo] probably use a deterministic counter?
+        return id(self)
+
     @classmethod
     def create(cls, spec: ElementSpec):
         elt = cls(spec.tag, attrs=spec.attrs, children=create(spec.children))
@@ -275,28 +315,59 @@ class Element:
         for c in self.children:
             c.dispose()
 
-    def reconcile(self, new_spec: ElementSpec):
+    def render_attr(self, value):
+        if callable(value):
+            # it's an event handler
+            return {"__handler__": self.id}
+        else:
+            return value
+
+    def render(self):
+        return {
+            "kind": "Element",
+            "id": self.id,
+            "tag": self.tag,
+            "attrs": {k: self.render_attr(v) for k, v in self.attrs.items()},
+            "children": render(self.children),
+        }
+
+    def reconcile_attrs(self, new_attrs_spec):
+        for k, v in self.attrs.items():
+            if callable(v):
+                reactor_context.get().unregister(self, k)
+        for k, v in new_attrs_spec.attrs.items():
+            if callable(v):
+                reactor_context.get().register(self, k, v)
+        diff = dict_diff(self.attrs, new_attrs_spec)
+        remove = list(diff.rm)
+        add = {k: self.render_attr(new_attrs_spec[k]) for k in diff.add}
+        mod = {k: self.render_attr(v2) for k, (v1, v2) in diff.mod}
+        patch(
+            ModifyAttributesPatch(remove=remove, add={**add, **mod}, element_id=self.id)
+        )
+        self.attrs = new_attrs_spec
+        return self.attrs
+
+    def reconcile(self, new_spec: ElementSpec) -> "Element":
         if (
             not isinstance(new_spec, ElementSpec)
             or (self.key != new_spec.key)
             or (self.tag != new_spec.tag)
         ):
             self.dispose()
-            return Element.create(new_spec)
-        new_attrs = {}
-        for k, v in new_spec.attrs.items():
-            if callable(v):
-                # event handler
-                reactor_context.get().register(self, k, v)
-            new_attrs[k] = v
-        for k, v in self.attrs:
-            if k not in new_attrs:
-                if callable(v):
-                    reactor_context.get().unregister(self, k)
-
-        children = reconcile_lists(self.children, new_spec.children)
+            new_elt = Element.create(new_spec)
+            patch(ReplaceElementPatch(self.id, new_elt))
+            return new_elt
+        self.reconcile_attrs(new_spec.attrs)
+        children, r = reconcile_lists(self.children, new_spec.children)
+        patch(
+            ModifyChildrenPatch(
+                element_id=self.id,
+                remove_these=r.remove_these,
+                then_insert_these=r.then_insert_these,
+            )
+        )
         self.tag = new_spec.tag
-        self.attrs = new_attrs
         self.children = children
         return self
         # [todo] reconcile attrs? need to update event handlers?
@@ -365,7 +436,7 @@ def normalise_spec(c: Spec) -> list[NormSpec]:
     return list(norm_list([c]))
 
 
-def keyof(x: Union[NormSpec, Vdom]):
+def keyof(x: Union[NormSpec, Vdom]) -> Any:
     if isinstance(x, Element):
         return ("elt", x.tag, x.key)
     elif isinstance(x, Fiber) or isinstance(x, FiberSpec):
@@ -376,8 +447,10 @@ def keyof(x: Union[NormSpec, Vdom]):
         return None
 
 
-def reconcile_lists(old: list[Vdom], new: list[NormSpec]) -> list[Vdom]:
-    r = listdiff(list(map(keyof, old)), list(map(keyof, new)))
+def reconcile_lists(
+    old: list[Vdom], new: list[NormSpec]
+) -> tuple[list[Vdom], Reorder[Vdom]]:
+    r: Reorder = listdiff(list(map(keyof, old)), list(map(keyof, new)))
     for ri in r.deletions:
         dispose(old[ri])
     new_vdom: list[Any] = [None] * len(new)
@@ -388,7 +461,9 @@ def reconcile_lists(old: list[Vdom], new: list[NormSpec]) -> list[Vdom]:
         assert new_vdom[j] is None
         new_vdom[j] = create(new[j])
     # [todo] can also compute the DOM patch here.
-    return new_vdom
+    r = r.map_inserts(lambda j, _: new_vdom[j])
+
+    return new_vdom, r
 
 
 def reconcile(old: Vdom, new: NormSpec) -> Vdom:
@@ -420,13 +495,7 @@ def render(v: Union[Vdom, list[Vdom]]):
     elif isinstance(v, str):
         return {"kind": "Text", "value": v}
     elif isinstance(v, Element):
-        return {
-            "kind": "Element",
-            "id": id(v),
-            "tag": v.tag,
-            "attrs": v.attrs,
-            "children": render(v.children),
-        }
+        return v.render()
     elif isinstance(v, Fiber):
         return {
             "kind": "Fiber",
@@ -441,8 +510,7 @@ def render(v: Union[Vdom, list[Vdom]]):
 @dataclass
 class ModifyAttributesPatch:
     remove: list[str]
-    modify: dict
-    add: dict
+    add: dict[str, Any]
     element_id: int
     kind: str = field(default="modify-attrs")
 
@@ -456,12 +524,21 @@ class ModifyChildrenPatch:
 
 
 @dataclass
+class ReplaceElementPatch:
+    element_id: int
+    new_element: Any  # output of render
+    kind: str = field(default="replace-element")
+
+
+@dataclass
 class ReplaceRootPatch:
     items: Any  # output of render
     kind: str = field(default="replace-root")
 
 
-Patch = Union[ModifyAttributesPatch, ModifyChildrenPatch, ReplaceRootPatch]
+Patch = Union[
+    ModifyAttributesPatch, ModifyChildrenPatch, ReplaceRootPatch, ReplaceElementPatch
+]
 
 
 @dataclass
@@ -475,10 +552,23 @@ class Reactor:
     event_table: dict
     root: list[Vdom]
     pending_patches: list[Patch]
+    patches_ready: asyncio.Event
 
     def __init__(self, spec: Spec):
         self.spec = normalise_spec(spec)
         self.event_table = {}
+        self.pending_patches = []
+        self.patches_ready = asyncio.Event()
+
+    async def get_patches(self):
+        await self.patches_ready.wait()
+        self.patches_ready.clear()
+        patches = self.pending_patches
+        self.pending_patches = []
+        return patches
+
+    def patch(self, patch: Patch):
+        self.pending_patches.append(patch)
 
     def initialize(self):
         logger.debug("Initialising reactor.")
@@ -488,6 +578,9 @@ class Reactor:
         return render(self.root)
 
     def render(self):
+        """Re-compute the whole tree."""
+        self.pending_patches = []
+        self.patches_ready.clear()
         return render(self.root)
 
     def handle_event(self, params: EventArgs):
@@ -495,22 +588,33 @@ class Reactor:
         logger.debug(f"handling {params.name}")
         k = (params.element_id, params.name)
         assert k in self.event_table
-        self.event_table[k](params.params)
+        handler = self.event_table[k]
+        t = reactor_context.set(self)
+        r = handler(params.params)
+        if inspect.iscoroutine(r):
+            asyncio.create_task(r)
+
+        reactor_context.reset(t)
         # event handler will call code to invalidate components.
         # [todo] trigger a re-render
 
     def register(self, elt: Element, attr_name: str, handler: Callable):
-        k = (id(elt), attr_name)
+        k = (elt.id, attr_name)
         assert k not in self.event_table
         self.event_table[k] = handler
 
     def unregister(self, elt: Element, attr_name: str):
-        k = (id(elt), attr_name)
+        k = (elt.id, attr_name)
         assert k in self.event_table
         del self.event_table[k]
 
 
 reactor_context: ContextVar[Reactor] = ContextVar("reactor_context")
+
+
+def patch(patch: Patch):
+    return reactor_context.get().patch(patch)
+
 
 ###### Example usage
 

@@ -74,6 +74,10 @@ def dict_diff(d1: Dict[str, X], d2: Dict[str, Y]) -> DictDiff[X, Y]:
     )
 
 
+def map_keys(f: Callable[[Any], Any], d: dict):
+    return {f(k): v for k, v in d.items()}
+
+
 def partition(
     pred: Callable[[X], bool], iterable: Iterable[X]
 ) -> Tuple[Iterable[X], Iterable[X]]:

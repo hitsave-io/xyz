@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 import os
 import logging
@@ -37,6 +38,13 @@ class WebviewServer(RpcServer):
         self.reactor = Reactor(spec=h(HelloWorld, {"session": self.proxy_session}))
         self.reactor.initialize()
         self.dispatcher.register("render")(self.render)
+        self.patcher_loop_task = asyncio.create_task(self.patcher_loop())
 
     async def render(self, params):
         return self.reactor.render()
+
+    async def patcher_loop(self):
+        while True:
+            patches = await self.reactor.get_patches()
+            if len(patches) > 0:
+                await self.notify("patch", patches)
