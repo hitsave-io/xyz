@@ -113,6 +113,7 @@ class Dispatcher:
     def with_kwargs(self, **kwargs):
         return Dispatcher(self.methods, {**self.extra_kwargs, **kwargs})
 
+
 async def get_initialization_message(transport: Transport):
     data = await transport.recv()
     req = json.loads(data)
@@ -228,8 +229,9 @@ class RpcServer:
             params = ofdict(T, req.params)
             try:
                 result = await fn(params)
-                logger.debug(f"{self.name} →  {req.id}")
-                await self.send(Response(id=req.id, result=result))
+                if not req.is_notification:
+                    logger.debug(f"{self.name} →  {req.id}")
+                    await self.send(Response(id=req.id, result=result))
             except Exception as e:
                 logger.error(e)
                 if not req.is_notification:

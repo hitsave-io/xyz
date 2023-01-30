@@ -135,7 +135,7 @@ def main():
     logger.setLevel(logging.INFO)
     # logging.basicConfig(level=logging.DEBUG, handlers=[])
     metaserver = MetaServer()
-    asyncio.run(metaserver.run_forever())
+    asyncio.run(metaserver.run_forever(), debug=True)
 
 
 if __name__ == "__main__":

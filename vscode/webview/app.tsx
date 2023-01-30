@@ -9,6 +9,12 @@ export const Greet = () => <h1>Hello from React!!!</h1>;
 const elt = document.getElementById("react_root");
 const root = createRoot(elt!);
 
+interface EventArgs {
+  element_id: number;
+  name: string;
+  params: any;
+}
+
 interface Fiber {
   id: number;
   kind: "Fiber";
@@ -18,6 +24,7 @@ interface Fiber {
 interface Elt {
   kind: "Element";
   tag: string;
+  id: number;
   attrs: any;
   children: Spec[];
 }
@@ -36,21 +43,28 @@ function Render(s: Spec): any {
   } else if (s.kind === "Fiber") {
     return React.createElement(RenderFiber, { ...s, key: s.id });
   } else {
-    return React.createElement(s.tag, s.attrs, s.children.map(Render));
+    const attrs: any = {};
+    attrs.key = s.id;
+    for (const key of Object.keys(s.attrs)) {
+      const v = s.attrs[key];
+      if (typeof v == "object" && "__handler__" in v) {
+        attrs[key] = () =>
+          rpc.notify("event", { element_id: s.id, name: key, params: {} });
+      } else {
+        attrs[key] = v;
+      }
+    }
+
+    return React.createElement(s.tag, attrs, s.children.map(Render));
   }
 }
 
-function RenderRoot() {
-  const [x, setX] = React.useState<any>(undefined);
-  React.useEffect(() => {
-    rpc.request("render", {}).then((x) => {
-      console.log("render returned");
-      setX(x);
-    });
-  }, []);
-  if (x) {
-    const cs = x.map((x) => React.createElement(Render, x));
-    return <>{cs}</>;
+function RenderRoot({ cs }: { cs: Spec[] }) {
+  if (cs) {
+    const xs = cs.map((x: Spec, i) =>
+      React.createElement(Render, { key: i, ...x })
+    );
+    return <>{xs}</>;
   } else {
     return <h1>Loading</h1>;
   }
@@ -59,4 +73,19 @@ function RenderRoot() {
 const sock = new WebSocket("ws://localhost:7787");
 const rpc = new JsonRpc(sock);
 
-rpc.handleReady = () => root.render(<RenderRoot />);
+async function render_root() {
+  console.log("requesting rerender");
+  let children = await rpc.request("render", {});
+  console.log("got rerender response");
+  root.render(<RenderRoot cs={children} />);
+}
+
+rpc.register("patch", async (patches: any) => {
+  console.log(`patch:`, patches);
+  await render_root();
+  return "success";
+});
+
+rpc.handleReady = async () => {
+  await render_root();
+};

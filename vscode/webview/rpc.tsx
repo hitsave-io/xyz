@@ -194,8 +194,17 @@ export class JsonRpc {
     this.transport.send(s);
   }
 
-  register(method: string, fn: (...args: any[]) => Promise<any>) {
+  register(method: string, fn: (params: any) => Promise<any>) {
     this.methods.set(method, fn);
+  }
+
+  notify(method: string, params: any) {
+    const req: RpcNotification = {
+      method,
+      params,
+      jsonrpc: "2.0" as const,
+    };
+    this.sendMessage(req);
   }
 
   request(method: string, params: any) {

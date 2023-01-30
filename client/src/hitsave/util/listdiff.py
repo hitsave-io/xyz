@@ -74,8 +74,8 @@ class Reorder(Generic[A]):
         return Reorder(
             self.l1_len + δ,
             self.l2_len + δ,
-            remove_these= map_keys(lambda i: i + δ, self.remove_these),
-            then_insert_these= map_keys(lambda j: j + δ, self.then_insert_these)
+            remove_these=map_keys(lambda i: i + δ, self.remove_these),
+            then_insert_these=map_keys(lambda j: j + δ, self.then_insert_these),
         )
 
     @property
@@ -103,8 +103,10 @@ class Reorder(Generic[A]):
                 if t is None:
                     continue
                 else:
+                    assert t not in rm
                     rm[t] = i
             else:
+                assert count not in rm
                 rm[count] = i
                 count += 1
         rm_count = count
@@ -123,7 +125,7 @@ class Reorder(Generic[A]):
                 yield (i, j)
                 count += 1
         assert count == rm_count
-        assert len(rm) == 0
+        assert len(rm) == 0, f"Remaining: {rm}, {self}"
 
 
 def deduplicate_values(d: dict):
@@ -153,8 +155,8 @@ def diff(l1: list[A], l2: list[A]) -> Reorder[A]:
     co_removes = deduplicate_values(co_removes)
     # if a new item is inserted we need to include a copy of the item.
     new_inserts = set(co_removes.values()).difference(removes.values())
-    deletions = set(removes).difference(co_removes.values())
-    remove_these: Any = {i: None if h in deletions else h for i, h in removes.items()}
+    deletions = set(removes.values()).difference(co_removes.values())
+    remove_these: Any = {i: (None if h in deletions else h) for i, h in removes.items()}
     inserts = {
         i: (Sum.inr(l2[i]) if h in new_inserts else Sum.inl(h))
         for i, h in co_removes.items()
