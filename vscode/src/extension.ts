@@ -29,6 +29,12 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('hitsave.openInfo', () => infoview.open())
     )
+    context.subscriptions.push(
+        vscode.commands.registerCommand('hitsave.showFunction', (symbol: string) => {
+            infoview.open()
+            hslc.notify_focus({ symbol })
+        })
+    )
 }
 
 class Infoview {

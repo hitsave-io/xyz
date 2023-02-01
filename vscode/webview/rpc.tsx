@@ -118,6 +118,7 @@ export class JsonRpc {
       workspace_dir: workspace_dir,
     });
     console.log("initialize response:", resp);
+    this.notify("initialized", {});
     if (this.handleReady) {
       this.handleReady();
     }
