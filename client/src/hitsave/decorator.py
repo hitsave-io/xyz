@@ -138,6 +138,9 @@ class SavedFunction(Generic[P, R]):
             )
             return self.func(*args, **kwargs)
 
+    @property
+    def symbol(self):
+        return Symbol.of_object(self.func)
 
 @overload
 def memo(func: Callable[P, R]) -> SavedFunction[P, R]:
