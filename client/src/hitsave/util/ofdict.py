@@ -54,7 +54,7 @@ def ofdict(A: Type[T], a: JsonLike) -> T:
             except Exception as e:
                 es.append(e)
         # [todo] raise everything?
-        raise es[0]
+        raise es[-1]
     if is_dataclass(A):
         d2 = {}
         for f in fields(A):
@@ -67,7 +67,9 @@ def ofdict(A: Type[T], a: JsonLike) -> T:
                 if f.type is not None and is_optional(f.type):
                     v = None
                 else:
-                    raise ValueError(f"Missing {f.name} on input dict. Decoding {A}.")
+                    raise ValueError(
+                        f"Missing {f.name} on input dict. Decoding {a} to type {A}."
+                    )
             else:
                 v = a[k]
             if f.type is not None:
