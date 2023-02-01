@@ -10,8 +10,9 @@ import {
     Executable,
     TransportKind,
     StreamInfo,
+    TextDocumentPositionParams,
+    NotificationType,
 } from 'vscode-languageclient/node'
-import { WebSocket } from 'ws'
 import * as net from 'net'
 
 let client: LanguageClient
@@ -42,6 +43,11 @@ export class HitsaveLanguageClient {
             serverOptions, clientOptions,
         )
         this.client.start()
+    }
+
+    async notify_focus(tdpp: TextDocumentPositionParams | { symbol: string }) {
+        console.log(tdpp)
+        await this.client.sendNotification('hitsave/focus', tdpp)
     }
     // let cwd = vscode.workspace.workspaceFolders![0].uri.path
     // [todo] how to find the correct version of python?

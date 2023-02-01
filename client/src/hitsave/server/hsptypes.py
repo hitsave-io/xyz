@@ -11,3 +11,8 @@ class InitParams:
     clientInfo: ClientInfo = field(default_factory = ClientInfo)
     workspace_dir: Optional[str] = field(default=None)
     processId: Optional[int] = field(default=os.getpid())
+
+
+@dataclass
+class FocusParams:
+    symbol: str

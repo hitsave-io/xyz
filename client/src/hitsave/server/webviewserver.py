@@ -1,11 +1,12 @@
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 import os
 import logging
-from typing import Any
+from pathlib import Path
+from typing import Any, Optional
 from hitsave.server.jsonrpc import Dispatcher, RpcServer
-from hitsave.server.lsptypes import ClientInfo
-from hitsave.server.proxy_session import ProxySession
+from hitsave.server.lsptypes import ClientInfo, TextDocumentIdentifier
+from hitsave.server.proxy_session import ProxySession, SavedFunctionInfo
 from hitsave.server.transport import Transport
 import sys
 import urllib.parse
@@ -17,89 +18,126 @@ from hitsave.server.lsptypes import (
     Range,
 )
 from hitsave.session import Session
-from hitsave.symbol import module_name_of_file
-from hitsave.server.reactor import EventArgs, h, Reactor, Spec, useState
-from hitsave.console import console
+from hitsave.symbol import Symbol, module_name_of_file
+from hitsave.server.reactor import EventArgs, h, Manager, Html, useEffect, useState
+from hitsave.console import console, logger
+import hitsave.server.hsptypes as hsp
 
-logger = logging.getLogger("hitsave.webview-server")
+
+@dataclass
+class AppProps:
+    session: ProxySession
+    file: Optional[TextDocumentIdentifier]
+    focussed_symbol: Optional[Symbol] = field(default=None)
 
 
-def Counter(props: int) -> Spec:
-    i, set_i = useState(props)
+def SavedFunctionView(props: dict) -> Html:
+    sfi: SavedFunctionInfo = props["info"]
+    is_open = props["is_open"]
+    n_deps = len(sfi.dependencies)
     return h(
-        "div",
-        {},
+        "details",
+        {"open": is_open},
         [
-            h("button", dict(onClick=lambda _: set_i(i + 1)), "+"),
-            str(i),
-            h("button", dict(onClick=lambda _: set_i(i - 1)), "-"),
+            h("summary", {}, [sfi.name]),
+            h("div", {}, [str(sfi.filepath), ":", str(sfi.line_start)]),
+            h(
+                "details",
+                {},
+                [
+                    h("summary", {}, [f"Dependencies ({n_deps})"]),
+                    "...",
+                ],
+            ),
+            h(
+                "details",
+                {},
+                [
+                    h("summary", {}, [f"Timeline"]),
+                    "...",
+                ],
+            ),
+            h("details", {}, [h("summary", {}, ["Evaluations (###)"]), "..."]),
         ],
     )
 
 
-def HelloWorld(props: dict[Any, Any]) -> Spec:
-    sess: ProxySession = props.get("session")  # type: ignore
-    counters, set_counters = useState([1])
+def AppView(props: AppProps) -> Html:
+    sess: ProxySession = props.session
+    symb = props.focussed_symbol
+    x: Any
+    x, set_x = useState(None)
+    logger.info(f"Rendering AppView with {props}")
 
-    def mk_counter(i):
-        return h(
-            "li",
-            {},
-            [
-                h(Counter, i),
-                h(
-                    "button",
-                    dict(
-                        onClick=lambda _: set_counters(
-                            lambda cs: [c for c in cs if c != i]
-                        )
-                    ),
-                    "remove",
-                ),
-            ],
-            key=str(i),
-        )
+    async def handle():
+        if not props.file:
+            return
+        logger.info(f"Getting info for {props.file}")
+        v: Any = await sess.get_info_for_file(props.file)
+        logger.info(f"Got info for {props.file}")
+        set_x(v)
+
+    useEffect(handle, [props.file])
+
+    if x is None:
+        return "loading..."
+
+    def mk_item(s: SavedFunctionInfo):
+        is_open = hash(s.symbol) == hash(symb)
+        return h(SavedFunctionView, dict(info=s, is_open=is_open))
 
     return [
-        h("h1", {"style": {"color": "red"}}, "Hello world"),
+        h("h2", {}, str(props.file)),
         h("p", {}, "result:", str(sess.workspace_dir)),
-        h(
-            "ol",
-            {},
-            [mk_counter(i) for i in counters],
-        ),
-        h(
-            "button",
-            dict(onClick=lambda _: set_counters(lambda cs: [*cs, max([0, *cs]) + 1])),
-            "new_counter",
-        ),
+        [mk_item(y) for y in x],
     ]
 
 
 class WebviewServer(RpcServer):
-    def __init__(self, transport: Transport, proxy_session: ProxySession):
+    initialized: bool
+    reactor: Manager
+    patcher_loop_task: asyncio.Task
+
+    def __init__(self, transport: Transport):
         super().__init__(transport=transport)
-        self.proxy_session = proxy_session
-        self.reactor = Reactor(spec=h(HelloWorld, {"session": self.proxy_session}))
-        self.reactor.initialize()
         self.dispatcher.register("render")(self.render)
         self.dispatcher.register("event")(self.handle_event)
+        self.dispatcher.register("initialize")(self.initialize)
+
+    async def initialize(self, params: hsp.InitParams):
+        assert params.workspace_dir is not None
+        assert params.type == "webview"
+        self.proxy_session = ProxySession.get(params.workspace_dir)
+        self.state = AppProps(
+            session=self.proxy_session, focussed_symbol=None, file=None
+        )
+        self.reactor = Manager()
+        self.reactor.update(h(AppView, self.state))
+        self.initialized = True
+        logger.debug(f"{self} initialized")
         self.patcher_loop_task = asyncio.create_task(self.patcher_loop())
+        return {}
 
     async def render(self, params):
+        logger.debug(f"{self} rendering")
+        assert self.initialized
         return self.reactor.render()
 
     async def handle_event(self, params: EventArgs):
+        assert self.initialized
         return self.reactor.handle_event(params)
 
     async def patcher_loop(self):
+        assert self.initialized
         while True:
-            logger.debug("patcher_loop: waiting for patches")
-            patches = await self.reactor.get_patches()
-            if len(patches) > 0:
-                try:
-                    await self.request("patch", [])  # [todo] send encoded patches
-                except Exception as e:
-                    # [todo] this is for debugging only
-                    logger.error(e)
-                    console.print_exception()
+            try:
+                patches = await self.reactor.wait_patches()
+                if len(patches) > 0:
+                    result = await self.request(
+                        "patch", []
+                    )  # [todo] send encoded patches
+                    logger.debug(f"patcher_loop: patched: {result}")
+            except Exception as e:
+                # [todo] this is for debugging only
+                logger.error(e)
+                console.print_exception()
