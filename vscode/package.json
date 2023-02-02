@@ -13,19 +13,27 @@
     "onCommand:hitsave.helloWorld",
     "onLanguage:python"
   ],
-  "main": "./out/extension.js",
+  "main": "./out/main.js",
   "contributes": {
     "commands": [
       {
         "command": "hitsave.helloWorld",
         "title": "Hello World"
+      },
+      {
+        "command": "hitsave.openInfo",
+        "title": "Open HitSave Info Panel"
+      },
+      {
+        "command": "hitsave.showFunction",
+        "title": "Reveal function in the HitSave Info Panel."
       }
     ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "compile": "node ./build.mjs",
+    "watch": "node ./build.mjs --watch",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js"
@@ -34,18 +42,22 @@
     "@types/glob": "^8.0.0",
     "@types/mocha": "^10.0.0",
     "@types/node": "16.x",
+    "@types/react": "^18.0.26",
+    "@types/react-dom": "^18.0.10",
     "@types/vscode": "^1.71.0",
     "@types/websocket": "^1.0.5",
     "@typescript-eslint/eslint-plugin": "^5.38.1",
     "@typescript-eslint/parser": "^5.38.1",
     "@vscode/test-electron": "^2.1.5",
+    "esbuild": "^0.16.17",
     "eslint": "^8.24.0",
     "glob": "^8.0.3",
     "mocha": "^10.0.0",
     "typescript": "^4.8.4"
   },
   "dependencies": {
-    "vscode-languageclient": "^8.0.2",
-    "websocket": "^1.0.34"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "vscode-languageclient": "^8.0.2"
   }
 }

@@ -86,13 +86,13 @@ def get_module_spec(module_name: str) -> ModuleSpec:
 
 
 @cache
-def module_name_of_file(path: str) -> Optional[str]:
+def module_name_of_file(path: Union[str, Path]) -> Optional[str]:
     """Given a file location, gives a non-relative module name.
 
     This is supposed to be the inverse of the
     default [module finder](https://docs.python.org/3/glossary.html#term-finder)
     """
-    path = os.path.abspath(path)
+    path = str(Path(path).absolute())
     # reference: https://stackoverflow.com/questions/897792/where-is-pythons-sys-path-initialized-from
     ps = [p for p in sys.path]
     ps.reverse()
@@ -106,6 +106,7 @@ def module_name_of_file(path: str) -> Optional[str]:
             r = r.split(os.path.sep)
             r = ".".join(r)
             return r
+    logger.error(f"Can't find module {path}. Did you `pip install -e .` your package?")
     return None
 
 

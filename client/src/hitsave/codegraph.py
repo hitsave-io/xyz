@@ -111,6 +111,14 @@ class Binding(ABC):
     def __hash__(self):
         return self.digest
 
+    def todict(self):
+        return {
+            "kind": self.kind.name,
+            "deps": list(map(str, self.deps)),
+            "diffstr": self.diffstr,
+            "digest": self.digest,
+        }
+
 
 @dataclass
 class ImportedBinding(Binding):

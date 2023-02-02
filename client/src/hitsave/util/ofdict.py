@@ -1,14 +1,28 @@
 from dataclasses import fields, is_dataclass
+from datetime import datetime
 from enum import Enum
 import json
-from typing import Any, Dict, List, Optional, Type, TypeVar, Union
-
+from pathlib import Path
+from typing import (
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+)
+import logging
 from hitsave.util.dispatch import classdispatch
 from hitsave.util.type_helpers import as_list, as_optional, is_optional
 
 JsonLike = Optional[Union[str, float, int, List["JsonLike"], Dict[str, "JsonLike"]]]
 
 T = TypeVar("T")
+logger = logging.getLogger(__name__)
 
 
 @classdispatch
@@ -24,12 +38,23 @@ def ofdict(A: Type[T], a: JsonLike) -> T:
     """
     if A is Any:
         return a  # type: ignore
-    X = as_optional(A)
-    if X is not None:
-        if a is None:
-            return None  # type: ignore
+    if A is type(None) and a is None:
+        return a  # type: ignore
+    if get_origin(A) is Literal:
+        values = get_args(A)
+        if a in values:
+            return a  # type: ignore
         else:
-            return ofdict(X, a)
+            logger.warning(f"Expected one of {values}, got {a}")
+    if get_origin(A) is Union:
+        es = []
+        for X in get_args(A):
+            try:
+                return ofdict(X, a)
+            except Exception as e:
+                es.append(e)
+        # [todo] raise everything?
+        raise es[-1]
     if is_dataclass(A):
         d2 = {}
         for f in fields(A):
@@ -42,7 +67,9 @@ def ofdict(A: Type[T], a: JsonLike) -> T:
                 if f.type is not None and is_optional(f.type):
                     v = None
                 else:
-                    raise ValueError(f"Missing {f.name} on input dict. Decoding {A}.")
+                    raise ValueError(
+                        f"Missing {f.name} on input dict. Decoding {a} to type {A}."
+                    )
             else:
                 v = a[k]
             if f.type is not None:
@@ -56,6 +83,8 @@ def ofdict(A: Type[T], a: JsonLike) -> T:
         else:
             raise TypeError(f"Expected an {A} but was {type(a)}")
 
+    if (not get_origin(A)) and isinstance(a, A):
+        return a
     raise NotImplementedError(f"No implementation of ofdict for {A}.")
 
 
@@ -70,9 +99,30 @@ def _list_ofdict(A, a):
         return a
 
 
+@ofdict.register(dict)
+def _dict_ofdict(A, a):
+    if not isinstance(a, dict):
+        raise TypeError(f"Expected a {A} but got {type(a)}")
+    o = get_origin(A)
+    if o is None:
+        return a
+    K, V = get_args(A)
+    return o({ofdict(K, k): ofdict(V, v) for k, v in a.items()})
+
+
 @ofdict.register(Enum)
 def _ofdict_enum(A, a):
-    return A[a]
+    return A(a)
+
+
+@ofdict.register(datetime)
+def _ofdict_datetime(_, t):
+    return datetime.fromisoformat(t)
+
+
+@ofdict.register(Path)
+def _ofdict_path(_, t):
+    return Path(t)
 
 
 class TypedJsonDecoder(json.JSONDecoder):
@@ -82,6 +132,7 @@ class TypedJsonDecoder(json.JSONDecoder):
 
     def __init__(self, T: Type):
         self.T = T
+        super().__init__()
 
     def decode(self, j):
         jj = super().decode(j)
@@ -125,6 +176,8 @@ class MyJsonEncoder(json.JSONEncoder):
 
     # [todo] needs to handle `None` by not setting json field.
     def default(self, o):
+        if isinstance(o, Path):
+            return str(o)
         if isinstance(o, Enum):
             return o.value
         if is_dataclass(o):

@@ -66,6 +66,7 @@ class SavedFunction(Generic[P, R]):
 
     local_only: bool = field(default=False)  # [todo] not used yet
     invocation_count: int = field(default=0)
+    """ number of times that the function has been invoked for this session. """
     _fn_hashes_reported: Set[str] = field(default_factory=set)
     _cache: dict[EvalKey, Any] = field(default_factory=dict)  # [todo] use weakref? lru?
 
@@ -98,7 +99,7 @@ class SavedFunction(Generic[P, R]):
                 logger.debug(f"No stored value for {fn_key}: {result.reason}")
             start_time = datetime_now()
             start_process_time = time.process_time_ns()
-            evalstore.start_eval(
+            id = evalstore.start_eval(
                 key,
                 is_experiment=self.is_experiment,
                 args=pretty_args,
@@ -111,7 +112,7 @@ class SavedFunction(Generic[P, R]):
             end_process_time = time.process_time_ns()
             elapsed_process_time = end_process_time - start_process_time
             evalstore.resolve_eval(
-                key,
+                id,
                 elapsed_process_time=elapsed_process_time,
                 result=result,
                 local_only=self.local_only,
@@ -137,6 +138,9 @@ class SavedFunction(Generic[P, R]):
             )
             return self.func(*args, **kwargs)
 
+    @property
+    def symbol(self):
+        return Symbol.of_object(self.func)
 
 @overload
 def memo(func: Callable[P, R]) -> SavedFunction[P, R]:

@@ -230,7 +230,7 @@ def clear_local():
     bs = BlobStore.current()
     user_info(
         "[red]Deleting everything from your local cache.[/]",
-        f"\nevals: {len(es.local)}, blobs: {len(bs.local)}",
+        f"\nevals: {len(es.local)}, blobs: {len(bs)}",
         # "\nAny file snapshot symlinks will need to be restored.",
     )
     c = Confirm.ask("Delete local cache?")
@@ -250,6 +250,22 @@ def status():
     jc = print_jwt_status()
     print_api_key_status()
     # [todo] info about local cache for the given project.
+
+
+@app.command()
+def serve():
+    """Start the HitSave server as a background process."""
+    from hitsave.server.core import main
+
+    main()
+
+
+@app.command(hidden=True)
+def kernel():
+    """A kernel is like a jupyter kernel for HitSave."""
+    from hitsave.server.kernel import main
+
+    main()
 
 
 if __name__ == "__main__":

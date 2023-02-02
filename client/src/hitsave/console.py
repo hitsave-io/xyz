@@ -54,15 +54,17 @@ console = Console(stderr=True)
 
 # general rule: this logger is used for internal logs only.
 logger = logging.getLogger("hitsave")
+# [todo] getting duplicate messages from same logger?
 logger.addHandler(
     RichHandler(
-        level=logging.INFO,
+        level=logging.DEBUG,
         markup=True,
         show_path=False,
         console=console,
         log_time_format=r"[%X]",
     )
 )
+logger.setLevel(logging.DEBUG)
 
 pre_tag = r"[cyan]\[hitsave][/cyan]"
 

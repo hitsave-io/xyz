@@ -1,11 +1,69 @@
-from typing import get_origin
+from abc import get_cache_token
+from typing import Dict, Generic, Optional, Type, TypeVar, Union, get_origin, NewType
 from functools import singledispatch, update_wrapper
+from functools import _find_impl  # type: ignore
+from weakref import WeakKeyDictionary
+
+F = TypeVar("F")
+
+
+class Dispatcher(Generic[F]):
+    """Reimplementation of the dispatching logic for functools.singledispatch."""
+
+    registry: Dict[Type, F]
+    cache: WeakKeyDictionary
+    cache_token: Optional[object]
+
+    def __init__(self):
+        self.registry = {}
+        self.cache = WeakKeyDictionary()
+        self.cache_token = None
+
+    def register(self, cls: Type, f=None):
+        # [todo] method override
+        if f is not None:
+            self.registry[cls] = f
+        else:
+
+            def x(f):
+                self.registry[cls] = f
+                return f
+
+            return x
+
+    def __contains__(self, cls):
+        return self.dispatch(cls) is not None
+
+    def dispatch(self, cls) -> Union[F, None]:
+        """generic_func.dispatch(cls) -> <function implementation>
+
+        Runs the dispatch algorithm to return the best available implementation
+        for the given *cls* registered on *generic_func*.
+
+        """
+        # [todo] also dispatch on generic aliases.
+        if self.cache_token is not None:
+            current_token = get_cache_token()
+            if self.cache_token != current_token:
+                self.cache.clear()
+                self.cache_token = current_token
+        try:
+            impl = self.cache[cls]
+        except KeyError:
+            try:
+                impl = self.registry[cls]
+            except KeyError:
+                impl = _find_impl(cls, self.cache)
+            self.cache[cls] = impl
+        return impl
 
 
 def classdispatch(func):
     """Dynamic dispatch on a class.
 
-    Similar to ``functools.singledispatch``, except treats the first argument as a class to be dispatched on."""
+    Similar to ``functools.singledispatch``, except treats the first argument as a class to be dispatched on.
+    [todo] switch to using dispatcher
+    """
     funcname = getattr(func, "__name__", "class dispatch function")
     sdfunc = singledispatch(func)
 
