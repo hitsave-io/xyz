@@ -13,6 +13,7 @@ from typing import (
     Union,
     overload,
 )
+from .rendering import RenderedFragment, Rendering
 from hitsave.console import logger, console
 from hitsave.server.reactor.patch import ModifyChildrenPatch
 from .vdom import (
@@ -287,13 +288,10 @@ class Fiber(Vdom):
         self.reconcile_core(self.component, self.props)
         return self
 
-    def render(self):
-        return {
-            "kind": "Fiber",
-            "name": self.name,
-            "id": self.id,
-            "children": [x.render() for x in self.rendered],
-        }
+    def render(self) -> Rendering:
+        return RenderedFragment(
+            id=self.id, children=[x.render() for x in self.rendered]
+        )
 
     @classmethod
     def create(cls, spec: FiberSpec):

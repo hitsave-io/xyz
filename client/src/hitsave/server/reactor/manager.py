@@ -22,7 +22,7 @@ from hitsave.console import logger, console
 
 @dataclass
 class EventArgs:
-    element_id: Id
+    handler_id: str
     name: str
     params: Optional[Any]
 
@@ -30,7 +30,7 @@ class EventArgs:
 class Manager:
     id: Id
 
-    event_table: dict[tuple[Id, str], Callable]
+    event_table: dict[str, Callable]
     event_tasks: set[asyncio.Task]
     root: list[Vdom]
     pending_patches: MessageQueue[Patch]
@@ -72,21 +72,22 @@ class Manager:
         self.pending_patches.push(patch)
         logger.debug(f"pending patches: {len(self.pending_patches)}")
 
-    def _register_event(self, id: Id, attr_name: str, handler: Callable):
-        k = (id, attr_name)
+    def _register_event(self, k: str, handler: Callable):
         assert k not in self.event_table
         self.event_table[k] = handler
 
-    def _unregister_event(self, id: Id, attr_name: str):
-        k = (id, attr_name)
+    def _unregister_event(self, k: str):
         assert k in self.event_table
         del self.event_table[k]
 
     def handle_event(self, params: EventArgs):
         with set_vdom_context(self):
             assert isinstance(params, EventArgs)
-            logger.debug(f"handling {params.name}")
-            k = (params.element_id, params.name)
+            logger.debug(f"handling {params.handler_id}")
+            k = params.handler_id
+            if k not in self.event_table:
+                logger.warning(f"No handler for {params.handler_id}")
+                return
             assert k in self.event_table
             handler = self.event_table[k]
 

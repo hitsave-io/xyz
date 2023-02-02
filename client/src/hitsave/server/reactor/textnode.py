@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 from typing import ClassVar
+
+from .rendering import RenderedText, Rendering
 from .patch import InvalidatePatch
 from .vdom import Id, patch, fresh_id, to_html
 
@@ -29,8 +31,8 @@ class TextNode:
     def dispose(self):
         return
 
-    def render(self):
-        return {"kind": "Text", "value": self.value}
+    def render(self) -> Rendering:
+        return RenderedText(self.value)
 
     def reconcile(self, new_spec: TextNodeSpec) -> "TextNode":
         assert isinstance(new_spec, TextNodeSpec)

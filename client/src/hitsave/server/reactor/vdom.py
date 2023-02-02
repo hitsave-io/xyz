@@ -15,6 +15,7 @@ from typing import (
     overload,
 )
 import uuid
+from hitsave.server.reactor.rendering import Rendering
 from hitsave.util.listdiff import Reorder, diff as listdiff
 from .patch import InvalidatePatch, Patch
 
@@ -23,10 +24,10 @@ class VdomContext(Protocol):
     def _patch(self, patch: Patch) -> None:
         ...
 
-    def _register_event(self, id: Any, attr_name: str, handler: Callable):
+    def _register_event(self, k: str, handler: Callable):
         ...
 
-    def _unregister_event(self, id: Any, attr_name: str):
+    def _unregister_event(self, k: str):
         ...
 
 
@@ -44,9 +45,6 @@ def set_vdom_context(r: VdomContext):
 
 def patch(patch: Patch):
     return vdom_context.get()._patch(patch)
-
-
-Rendering = Any
 
 
 class Vdom(ABC):
