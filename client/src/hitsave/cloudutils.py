@@ -46,7 +46,7 @@ class ConnectionError(Exception):
     pass
 
 
-class AuthenticationError(Exception):
+class AuthenticationError(ConnectionError):
     """Raised when the user is not authenticated.
 
     That is, the JWT or API key is nonexistent or not valid."""

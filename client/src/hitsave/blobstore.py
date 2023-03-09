@@ -137,9 +137,12 @@ class CloudBlobStore:
     def has_blob(self, digest: str) -> bool:
         """Returns true if the blob exists on the cloud.
 
-        If disconnected raises a ConnectionError.
+        If disconnected returns false
         """
-        r = request("HEAD", f"/blob/{digest}")
+        try:
+            r = request("HEAD", f"/blob/{digest}")
+        except ConnectionError:
+            return False
         if r.status_code == 404:
             return False
         if r.status_code // 100 == 2:

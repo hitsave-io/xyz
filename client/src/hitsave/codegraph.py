@@ -389,7 +389,7 @@ def _get_namespace_binding(s: Symbol) -> Binding:
         ]
         src = getsource(s)
         if src is None:
-            internal_error(f"failed to find sourcecode for", s)
+            debug(f"failed to find sourcecode for", s)
             return UnresolvedBinding(deps=set(deps), kind=BindingKind.fun)
         return FnBinding(deps=set(deps), sourcetext=src)
     if isinstance(ns, st.Class):
@@ -549,7 +549,7 @@ def getsource(s: Symbol) -> Optional[str]:
     """Given a symbol, return the source string or None if there is no source."""
     o: Any = s.get_bound_object()
     try:
-        if inspect.isfunction(o) or inspect.isclass(o):
+        if inspect.isfunction(o) or inspect.isclass(o) or inspect.ismethod(o):
             return inspect.getsource(o)
         elif hasattr(o, "__wrapped__") and inspect.isfunction(o.__wrapped__):
             return inspect.getsource(o.__wrapped__)
