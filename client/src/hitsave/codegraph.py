@@ -337,13 +337,16 @@ def module_as_external_package(module_name: str) -> Optional[Binding]:
     An ExternPackage is a leaf of the code dependency DAG, rather than exploring the source of an external package, we instead
     hash it according to the package version.
     """
+    head_package = module_name.split(".")[0]
+    if head_package != module_name:
+        return module_as_external_package(head_package)
     if not is_relative_import(module_name) and head_module(module_name) == "hitsave":
         # special case, hitsave is always an extern package
         return ExternalBinding("hitsave", __version__)
     m = sys.modules.get(module_name)
     o = get_origin(module_name)
     if o is None:
-        internal_error("Failed to find origin of", module_name)
+        # internal_error("Failed to find origin of", module_name)
         return None
     if "site-packages" in o:
         # [todo] there should be a canonical way to do this.

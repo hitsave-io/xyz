@@ -72,7 +72,7 @@ def symtable_of_module_name(module_name: str) -> Optional[st.SymbolTable]:
 
 
 @cache
-def get_module_spec(module_name: str) -> ModuleSpec:
+def get_module_spec(module_name: str) -> Optional[ModuleSpec]:
     m = sys.modules.get(module_name)
     spec = None
     if m is not None:
@@ -80,7 +80,10 @@ def get_module_spec(module_name: str) -> ModuleSpec:
         spec = getattr(m, "__spec__")
     if spec is None:
         # [todo] this can raise a value error if `module_name = '__main__'` and we are degubbing.
-        spec = importlib.util.find_spec(module_name)
+        try:
+            spec = importlib.util.find_spec(module_name)
+        except ValueError:
+            return None
     assert spec is not None
     return spec
 
