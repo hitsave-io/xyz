@@ -93,7 +93,10 @@ class FileSnapshot:
         if path.is_symlink():
             # [todo] if it links to our local cache then this is fine.
             # double check that the file exists
-            logger.warn(f"restore over a symlink not implemented. {path}")
+            linkpath = path.resolve()
+            if linkpath == self.local_cache_path:
+                logger.debug("already restored")
+                return path
             pass
         if path.exists():
             if overwrite is False:

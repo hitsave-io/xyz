@@ -45,7 +45,7 @@ class LocalEvalStore:
                     fn_hash TEXT NOT NULL,
                     args_hash TEXT NOT NULL,
                     deps TEXT,
-                    result BLOB,
+                    result_digest BLOB,
                     status INTEGER NOT NULL,
                     start_time TEXT
                 );
@@ -79,7 +79,7 @@ class LocalEvalStore:
         with localdb() as conn:
             cur = conn.execute(
                 """
-                SELECT result FROM evals
+                SELECT result_digest FROM evals
                 WHERE fn_key = ? AND fn_hash = ? AND args_hash = ? AND status = ?;
             """,
                 (
@@ -93,7 +93,11 @@ class LocalEvalStore:
             if len(result) != 0:
                 # [todo] orderby start time.
                 try:
-                    value = pickle.loads(result[0][0])
+                    result_digest = result[0][0]
+                    assert isinstance(result_digest, str)
+                    assert len(result_digest) > 0
+                    with BlobStore.current().open_blob(result_digest) as tape:
+                        value = pickle.load(tape)
                     return PollEvalResult(value=value, origin="local")
                 except:
                     msg = f"Corrupted result for {str(key)}"
@@ -188,15 +192,20 @@ class LocalEvalStore:
         # give a list of suggestions: try saving as a file-snapshot.
         # instructions on how to use the pickling system.
         # if the object is defined in a library, tell us and we can support it!
+        with tempfile.SpooledTemporaryFile() as tape:
+            pickle.dump(result, tape)
+            tape.seek(0)
+            info = BlobStore.current().add_blob(tape)
+
         with localdb() as conn:
             conn.execute(
                 """
                 UPDATE evals
-                SET status = ?, result = ?
+                SET status = ?, result_digest = ?
                 WHERE fn_key = ? AND fn_hash = ? AND args_hash = ? AND status = ?; """,
                 (
                     EvalStatus.resolved.value,
-                    pickle.dumps(result),  # [todo] should go to blob
+                    info.digest,
                     str(key.fn_key),
                     key.fn_hash,
                     key.args_hash,
