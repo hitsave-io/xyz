@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import pickle
 import tempfile
+from uuid import uuid4
 import requests
 from typing import IO, Any, Dict, List, Literal, Optional, Union
 from hitsave.blobstore import BlobStore, get_digest_and_length
@@ -40,7 +41,7 @@ class LocalEvalStore:
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS evals (
-                    id INTEGER PRIMARY KEY,
+                    id TEXT PRIMARY KEY,
                     fn_key TEXT NOT NULL,
                     fn_hash TEXT NOT NULL,
                     args_hash TEXT NOT NULL,
@@ -157,7 +158,7 @@ class LocalEvalStore:
         args: Dict[str, Any],
         deps: Dict[Symbol, Binding],
         start_time: datetime,
-    ) -> int:
+    ) -> str:
         # [todo] enforce this: deps is Dict[symbol, digest]
         # note: we don't bother storing args locally.
         with localdb() as conn:
@@ -169,13 +170,14 @@ class LocalEvalStore:
                 VALUES (?, ?, ?, ?); """,
                 [(str(k), v.digest, v.diffstr, v.kind.value) for k, v in deps.items()],
             )
-            c = conn.execute(
+            id = uuid4().hex
+            conn.execute(
                 """
                 INSERT INTO evals
-                  (fn_key, fn_hash, args_hash, status, deps, start_time)
-                VALUES (?, ?, ?, ?, ?, ?)
-                RETURNING id; """,
+                  (id, fn_key, fn_hash, args_hash, status, deps, start_time)
+                VALUES (?, ?, ?, ?, ?, ?, ?); """,
                 (
+                    id,
                     str(key.fn_key),
                     key.fn_hash,
                     key.args_hash,
@@ -184,7 +186,6 @@ class LocalEvalStore:
                     datetime_to_string(start_time),
                 ),
             )
-            (id,) = c.fetchone()
             return id
 
     def resolve_eval(self, key: EvalKey, *, result: Any, elapsed_process_time: int):
