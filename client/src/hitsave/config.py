@@ -101,7 +101,7 @@ def find_cache_directory() -> Path:
         )
         p = Path(tempfile.gettempdir())
     p = p.expanduser().resolve() / appname
-    p.mkdir(exist_ok=True)
+    p.mkdir(exist_ok=True, parents = True)
     (p / "blobs").mkdir(exist_ok=True)
     assert p.exists()
     return p
@@ -125,7 +125,7 @@ def find_global_config_directory() -> Path:
         logger.warning(f"Unsupported platform {sys.platform}, using `~/.config`")
         pass
     p = p.expanduser().resolve() / appname
-    p.mkdir(exist_ok=True)
+    p.mkdir(exist_ok=True, parents = True)
     return p
 
 
