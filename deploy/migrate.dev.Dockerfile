@@ -1,7 +1,8 @@
 FROM ubuntu
 
 # Install package dependencies.
-RUN apt-get -y update \
+RUN apt-get -y upgrade \
+  && apt-get -y update \
   && apt-get install -y \
   apt-utils \
   curl \
