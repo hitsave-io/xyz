@@ -1,4 +1,4 @@
-FROM ubuntu
+FROM ubuntu:20.04
 
 # Install package dependencies.
 RUN apt-get -y upgrade \
